@@ -47,6 +47,10 @@
 # PyCharm files
 .idea
 
+# Code::Blocks files
+*.cbp
+*.layout
+
 # Visual Studio Code files
 .vscode
 
