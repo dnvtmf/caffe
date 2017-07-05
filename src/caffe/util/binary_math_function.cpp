@@ -68,4 +68,26 @@ void caffe_cpu_binary_comprees_col(const int M, const int N, const Dtype* In,
   }
   caffe_scal<Dtype>(M, 1. / N, scale);
 }
+
+template<>
+void caffe_cpu_binary_gemm <float> (const int M, const int N, const int K, const binary_t* A,
+    const binary_t* B, const float* scaleA, const float* scaleB, float *C); 
+
+template<>
+void caffe_cpu_binary_gemm <double> (const int M, const int N, const int K, const binary_t* A,
+    const binary_t* B, const double* scaleA, const double* scaleB, double *C); 
+
+template<>
+void caffe_cpu_binary_comprees_row<float>(const int M, const int N, const float* In,
+    binary_t* Out, float* scale);
+template<>
+void caffe_cpu_binary_comprees_row<double>(const int M, const int N, const double* In,
+    binary_t* Out, double* scale);
+
+template<>
+void caffe_cpu_binary_comprees_col<float>(const int M, const int N, const float* In,
+    binary_t* Out, float* scale);
+template<>
+void caffe_cpu_binary_comprees_col<double>(const int M, const int N, const double* In,
+    binary_t* Out, double *scale);
 }

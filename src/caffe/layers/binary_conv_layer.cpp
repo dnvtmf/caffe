@@ -275,10 +275,10 @@ void BinaryConvolutionLayer<Dtype>::forward_cpu_binary_gemm(const Dtype* input,
     col_buff = col_buffer_.cpu_data();
   }
   for (int g = 0; g < group_; ++g) {
-    caffe_cpu_binary_comprees_row(binary_kernel_dim_, conv_out_spatial_dim_,
+    caffe_cpu_binary_comprees_row<Dtype>(binary_kernel_dim_, conv_out_spatial_dim_,
         col_buff + col_offset_ * g, binary_col, binary_col_scale);
 
-    caffe_cpu_binary_gemm(conv_out_channels_ / group_, conv_out_spatial_dim_,
+    caffe_cpu_binary_gemm<Dtype>(conv_out_channels_ / group_, conv_out_spatial_dim_,
         binary_kernel_dim_, weights + binary_weight_offset_ * g, binary_col,
         weights_scale + g, binary_col_scale,
         output + output_offset_ * g);
@@ -360,7 +360,7 @@ void BinaryConvolutionLayer<Dtype>::compute_output_shape() {
 template <typename Dtype>
 void BinaryConvolutionLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
-  caffe_cpu_binary_comprees_col(conv_out_channels_, binary_kernel_dim_,
+  caffe_cpu_binary_comprees_col<Dtype>(conv_out_channels_, binary_kernel_dim_,
       this->blobs_[0]->cpu_data(), &(this->binary_weight_[0]),
       &(this->binary_weight_scale_[0]));
   const binary_t *weights = &(this->binary_weight_[0]);
