@@ -278,10 +278,10 @@ void BinaryConvolutionLayer<Dtype>::forward_cpu_binary_gemm(const Dtype* input,
     caffe_cpu_binary_comprees_row<Dtype>(binary_kernel_dim_, conv_out_spatial_dim_,
         col_buff + col_offset_ * g, binary_col, binary_col_scale);
 
-    caffe_cpu_binary_gemm<Dtype>(conv_out_channels_ / group_, conv_out_spatial_dim_,
-        binary_kernel_dim_, weights + binary_weight_offset_ * g, binary_col,
-        weights_scale + g, binary_col_scale,
-        output + output_offset_ * g);
+    caffe_cpu_binary_gemm<Dtype>(false, false, conv_out_channels_ / group_,
+        conv_out_spatial_dim_, binary_kernel_dim_,
+        weights + binary_weight_offset_ * g, binary_col, weights_scale + g,
+        binary_col_scale, output + output_offset_ * g);
     /*
     caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, conv_out_channels_ /
         group_, conv_out_spatial_dim_, kernel_dim_,

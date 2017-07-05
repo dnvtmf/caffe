@@ -34,7 +34,8 @@ const int BINARY_SIZE = 8 * sizeof(binary_t);
  */
 
 template<typename Dtype>
-void caffe_cpu_binary_gemm(const int M, const int N, const int K, const binary_t* A,
+void caffe_cpu_binary_gemm(const bool transposeA, const bool transposeB,
+    const int M, const int N, const int K, const binary_t* A,
     const binary_t *B, const Dtype* scaleA, const Dtype* scaleB, Dtype* C);
 template<typename Dtype>
 void caffe_cpu_binary_comprees_row(const int M, const int N, const Dtype* In,
