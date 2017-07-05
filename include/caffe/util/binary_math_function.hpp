@@ -34,7 +34,13 @@ const int BINARY_SIZE = 8 * sizeof(binary_t);
  */
 
 template<typename Dtype>
-void caffe_cpu_bgemm(const int M, const int N, const int K, const binary_t* A,
-                     const binary_t *B, Dtype* C);
+void caffe_cpu_binary_gemm(const int M, const int N, const int K, const binary_t* A,
+    const binary_t *B, const Dtype* scaleA, const Dtype* scaleB, Dtype* C);
+template<typename Dtype>
+void caffe_cpu_binary_comprees_row(const int M, const int N, const Dtype* In,
+    binary_t* Out, Dtype* scale);
+template<typename Dtype>
+void caffe_cpu_binary_comprees_col(const int M, const int N, const Dtype* In,
+    binary_t* Out, Dtype* scale);
 }
 #endif // CAFFE_UTIL_BINARY_MATH_FUNCTION_HPP_
