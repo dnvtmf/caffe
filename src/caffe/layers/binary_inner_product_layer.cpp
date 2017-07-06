@@ -94,18 +94,18 @@ void BinaryInnerProductLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bot
   Dtype* top_data = top[0]->mutable_cpu_data();
   const Dtype* weight = this->blobs_[0]->cpu_data();
 
-  caffe_cpu_binary_comprees_col<Dtype>(M_, K_, bottom_data, &binary_input_[0],
+  caffe_cpu_binary_compress<Dtype>(false, M_, K_, bottom_data, &binary_input_[0],
       &binary_input_scale_[0]);
   if(transpose_) {
-    caffe_cpu_binary_comprees_col<Dtype>(N_, K_, weight, &binary_weight_[0],
+    caffe_cpu_binary_compress<Dtype>(true, N_, K_, weight, &binary_weight_[0],
         &binary_weight_scale_[0]);
-    caffe_cpu_binary_gemm<Dtype>(false, true, M_, N_, binary_K_, &binary_input_[0],
+    caffe_cpu_binary_gemm_xor<Dtype>(false, true, M_, N_, K_, &binary_input_[0],
         &binary_weight_[0], &binary_input_scale_[0], &binary_weight_scale_[0],
         top_data);
   } else {
-    caffe_cpu_binary_comprees_row<Dtype>(K_, N_, weight, &binary_weight_[0],
+    caffe_cpu_binary_compress<Dtype>(true, K_, N_, weight, &binary_weight_[0],
         &binary_weight_scale_[0]);
-    caffe_cpu_binary_gemm<Dtype>(false, false, M_, N_, binary_K_, &binary_input_[0],
+    caffe_cpu_binary_gemm_xor<Dtype>(false, false, M_, N_, K_, &binary_input_[0],
         &binary_weight_[0], &binary_input_scale_[0], &binary_weight_scale_[0],
         top_data);
   }
