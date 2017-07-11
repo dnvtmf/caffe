@@ -52,6 +52,8 @@ class BinaryInnerProductLayer : public Layer<Dtype> {
   vector<Dtype> binary_weight_scale_;
   vector<binary_t> binary_input_;
   vector<Dtype> binary_input_scale_;
+  vector<Dtype> input_temp_;
+  vector<Dtype> weight_temp_;
 };
 
 }  // namespace caffe

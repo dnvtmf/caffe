@@ -1,8 +1,10 @@
 #ifndef CAFFE_UTIL_BINARY_MATH_FUNCTION_HPP_
 #define CAFFE_UTIL_BINARY_MATH_FUNCTION_HPP_
 #include <cstdint>
+#include <vector>
 
 namespace caffe {
+using std::vector;
 #ifndef BINARY_32_BIT
 typedef uint64_t binary_t;
 const int BINARY_SIZE = 8 * sizeof(binary_t);
@@ -63,10 +65,19 @@ void caffe_cpu_binary_gemm_xor(const bool transposeA, const bool transposeB,
  * \param scale the scale with shape N (axis is true) or M (axis is false).
  */
 template<typename Dtype>
-void caffe_cpu_binary_compress(const bool axis, const int M, const int N,
+void caffe_cpu_binary_compress(const int axis, const int M, const int N,
     const Dtype* In, binary_t* Out, Dtype* scale);
 
 template<typename Dtype>
-void caffe_cpu_binary_
+void caffe_cpu_binary_approx(const int axis, const int M, const int N,
+    const Dtype* In, const vector<Dtype> &scale, vector<Dtype> &Out);
+
+template<typename Dtype>
+void caffe_cpu_binary_scale(const int axis, const int M, const int N,
+    const Dtype* In, vector<Dtype> &scale);
+
+template<typename Dtype>
+void caffe_cpu_binary_gradient(const int axis, const int M, const int N,
+    const Dtype* In, const vector<Dtype> &scale, Dtype *grad);
 }
 #endif // CAFFE_UTIL_BINARY_MATH_FUNCTION_HPP_

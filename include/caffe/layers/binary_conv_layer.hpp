@@ -70,6 +70,9 @@ protected:
       Dtype* output);
   void weight_cpu_gemm(const Dtype* input, const Dtype* output, Dtype*
       weights);
+  void backward_cpu_input_weight(const bool pd_input, const bool pd_weights,
+      const Dtype* output, const Dtype* input, const Dtype* weights, Dtype* ginput,
+      Dtype* gweights);
   void backward_cpu_bias(Dtype* bias, const Dtype* input);
   virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top);
@@ -201,6 +204,9 @@ private:
   vector<Dtype> binary_col_scale_;
   int binary_kernel_dim_;
   int binary_weight_offset_;
+
+  vector<Dtype> col_temp_;
+  vector<Dtype> weight_temp_;
 };
 
 }  // namespace caffe
