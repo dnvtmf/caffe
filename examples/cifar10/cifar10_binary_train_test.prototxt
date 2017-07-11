@@ -99,8 +99,35 @@ layer {
 }
 
 layer {
+  name: "bn_sigmod1"
+  type: "BatchNorm"
+  bottom: "Sigmoid1"
+  top: "Sigmoid1"
+  param {
+    lr_mult: 0
+  }
+  param {
+    lr_mult: 0
+  }
+  param {
+    lr_mult: 0
+  }
+}
+
+layer {
+  name: "scale_sigmoid1"
+  type: "Scale"
+  top:  "Sigmoid1"
+  bottom: "Sigmoid1"
+  scale_param {
+		bias_term: true
+  }
+}
+
+
+layer {
   name: "conv2"
-  type: "Convolution"
+  type: "BinaryConvolution"
   bottom: "Sigmoid1"
   top: "conv2"
   param {
@@ -162,6 +189,33 @@ layer {
     stride: 2
   }
 }
+
+layer {
+  name: "bn_pool2"
+  type: "BatchNorm"
+  bottom: "pool2"
+  top: "pool2"
+  param {
+    lr_mult: 0
+  }
+  param {
+    lr_mult: 0
+  }
+  param {
+    lr_mult: 0
+  }
+}
+
+layer {
+  name: "scale_pool2"
+  type: "Scale"
+  top:  "pool2"
+  bottom: "pool2"
+  scale_param {
+		bias_term: true
+  }
+}
+
 layer {
   name: "conv3"
   type: "Convolution"

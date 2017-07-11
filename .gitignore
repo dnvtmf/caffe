@@ -102,3 +102,6 @@ LOCK
 LOG*
 CURRENT
 MANIFEST-*
+
+# Other
+nohup.out
