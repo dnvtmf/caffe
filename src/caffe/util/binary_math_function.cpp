@@ -196,16 +196,16 @@ void caffe_cpu_binary_approx(const int axis, const int M, const int N,
     const Dtype* In, const vector<Dtype> &scale, vector<Dtype> &Out) {
   auto p = Out.begin();
   const Dtype* q = In;
-  CHECK((int)Out.size() == M * N) << "Error appros out size!";
+//  CHECK((int)Out.size() == M * N) << "Error appros out size!";
   if (axis == 0) {
-    CHECK((int)scale.size() == M) << "Error approx 0!";
+//    CHECK((int)scale.size() == M) << "Error approx 0!";
     for(int i = 0; i < M; ++i) {
       for(int j = 0; j < N; ++j) {
         *p++ = *q++ >= Dtype(0) ? scale[i] : -scale[i];
       }
     }
   } else if (axis == 1) {
-    CHECK((int)scale.size() == N) << "Error approx 1!";
+//    CHECK((int)scale.size() == N) << "Error approx 1!";
     for(int i = 0; i < M; ++i) {
       for(int j = 0; j < N; ++j) {
         *p++ = *q++ >= Dtype(0) ? scale[j] : -scale[j];
@@ -220,7 +220,7 @@ void caffe_cpu_binary_scale(const int axis, const int M, const int N,
     const Dtype* In, vector<Dtype> &scale) {
   const Dtype* q = In;
   if (axis == 0) {
-    CHECK(scale.size() == M) << "scale size ERROR! 0";
+//    CHECK(scale.size() == M) << "scale size ERROR! 0";
     for(int i = 0; i < M; ++i) {
       scale[i] = 0;
       for(int j = 0; j < N; ++j) {
@@ -229,7 +229,7 @@ void caffe_cpu_binary_scale(const int axis, const int M, const int N,
       scale[i] /= (double) N;
     }
   } else if (axis == 1) {
-    CHECK_EQ(scale.size(), N) << "scale size ERROR";
+//    CHECK_EQ(scale.size(), N) << "scale size ERROR";
     for (int i = 0; i < N; ++i) {
       scale[i] = 0;
     }
@@ -251,19 +251,19 @@ void caffe_cpu_binary_gradient(const int axis, const int M, const int N,
   auto p = In;
   auto q = grad;
   if(axis == 0) {
-    CHECK_EQ(scale.size(), M) << "gradient scale size Error";
+//    CHECK_EQ(scale.size(), M) << "gradient scale size Error";
     double co = 1. / N;
     for (int i = 0; i < M; ++i) {
       for (int j = 0; j < N; ++j) {
-        *q++ *= co + (std::abs(*p++) <= 1 ? 1. : 0.) * scale[i];
+        *q++ *= co + Dtype(std::abs(*p++) <= Dtype(1) ? 1 : 0) * scale[i];
       }
     }
   } else if (axis == 1) {
-    CHECK_EQ(scale.size(), N) << "gradient scale size Error";
+//    CHECK_EQ(scale.size(), N) << "gradient scale size Error";
     double co = 1. / M;
     for (int i = 0; i < M; ++i) {
       for (int j = 0; j < N; ++j) {
-        *q++ *= co + (std::abs(*p++) <= 1 ? 1. : 0.) * scale[j];
+        *q++ *= co + Dtype(std::abs(*p++) <= Dtype(1) ? 1 : 0) * scale[j];
       }
     }
   } else {
