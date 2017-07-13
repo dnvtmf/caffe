@@ -343,8 +343,9 @@ void BinaryConvolutionLayer<Dtype>::weight_cpu_gemm(const Dtype* input,
 
 template <typename Dtype>
 void BinaryConvolutionLayer<Dtype>::backward_cpu_input_weight(
-    const bool pd_input, const bool pd_weights, const Dtype* output,
-  const Dtype* input, const Dtype* weights, Dtype* ginput, Dtype* gweights) {
+    const bool pd_input, const bool pd_weights,
+    const Dtype* output, const Dtype* input, const Dtype* weights,
+    Dtype* ginput, Dtype* gweights) {
   const Dtype *col_buff = input;
   Dtype *col_buff_diff = ginput;
   if (!pd_input && !pd_weights)
