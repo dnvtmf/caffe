@@ -1,4 +1,5 @@
 from caffe_layer import *
+from caffe_solver import *
 
 
 def BN(data_in, name="BatchNorm"):

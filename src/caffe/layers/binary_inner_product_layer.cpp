@@ -96,18 +96,18 @@ void BinaryInnerProductLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bot
   Dtype* top_data = top[0]->mutable_cpu_data();
   const Dtype* weight = this->blobs_[0]->cpu_data();
 
-  caffe_cpu_binary_compress<Dtype>(0, M_, K_, bottom_data, &binary_input_[0],
-      &binary_input_scale_[0]);
+  caffe_cpu_binary<Dtype>(0, M_, K_, bottom_data, binary_input_,
+                          binary_input_scale_);
   if(transpose_) {
-    caffe_cpu_binary_compress<Dtype>(0, N_, K_, weight, &binary_weight_[0],
-        &binary_weight_scale_[0]);
+    caffe_cpu_binary<Dtype>(1, K_, N_, weight, binary_weight_,
+        binary_weight_scale_);
   } else {
-    caffe_cpu_binary_compress<Dtype>(1, K_, N_, weight, &binary_weight_[0],
-        &binary_weight_scale_[0]);
+    caffe_cpu_binary<Dtype>(0, N_, K_, weight, binary_weight_,
+        binary_weight_scale_);
   }
-  caffe_cpu_binary_gemm_xor<Dtype>(false, transpose_, M_, N_, K_, &binary_input_[0],
-      &binary_weight_[0], &binary_input_scale_[0], &binary_weight_scale_[0],
-      top_data);
+  caffe_cpu_binary_gemm_xor<Dtype>(false, !transpose_, M_, N_, K_,
+      &binary_input_[0], &binary_weight_[0], &binary_input_scale_[0],
+      &binary_weight_scale_[0], top_data);
   /*
   caffe_cpu_gemm<Dtype>(CblasNoTrans, transpose_ ? CblasNoTrans : CblasTrans,
       M_, N_, K_, (Dtype)1.,
@@ -122,15 +122,15 @@ void BinaryInnerProductLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bot
 }
 
 template <typename Dtype>
-void BinaryInnerProductLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
-    const vector<bool>& propagate_down,
+void BinaryInnerProductLayer<Dtype>::Backward_cpu(
+    const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
     const vector<Blob<Dtype>*>& bottom) {
   if (this->param_propagate_down_[0]) {
     const Dtype* top_diff = top[0]->cpu_diff();
     caffe_cpu_binary_approx<Dtype>(0, M_, K_, bottom[0]->cpu_data(),
         binary_input_scale_, input_temp_);
     const Dtype* bottom_data = &input_temp_[0];
-    // Gradient with respect to weight
+    // Gradient with respect to weight gW = In' x gOut
     if (transpose_) {
       caffe_cpu_gemm<Dtype>(CblasTrans, CblasNoTrans,
           K_, N_, M_,

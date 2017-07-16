@@ -168,7 +168,7 @@ def FC(data_in, name="fc", num_output=None, bias_term=None, weight_filler=None, 
     return data_out
 
 
-def BinFC(data_in, name="fc", num_output=None, bias_term=None, weight_filler=None, bias_filler=None, axis=None,
+def BinFC(data_in, name="bin_fc", num_output=None, bias_term=None, weight_filler=None, bias_filler=None, axis=None,
           transpose=None, optional_params=None):
     """
     - num_output: [uint32] The number of outputs for the layer
@@ -201,6 +201,43 @@ def BinFC(data_in, name="fc", num_output=None, bias_term=None, weight_filler=Non
         fc_param.add_subparam(bias_filler)
     fc_param.add_param_if("axis", axis)
     fc_param.add_param_if("transpose", transpose)
+
+    _caffe_net.write_to_proto(param)
+    return data_out
+
+
+def BTFC(data_in, name="tw_fc", num_output=None, bias_term=None, weight_filler=None, bias_filler=None, axis=None,
+          optional_params=None):
+    """
+    - num_output: [uint32] The number of outputs for the layer
+    - bias_term: [bool][default = true] whether to have bias terms
+    - weight_filler: [FillerParameter] The filler for the weight
+    - bias_filler: [FillerParameter] The filler for the bias
+    - axis: [int32][default = 1]
+        The first axis to be lumped into a single inner product computation;
+        all preceding axes are retained in the output.
+        May be negative to index from the end (e.g., -1 for the last axis).
+    - transpose: [bool][default = false]
+        Specify whether to transpose the weight matrix or not.
+        If transpose == true, any operations will be performed on the transpose
+        of the weight matrix. The weight matrix itself is not going to be transposed
+        but rather the transfer flag of operations will be toggled accordingly.
+    """
+    global _caffe_net
+    assert len(data_in) == 1, "fully connect layer input only and if only have one input"
+    data_out = [Blob(name)]
+    param = Layer(name, "BTInnerProduct", data_in, data_out, optional_params)
+    fc_param = Parameter('bt_inner_product_param')
+    param.add_subparam(fc_param)
+    fc_param.add_param_if("num_output", num_output)
+    fc_param.add_param_if("bias_term", bias_term)
+    if weight_filler is not None:
+        weight_filler.set_name('weight_filler')
+        fc_param.add_subparam(weight_filler)
+    if bias_filler is not None:
+        bias_filler.set_name('bias_filler')
+        fc_param.add_subparam(bias_filler)
+    fc_param.add_param_if("axis", axis)
 
     _caffe_net.write_to_proto(param)
     return data_out
@@ -753,10 +790,10 @@ def DropOut(data_in, name="drop", dropout_ratio=None, optional_params=None):
     """
     data_out = [Blob(name)]
     assert len(data_in) == 1
-    param = Layer(name, "DropOut", data_in, data_out, optional_params)
+    param = Layer(name, "Dropout", data_in, data_out, optional_params)
     dropout_param = Parameter('dropout_param')
     param.add_subparam(dropout_param)
-    dropout_param.add_param_if('dropout_param', dropout_param)
+    dropout_param.add_param_if('dropout_ratio', dropout_ratio)
     _caffe_net.write_to_proto(param)
     return data_out
 

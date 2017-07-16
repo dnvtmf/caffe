@@ -1,17 +1,24 @@
 #include <algorithm>
+#include <iostream>
 
 #include "caffe/util/binary_math_function.hpp"
 #include "caffe/util/math_functions.hpp"
 namespace caffe {
 template<typename Dtype>
 void caffe_cpu_binary_gemm_and(const bool transposeA, const bool transposeB,
-    const int M, const int N, const int K, const binary_t* A,
-    const binary_t* B, const Dtype* scaleA, const Dtype* scaleB, Dtype *C) {
-  const int sz = M * N;
+    const int M, const int N, const int K, const Dtype alpha, const binary_t* A,
+    const binary_t *B, const Dtype* scaleA, const Dtype* scaleB,
+    Dtype beta, Dtype* C) {
   const int KK = (K + BINARY_SIZE - 1) / BINARY_SIZE;
-  caffe_set(sz, Dtype(0), C);
   const binary_t *pA, *pB;
   Dtype *pC;
+  if (caffe_sign(alpha) != 0)
+    beta /= alpha;
+  pC = C;
+  for (int i = 0; i < M * N; ++i)
+    *pC++ *= beta;
+  if (caffe_sign(alpha) == 0)
+    return ;
   // through adjust the order of i, j, k to implement matrix multiplication.
   if(!transposeA && !transposeB) {
       pA = A;
@@ -69,7 +76,7 @@ void caffe_cpu_binary_gemm_and(const bool transposeA, const bool transposeB,
   pC = C;
   for(int i = 0; i < M; ++i) {
     for(int j = 0; j < N; ++j) {
-      *pC++ *= scaleA[i] * scaleB[j];
+      *pC++ *= alpha * scaleA[i] * scaleB[j];
     }
   }
 }
@@ -147,17 +154,16 @@ void caffe_cpu_binary_gemm_xor(const bool transposeA, const bool transposeB,
 }
 
 template<typename Dtype>
-void caffe_cpu_binary_compress(const int axis, const int M, const int N,
-  const Dtype* In, binary_t* Out, Dtype* scale) {
+void caffe_cpu_binary(const int axis, const int M, const int N,
+  const Dtype* In, vector<binary_t>& Out, vector<Dtype> &scale) {
   if(axis == 1) {
     const int cM = (M + BINARY_SIZE - 1) / BINARY_SIZE;
-    for(int i = 0; i < cM * N; ++i) {
-      Out[i] = 0;
-    }
-    const int sz = N;
-    caffe_set<Dtype>(sz, Dtype(0), scale);
+    Out.resize(cM * N);
+    scale.resize(N);
+    fill(Out.begin(), Out.end(), binary_t(0));
+    fill(scale.begin(), scale.end(), Dtype(0));
     auto p = In;
-    binary_t *q = Out;
+    auto q = Out.begin();
     for(int i = 0; i < M;) {
       for(binary_t k = 0; i < M && k < BINARY_SIZE; ++k, ++i) {
         for(int j = 0; j < N; ++j) {
@@ -168,17 +174,18 @@ void caffe_cpu_binary_compress(const int axis, const int M, const int N,
       }
       q += N;
     }
-    caffe_scal<Dtype>(sz, Dtype(1. / M), scale);
+    for (int j = 0; j < N; ++j) {
+      scale[j] /= M;
+    }
   } else if(axis == 0) {
     const int cN = (N + BINARY_SIZE - 1) / BINARY_SIZE;
-    for(int i = 0; i < M * cN; ++i) {
-      Out[i] = 0;
-    }
-    const int sz = M;
-    caffe_set<Dtype>(sz, Dtype(0), scale);
+    Out.resize(M * cN);
+    scale.resize(M);
+    fill(Out.begin(), Out.end(), binary_t(0));
+    fill(scale.begin(), scale.end(), Dtype(0));
     auto p = In;
     for(int i = 0; i < M; ++i) {
-      binary_t *q = Out + i * cN;
+      auto q = Out.begin() + i * cN;
       for(int j = 0; j < N; ++q) {
         for(binary_t k = 0; j < N && k < BINARY_SIZE; ++k, ++j) {
             scale[i] += std::abs(*p);
@@ -186,7 +193,9 @@ void caffe_cpu_binary_compress(const int axis, const int M, const int N,
         }
       }
     }
-    caffe_scal<Dtype>(sz, Dtype(1. / N), scale);
+    for (int i = 0; i < M; ++i) {
+      scale[i] /= N;
+    }
   } else
     CHECK(false) << "Error axis!";
 }
@@ -270,14 +279,73 @@ void caffe_cpu_binary_gradient(const int axis, const int M, const int N,
     CHECK(false) << "Error axis!";
   }
 }
-template void caffe_cpu_binary_gemm_and <float> (const bool transposeA,
-    const bool transposeB,const int M, const int N, const int K,
-    const binary_t* A, const binary_t* B, const float* scaleA,
-    const float* scaleB, float *C);
-template void caffe_cpu_binary_gemm_and <double> (const bool transposeA,
-    const bool transposeB, const int M, const int N, const int K,
-    const binary_t* A, const binary_t* B, const double* scaleA,
-    const double* scaleB, double *C);
+
+
+template<typename Dtype>
+void caffe_cpu_ternary(const int axis, const int M, const int N, const Dtype* In,
+    vector<binary_t> &pos, vector<binary_t> &neg, Dtype &delta,
+    vector<Dtype> &scale) {
+  if (axis == 0) {
+    const int BN = (N + BINARY_SIZE - 1) / BINARY_SIZE;
+    pos.resize(M * BN);
+    neg.resize(M * BN);
+    scale.resize(M);
+    fill(pos.begin(), pos.end(), binary_t(0));
+    fill(neg.begin(), neg.end(), binary_t(0));
+    fill(scale.begin(), scale.end(), Dtype(0));
+    delta = 0.7 * caffe_cpu_asum<Dtype>(M * N, In) / (1. * M * N);
+    auto p = In;
+    auto it1 = pos.begin(), it2 = neg.begin();
+    for (int i = 0; i < M; ++i) {
+      for (int j = 0; j < N; ++it1, ++it2) {
+        for (int k = 0; k < BINARY_SIZE && j < N; ++j, ++k) {
+          if (*p > delta) {
+            *it1 |= binary_t(1) << k;
+            scale[i] += *p;
+          } else if (*p < -delta) {
+            *it2 |= binary_t(1) << k;
+            scale[i] -= *p;
+          }
+          ++p;
+        }
+      }
+    }
+    for (int i = 0; i < M; ++i) {
+      scale[i] /= N;
+    }
+  } else {
+    const int BM = (M + BINARY_SIZE - 1) / BINARY_SIZE;
+    pos.resize(BM * N);
+    neg.resize(BM * N);
+    scale.resize(N);
+    fill(pos.begin(), pos.end(), binary_t(0));
+    fill(neg.begin(), neg.end(), binary_t(0));
+    fill(scale.begin(), scale.end(), Dtype(0));
+    delta = 0.7 * caffe_cpu_asum<Dtype>(M * N, In) / (1. * M * N);
+    auto p = In;
+    auto it1 = pos.begin(), it2 = neg.begin();
+    for (int i = 0; i < M;) {
+      for (int k = 0; k < BINARY_SIZE && i < M; ++i, ++k) {
+        for (int j = 0; j < N; ++j, ++p) {
+          if (*p > delta) {
+            *it1 |= binary_t(1) << k;
+            scale[j] += *p;
+          } else if (*p < -delta) {
+            *it2 |= binary_t(1) << k;
+            scale[j] -= *p;
+          }
+          ++it1;
+          ++it2;
+        }
+        it1 -= N;
+        it2 -= N;
+      }
+    }
+    for (int j = 0; j < N; ++j) {
+      scale[j] /= M;
+    }
+  }
+}
 
 template void caffe_cpu_binary_gemm_xor <float> (const bool transposeA,
     const bool transposeB,const int M, const int N, const int K,
@@ -287,11 +355,6 @@ template void caffe_cpu_binary_gemm_xor <double> (const bool transposeA,
     const bool transposeB, const int M, const int N, const int K,
     const binary_t* A, const binary_t* B, const double* scaleA,
     const double* scaleB, double *C);
-
-template void caffe_cpu_binary_compress<float>(const int axis, const int M,
-    const int N, const float* In, binary_t* Out, float* scale);
-template void caffe_cpu_binary_compress<double>(const int axis, const int M,
-    const int N, const double* In, binary_t* Out, double* scale);
 
 template void caffe_cpu_binary_approx<float>(const int axis, const int M,
     const int N, const float* In, const vector<float> &scale, vector<float> &Out);
@@ -307,4 +370,18 @@ template void caffe_cpu_binary_gradient<float>(const int axis, const int M,
     const int N, const float* In, const vector<float> &scale, float *grad);
 template void caffe_cpu_binary_gradient<double>(const int axis, const int M,
     const int N, const double* In, const vector<double> &scale, double *grad);
+
+#define INSTANTIATE_BINARY_MATH(Dtype) \
+template void caffe_cpu_binary_gemm_and<Dtype>(\
+    const bool transposeA, const bool transposeB, const int M, const int N, \
+    const int K, const Dtype alpha, const binary_t* A, const binary_t *B, \
+    const Dtype* scaleA, const Dtype* scaleB, Dtype beta, Dtype* C);\
+template void caffe_cpu_ternary<Dtype>(const int axis, const int M, \
+    const int N, const Dtype* In, vector<binary_t> &pos, vector<binary_t> &neg, \
+    Dtype &delta, vector<Dtype> &scale);\
+template void caffe_cpu_binary<Dtype>(const int axis, const int M, const int N, \
+    const Dtype* In, vector<binary_t>& Out, vector<Dtype> &scale);
+INSTANTIATE_BINARY_MATH(float);
+INSTANTIATE_BINARY_MATH(double);
+
 }

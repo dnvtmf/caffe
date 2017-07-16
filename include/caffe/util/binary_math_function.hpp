@@ -31,13 +31,14 @@ const int BINARY_SIZE = 8 * sizeof(binary_t);
  *
  * \param B compressed binary matrix, size K-by-N
  *
- * \param C result, is a M-by-N matrix
+ * \param C result, is a M-by-N matrix, C = alpha * A x B + beta * C
  *
  */
 template<typename Dtype>
 void caffe_cpu_binary_gemm_and(const bool transposeA, const bool transposeB,
-    const int M, const int N, const int K, const binary_t* A,
-    const binary_t *B, const Dtype* scaleA, const Dtype* scaleB, Dtype* C);
+    const int M, const int N, const int K, const Dtype alpha, const binary_t* A,
+    const binary_t *B, const Dtype* scaleA, const Dtype* scaleB,
+    Dtype beta, Dtype* C);
 
 /**
  * \brief Computes a matrix-matrix product. The input matrix \f$ A, B \in
@@ -65,8 +66,8 @@ void caffe_cpu_binary_gemm_xor(const bool transposeA, const bool transposeB,
  * \param scale the scale with shape N (axis is true) or M (axis is false).
  */
 template<typename Dtype>
-void caffe_cpu_binary_compress(const int axis, const int M, const int N,
-    const Dtype* In, binary_t* Out, Dtype* scale);
+void caffe_cpu_binary(const int axis, const int M, const int N,
+    const Dtype* In, vector<binary_t>& Out, vector<Dtype> &scale);
 
 template<typename Dtype>
 void caffe_cpu_binary_approx(const int axis, const int M, const int N,
@@ -79,5 +80,10 @@ void caffe_cpu_binary_scale(const int axis, const int M, const int N,
 template<typename Dtype>
 void caffe_cpu_binary_gradient(const int axis, const int M, const int N,
     const Dtype* In, const vector<Dtype> &scale, Dtype *grad);
+
+template<typename Dtype>
+void caffe_cpu_ternary(const int axis, const int M, const int N, const Dtype* In,
+    vector<binary_t> &pos, vector<binary_t> &neg, Dtype &delta,
+    vector<Dtype> &scale) ;
 }
 #endif // CAFFE_UTIL_BINARY_MATH_FUNCTION_HPP_
