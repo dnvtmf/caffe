@@ -85,5 +85,10 @@ template<typename Dtype>
 void caffe_cpu_ternary(const int axis, const int M, const int N, const Dtype* In,
     vector<binary_t> &pos, vector<binary_t> &neg, Dtype &delta,
     vector<Dtype> &scale) ;
+
+template<typename Dtype>
+void caffe_cpu_binary_norm(const int axis, const int n_row, const int n_col,
+    const Dtype *in, vector<binary_t> &code, vector<Dtype> &scale,
+    vector<Dtype> &bias, vector<Dtype> &sum);
 }
 #endif // CAFFE_UTIL_BINARY_MATH_FUNCTION_HPP_

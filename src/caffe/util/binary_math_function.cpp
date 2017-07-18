@@ -347,6 +347,102 @@ void caffe_cpu_ternary(const int axis, const int M, const int N, const Dtype* In
   }
 }
 
+template<typename Dtype>
+void caffe_cpu_binary_norm(const int axis, const int n_row, const int n_col,
+    const Dtype *in, vector<binary_t> &code, vector<Dtype> &scale,
+    vector<Dtype> &bias, vector<Dtype> &sum) {
+  if (axis == 0) {
+    int b_col = (n_col + BINARY_SIZE - 1) / BINARY_SIZE;
+    code.resize(n_row * b_col);
+    scale.resize(n_row);
+    bias.resize(n_row);
+    sum.resize(n_row);
+    fill(code.begin(), code.end(), 0);
+    fill(scale.begin(), scale.end(), 0);
+    fill(bias.begin(), bias.end(), 0);
+    fill(sum.begin(), sum.end(), 0);
+    const Dtype* p = in;
+    // sum
+    for (int r = 0; r < n_row; ++r) {
+        for (int c = 0; c < n_col; ++c) {
+            bias[r] += *p++;
+        }
+    }
+    // mean
+    for (int r = 0; r < n_row; ++r) {
+        bias[r] /= n_col;
+    }
+    // mean normalization
+    // compress
+    // sum
+    p = in;
+    auto it_code = code.begin();
+    for (int r = 0; r < n_row; ++r) {
+        for (int c = 0; c < n_col; ++it_code) {
+            for (int k = 0; k < BINARY_SIZE && c < n_col; ++k, ++c, ++p) {
+                if (*p > bias[r]) {
+                    *it_code |= binary_t(1) << k;
+                    scale[r] += *p - bias[r];
+                    sum[r]++;
+                }
+                else {
+                    scale[r] += bias[r] - *p;
+                    sum[r]--;
+                }
+            }
+        }
+    }
+    // scale
+    for (int r = 0; r < n_row; ++r) {
+        scale[r] /= n_col;
+    }
+  }
+  else {
+    int b_row = (n_row + BINARY_SIZE - 1) / BINARY_SIZE;
+    code.resize(b_row * n_col);
+    scale.resize(n_col);
+    bias.resize(n_col);
+    sum.resize(n_col);
+    fill(code.begin(), code.end(), 0);
+    fill(scale.begin(), scale.end(), 0);
+    fill(bias.begin(), bias.end(), 0);
+    fill(sum.begin(), sum.end(), 0);
+    // sum
+    const Dtype* p = in;
+    for (int r = 0; r < n_row; ++r) {
+        for (int c = 0; c < n_col; ++c) {
+            bias[c] += *p++;
+        }
+    }
+    // mean
+    for (int c = 0; c < n_col; ++c) {
+        bias[c] /= n_row;
+    }
+    // binary, compress, sum
+    p = in;
+    auto it_code = code.begin();
+    for (int r = 0; r < n_row; ) {
+        for (int k = 0; k < BINARY_SIZE && r < n_row; ++k, ++r) {
+            for (int c = 0; c < n_col; ++c, ++p, ++it_code) {
+                if (*p > bias[c]) {
+                    *it_code |= binary_t(1) << k;
+                    scale[c] += *p - bias[c];
+                    sum[c]++;
+                }
+                else {
+                    scale[c] += bias[c] - *p;
+                    sum[c]--;
+                }
+            }
+            it_code -= n_col;
+        }
+    }
+    // scale
+    for (int c = 0; c < n_col; ++c) {
+        scale[c] /= n_row;
+    }
+  }
+}
 template void caffe_cpu_binary_gemm_xor <float> (const bool transposeA,
     const bool transposeB,const int M, const int N, const int K,
     const binary_t* A, const binary_t* B, const float* scaleA,
@@ -380,7 +476,11 @@ template void caffe_cpu_ternary<Dtype>(const int axis, const int M, \
     const int N, const Dtype* In, vector<binary_t> &pos, vector<binary_t> &neg, \
     Dtype &delta, vector<Dtype> &scale);\
 template void caffe_cpu_binary<Dtype>(const int axis, const int M, const int N, \
-    const Dtype* In, vector<binary_t>& Out, vector<Dtype> &scale);
+    const Dtype* In, vector<binary_t>& Out, vector<Dtype> &scale); \
+template void caffe_cpu_binary_norm<Dtype>(const int axis, \
+    const int n_row, const int n_col, \
+    const Dtype *in, vector<binary_t> &code, vector<Dtype> &scale, \
+    vector<Dtype> &bias, vector<Dtype> &sum);
 INSTANTIATE_BINARY_MATH(float);
 INSTANTIATE_BINARY_MATH(double);
 
