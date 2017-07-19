@@ -90,5 +90,20 @@ template<typename Dtype>
 void caffe_cpu_binary_norm(const int axis, const int n_row, const int n_col,
     const Dtype *in, vector<binary_t> &code, vector<Dtype> &scale,
     vector<Dtype> &bias, vector<Dtype> &sum);
+
+template<typename Dtype>
+void caffe_cpu_binary_norm_gradient(
+		const int axis, const int M, const int N, const Dtype* In,
+		const vector<Dtype> &scale, const vector<Dtype> &bias, Dtype *grad);
+
+template<typename Dtype>
+void caffe_cpu_binary_gemm(
+		const bool transA, const bool transB,
+		const int M, const int N, const int K,
+		const vector<binary_t> &A, const vector<Dtype> &A_scale,
+		const vector<Dtype> &A_bias, const vector<Dtype> &A_sum,
+		const vector<binary_t> &B, const vector<Dtype> &B_scale,
+		const vector<Dtype> &B_bias, const vector<Dtype> &B_sum,
+		Dtype *C);
 }
 #endif // CAFFE_UTIL_BINARY_MATH_FUNCTION_HPP_

@@ -14,9 +14,9 @@ namespace caffe {
  * @brief It is same with inner product layer.
  */
 template <typename Dtype>
-class BinaryInnerProductLayer : public Layer<Dtype> {
+class XnorNetInnerProductLayer : public Layer<Dtype> {
  public:
-  explicit BinaryInnerProductLayer(const LayerParameter& param)
+  explicit XnorNetInnerProductLayer(const LayerParameter& param)
       : Layer<Dtype>(param) {}
   virtual void LayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top);
@@ -44,12 +44,16 @@ class BinaryInnerProductLayer : public Layer<Dtype> {
   int N_;
   bool bias_term_;
   Blob<Dtype> bias_multiplier_;
+  bool transpose_;  ///< if true, assume transposed weights
 
  private:
-  vector<binary_t> binary_w_, binary_in_, binary_g_;
-  vector<Dtype> scale_w_, scale_in_, scale_g_;
-  vector<Dtype> bias_w_, bias_in_, bias_g_;
-  vector<Dtype> sum_w_, sum_in_, sum_g_;
+  int binary_K_;
+  vector<binary_t> binary_weight_;
+  vector<Dtype> binary_weight_scale_;
+  vector<binary_t> binary_input_;
+  vector<Dtype> binary_input_scale_;
+  vector<Dtype> input_temp_;
+  vector<Dtype> weight_temp_;
 };
 
 }  // namespace caffe
