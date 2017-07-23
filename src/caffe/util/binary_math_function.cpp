@@ -103,6 +103,9 @@ void caffe_cpu_binary_gemm_xor(
         pC = C + i * N;
         const binary_t vA = *pA++;
         for (int j = 0; j < N; ++j) {
+//          CHECK_EQ(pC, C + i * N + j);
+//          CHECK_EQ(vA, *(A + i * KK + k));
+//          CHECK_EQ(pB, B + k * N + j);
           *pC++ += bitcount(vA ^ (*pB++));
           // C[i][j] += A[i][k] * B[k][j];
         }
@@ -117,6 +120,9 @@ void caffe_cpu_binary_gemm_xor(
         pB = B + k * N;
         const binary_t vA = *pA++;
         for (int j = 0; j < N; ++j) {
+//          CHECK_EQ(pC, C + i * N + j);
+//          CHECK_EQ(vA, *(A + k * M + i));
+//          CHECK_EQ(pB, B + k * N + j);
           *pC++ += bitcount(vA ^ (*pB++));
           //C[i][j] += A[k][i] * B[k][j];
         }
@@ -131,6 +137,9 @@ void caffe_cpu_binary_gemm_xor(
         pA = A + i * KK;
         auto &result = *(pC++);
         for (int k = 0; k < KK; ++k) {
+//          CHECK_EQ(pC - 1, C + i * N + j);
+//          CHECK_EQ(pA, A + i * KK + k);
+//          CHECK_EQ(pB, B + j * KK + k);
           result += bitcount((*pA++) ^ (*pB++));
           // C[i][j] += A[i][k] * B[j][k];
         }
@@ -163,29 +172,7 @@ template<typename Dtype>
 void caffe_cpu_binary(
   const int axis, const int M, const int N,
   const Dtype* In, vector<binary_t>& Out, vector<Dtype> &scale) {
-  if (axis == 1) {
-    const int cM = (M + BINARY_SIZE - 1) / BINARY_SIZE;
-    Out.resize(cM * N);
-    scale.resize(N);
-    fill(Out.begin(), Out.end(), binary_t(0));
-    fill(scale.begin(), scale.end(), Dtype(0));
-    auto p = In;
-    auto q = Out.begin();
-    for (int i = 0; i < M;) {
-      for (binary_t k = 0; i < M && k < BINARY_SIZE; ++k, ++i) {
-        for (int j = 0; j < N; ++j) {
-          scale[j] += std::abs(*p);
-          *q++ |= (static_cast<binary_t>(*p++ >= Dtype(0))) << k;
-        }
-        q -= N;
-      }
-      q += N;
-    }
-    for (int j = 0; j < N; ++j) {
-      scale[j] /= M;
-    }
-  }
-  else if (axis == 0) {
+  if (axis == 0) {
     const int cN = (N + BINARY_SIZE - 1) / BINARY_SIZE;
     Out.resize(M * cN);
     scale.resize(M);
@@ -196,6 +183,8 @@ void caffe_cpu_binary(
       auto q = Out.begin() + i * cN;
       for (int j = 0; j < N; ++q) {
         for (binary_t k = 0; j < N && k < BINARY_SIZE; ++k, ++j) {
+//          CHECK(p  == In + i * N + j);
+//          CHECK(q == Out.begin() + i * cN + j / BINARY_SIZE);
           scale[i] += std::abs(*p);
           *q |= (static_cast<binary_t>(*p++ >= Dtype(0))) << k;
         }
@@ -203,6 +192,30 @@ void caffe_cpu_binary(
     }
     for (int i = 0; i < M; ++i) {
       scale[i] /= N;
+    }
+  }
+  else if (axis == 1) {
+    const int cM = (M + BINARY_SIZE - 1) / BINARY_SIZE;
+    Out.resize(cM * N);
+    scale.resize(N);
+    fill(Out.begin(), Out.end(), binary_t(0));
+    fill(scale.begin(), scale.end(), Dtype(0));
+    auto p = In;
+    auto q = Out.begin();
+    for (int i = 0; i < M;) {
+      for (binary_t k = 0; i < M && k < BINARY_SIZE; ++k, ++i) {
+        for (int j = 0; j < N; ++j) {
+//          CHECK(p == In + i * N + j);
+//          CHECK(q == Out.begin() + (i / BINARY_SIZE) * N + j);
+          scale[j] += std::abs(*p);
+          *q++ |= (static_cast<binary_t>(*p++ >= Dtype(0))) << k;
+        }
+        q -= N;
+      }
+      q += N;
+    }
+    for (int j = 0; j < N; ++j) {
+      scale[j] /= M;
     }
   }
   else
@@ -252,7 +265,7 @@ void caffe_cpu_binary_scale(
     }
   }
   else if (axis == 1) {
-//    CHECK_EQ(scale.size(), N) << "scale size ERROR";
+//    CHECK_EQ(scale.size(), N) << "scale size ERROR 1";
     for (int i = 0; i < N; ++i) {
       scale[i] = 0;
     }
@@ -276,7 +289,7 @@ void caffe_cpu_binary_gradient(
   auto p = In;
   auto q = grad;
   if (axis == 0) {
-//    CHECK_EQ(scale.size(), M) << "gradient scale size Error";
+//    CHECK_EQ((int)scale.size(), M) << "gradient scale size Error";
     double co = 1. / N;
     for (int i = 0; i < M; ++i) {
       for (int j = 0; j < N; ++j) {
@@ -285,7 +298,7 @@ void caffe_cpu_binary_gradient(
     }
   }
   else if (axis == 1) {
-//    CHECK_EQ(scale.size(), N) << "gradient scale size Error";
+//    CHECK_EQ((int)scale.size(), N) << "gradient scale size Error";
     double co = 1. / M;
     for (int i = 0; i < M; ++i) {
       for (int j = 0; j < N; ++j) {
@@ -362,6 +375,8 @@ void caffe_cpu_ternary(
         it1 -= N;
         it2 -= N;
       }
+      it1 += N;
+      it2 += N;
     }
     for (int j = 0; j < N; ++j) {
       scale[j] /= M;
@@ -403,6 +418,8 @@ void caffe_cpu_binary_norm(
     for (int r = 0; r < n_row; ++r) {
       for (int c = 0; c < n_col; ++it_code) {
         for (int k = 0; k < BINARY_SIZE && c < n_col; ++k, ++c, ++p) {
+//          assert(it_code == code.begin() + r * b_col + c / BINARY_SIZE);
+//          assert(p == in + r * n_col + c);
           if (*p > bias[r]) {
             *it_code |= binary_t(1) << k;
             scale[r] += *p - bias[r];
@@ -447,6 +464,8 @@ void caffe_cpu_binary_norm(
     for (int r = 0; r < n_row;) {
       for (int k = 0; k < BINARY_SIZE && r < n_row; ++k, ++r) {
         for (int c = 0; c < n_col; ++c, ++p, ++it_code) {
+//          assert(it_code == code.begin() + r / BINARY_SIZE * n_col + c);
+//          assert(p == in + r * n_col + c);
           if (*p > bias[c]) {
             *it_code |= binary_t(1) << k;
             scale[c] += *p - bias[c];
@@ -459,6 +478,7 @@ void caffe_cpu_binary_norm(
         }
         it_code -= n_col;
       }
+      it_code += n_col;
     }
     // scale
     for (int c = 0; c < n_col; ++c) {
@@ -467,34 +487,169 @@ void caffe_cpu_binary_norm(
   }
 }
 
-
+template<typename Dtype>
+void caffe_cpu_ternary_norm(
+  const int axis, const int M, const int N, const Dtype* in,
+  vector<binary_t> &code, vector<binary_t> &mask,
+  vector<Dtype> &delta, vector<Dtype> &scale, vector<Dtype> &bias,
+  vector<Dtype> &sum1, vector<Dtype>&sum2) {
+  if (axis == 0) {
+    const int BN = (N + BINARY_SIZE - 1) / BINARY_SIZE;
+    code.resize(M * BN);
+    mask.resize(M * BN);
+    auto initer = [&M](vector<Dtype> &v) {
+      v.resize(M);
+      fill(v.begin(), v.end(), 0);
+    };
+    initer(delta);
+    initer(scale);
+    initer(bias);
+    initer(sum1);
+    initer(sum2);
+    auto p = in;
+    for (int i = 0; i < M; ++i) {
+      for (int j = 0; j < N; ++j, ++p) {
+        bias[i] += *p;
+      }
+    }
+    for (int i = 0; i < M; ++i) {
+      bias[i] /= N;
+    }
+    p = in;
+    for (int i = 0; i < M; ++i) {
+      for (int j = 0; j < N; ++j, ++p) {
+        delta[i] += std::abs(*p - bias[i]);
+      }
+    }
+    for (int i = 0; i < M; ++i) {
+      delta[i] = 0.7 * delta[i] / N;
+    }
+    p = in;
+    auto code_it = code.begin();
+    auto mask_it = mask.begin();
+    for (int i = 0; i < M; ++i) {
+      for (int j = 0; j < N;) {
+        for (int k = 0; k < BINARY_SIZE && j < N; ++k, ++j, ++p) {
+          if (*p - bias[i] > delta[i]) {
+            *code_it |= binary_t(1) << k;
+            *mask_it |= binary_t(1) << k;
+            scale[i] += *p - bias[i];
+            sum1[i]++;
+          }
+          else if (*p - bias[i] < -delta[i]) {
+            *mask_it |= binary_t(1) << k;
+            scale[i] -= *p - bias[i];
+            sum1[i]--;
+          }
+          else {
+          }
+        }
+        sum2[i] += bitcount(*mask_it);
+        ++code_it;
+        ++mask_it;
+      }
+    }
+    for (int i = 0; i < M; ++i)  {
+      if (sum2[i] > 0.)
+      { scale[i] /= sum2[i]; }
+    }
+  }
+  else {
+    const int BM = (M + BINARY_SIZE - 1) / BINARY_SIZE;
+    code.resize(BM * N);
+    mask.resize(BM * N);
+    auto initer = [&N](vector<Dtype> &v) {
+      v.resize(N);
+      fill(v.begin(), v.end(), 0);
+    };
+    initer(delta);
+    initer(scale);
+    initer(bias);
+    initer(sum1);
+    initer(sum2);
+    auto p = in;
+    for (int i = 0; i < M; ++i) {
+      for (int j = 0; j < N; ++j) {
+        bias[j] += *p++;
+      }
+    }
+    for (int j = 0; j < N; ++j) {
+      bias[j] /= M;
+    }
+    p = in;
+    for (int i = 0; i < M; ++i) {
+      for (int j = 0; j < N; ++j) {
+        delta[j] += *p++ - bias[j];
+      }
+    }
+    for (int j = 0; j < N; ++j) {
+      delta[j] /= M;
+    }
+    p = in;
+    auto code_it = code.begin();
+    auto mask_it = mask.begin();
+    for (int i = 0; i < M;) {
+      for (int k = 0; k < BINARY_SIZE && i < M; ++i, ++k) {
+        for (int j = 0; j < N; ++j, ++p) {
+          if (*p - bias[j] >= delta[j]) {
+            *code_it |= binary_t(1) << k;
+            *mask_it |= binary_t(1) << k;
+            scale[j] += *p - bias[j];
+            sum1[j]++;
+          }
+          else if (*p - bias[j] <= -delta[j]) {
+            *mask_it |= binary_t(1) << k;
+            scale[j] -= *p - bias[j];
+            sum1[j]--;
+          }
+          ++code_it;
+          ++mask_it;
+        }
+        code_it -= N;
+        mask_it -= N;
+      }
+      for (int j = 0; j < N; ++j) {
+        sum2[j] += bitcount(*mask_it++);
+      }
+      code_it += N;
+    }
+    for (int j = 0; j < N; ++j) {
+      if (sum2[j] > 0.)
+      { scale[j] /= sum2[j]; }
+    }
+  }
+}
 template<typename Dtype>
 void caffe_cpu_binary_norm_gradient(
   const int axis, const int M, const int N, const Dtype* In,
   const vector<Dtype> &scale, const vector<Dtype> &bias, Dtype *grad) {
   auto p = grad;
   auto q = In;
-  const double beta = 0.1;
-  const double alpha = 0;
+  const Dtype beta = 1;
+  const Dtype alpha = 1;
   if (axis == 0) {
+    const Dtype gamma = 1. / N;
     for (int i = 0; i < M; ++i) {
       for (int j = 0; j < N; ++j, ++p, ++q) {
-        if (fabs(*q - bias[i]) <= 2. * scale[i])
-        { *p *= (scale[i] * beta + 2. / N); }
+        if (fabs(*q - bias[i]) <= 4. * scale[i])
+        { *p *= (beta * scale[i] + gamma); }
         else
-        { *p *= (alpha * scale[i] + 2. / N); }
+        { *p *= (alpha * scale[i] + gamma); }
       }
     }
+    caffe_scal<Dtype>(M * N, 1. - 1. / N, grad);
   }
   else {
+    const Dtype gamma = 1. / M;
     for (int i = 0; i < M; ++i) {
       for (int j = 0; j < N; ++j, ++p, ++q) {
-        if (fabs(*q - bias[j]) <= 2. * scale[j])
-        { *p *= (beta * scale[j] + 2. / M); }
+        if (fabs(*q - bias[j]) <= 4. * scale[j])
+        { *p *= (beta * scale[j] + gamma); }
         else
-        { *p *= (alpha * scale[j] + 2. / M); }
+        { *p *= (alpha * scale[j] + gamma); }
       }
     }
+    caffe_scal<Dtype>(M * N, 1. - 1. / M, grad);
   }
 }
 
@@ -543,12 +698,13 @@ void caffe_cpu_binary_gemm(
       ptr_c = C;
       for (int r = 0; r < M; ++r) {
         auto temp = *it_a++;
-        it_b = B.begin() + k * N;
         for (int c = 0; c < N; ++c) {
           // c[r][c] = a[k][r] * b[k][c]
           *ptr_c++ += bitcount(temp ^ (*it_b++));
         }
+        it_b -= N;
       }
+      it_b += N;
     }
   }
   else if (transB) {
@@ -556,12 +712,14 @@ void caffe_cpu_binary_gemm(
     for (int r = 0; r < M; ++r) {
       it_b = B.begin();
       for (int c = 0; c < N; ++c, ++ptr_c) {
-        it_a = A.begin() + r * bK;
+//        it_a = A.begin() + r * bK;
         for (int k = 0; k < bK; ++k) {
           // c[r][c] = a[r][k] * b[c][k]
           *ptr_c += bitcount((*it_a++) ^ (*it_b++));
         }
+        it_a -= bK;
       }
+      it_a += bK;
     }
   }
   else {
@@ -581,6 +739,205 @@ void caffe_cpu_binary_gemm(
       *ptr_c = A_scale[r] * B_scale[c] * (K - 2 * *ptr_c) +
                A_scale[r] * A_sum[r] * B_bias[c] +
                B_scale[c] * B_sum[c] * A_bias[r] +
+               A_bias[r] * B_bias[c] * K;
+    }
+  }
+}
+
+
+template<typename Dtype>
+void caffe_cpu_tb_gemm(
+  const bool transA, const bool transB,
+  const int M, const int N, const int K,
+  const vector<binary_t> &A, const vector<binary_t> &A_mask,
+  const vector<Dtype> &A_scale, const vector<Dtype> &A_bias,
+  const vector<Dtype> &A_sum1, const vector<Dtype> &A_sum2,
+  const vector<binary_t> &B, const vector<Dtype> &B_scale,
+  const vector<Dtype> &B_bias, const vector<Dtype> &B_sum,
+  Dtype *C) {
+  const int bK = (K + BINARY_SIZE - 1) / BINARY_SIZE;
+  Dtype *ptr_c = C;
+  // Check
+  CHECK_EQ(A.size(), M * bK);
+  CHECK_EQ(A_mask.size(), M * bK);
+  CHECK_EQ(A_scale.size(), M);
+  CHECK_EQ(A_bias.size(), M);
+  CHECK_EQ(A_sum1.size(), M);
+  CHECK_EQ(A_sum2.size(), M);
+  CHECK_EQ(B.size(), bK * N);
+  CHECK_EQ(B_scale.size(), N);
+  CHECK_EQ(B_bias.size(), N);
+  CHECK_EQ(B_sum.size(), N);
+  // C <-- 0
+  for (int r = 0; r < M * N; ++r) {
+    *ptr_c++ = 0;
+  }
+  // matrix multiplication
+  auto a_it = A.begin();
+  auto a_mask_it = A_mask.begin();
+  auto b_it = B.begin();
+  if (!transA && !transB) {
+    for (int r = 0; r < M; ++r) {
+      b_it = B.begin();
+      for (int k = 0; k < bK; ++k) {
+        auto temp = *a_it++;
+        auto mask_temp = *a_mask_it++;
+        ptr_c = C + r * N;
+        for (int c = 0; c < N; ++c) {
+          // c[r][c] += a[r][k] * b[k][c]
+          *ptr_c++ += bitcount((temp ^ (*b_it++)) & mask_temp);
+        }
+      }
+    }
+  }
+  else if (transA) {
+    for (int k = 0; k < bK; ++k) {
+      ptr_c = C;
+      for (int r = 0; r < M; ++r) {
+        auto temp = *a_it++;
+        auto mask_temp = *a_mask_it++;
+        for (int c = 0; c < N; ++c) {
+          // c[r][c] = a[k][r] * b[k][c]
+          *ptr_c++ += bitcount((temp ^ (*b_it++)) & mask_temp);
+        }
+        b_it -= N;
+      }
+      b_it += N;
+    }
+  }
+  else if (transB) {
+    ptr_c = C;
+    for (int r = 0; r < M; ++r) {
+      b_it = B.begin();
+      for (int c = 0; c < N; ++c, ++ptr_c) {
+//        it_a = A.begin() + r * bK;
+        for (int k = 0; k < bK; ++k) {
+          // c[r][c] = a[r][k] * b[c][k]
+          *ptr_c += bitcount(((*a_it++) ^ (*b_it++)) & (*a_mask_it++));
+        }
+        a_it -= bK;
+        a_mask_it -= bK;
+      }
+      a_it += bK;
+      a_mask_it += bK;
+    }
+  }
+  else {
+    ptr_c = C;
+    for (int r = 0; r < M; ++r) {
+      for (int c = 0; c < N; ++c, ++ptr_c) {
+        for (int k = 0; k < bK; ++k) {
+          // c[r][c] = a[k][r] * b[c][k]
+          *ptr_c += bitcount((A[k * M + r] ^ B[c * bK + k]) & A_mask[k * M + r]);
+        }
+      }
+    }
+  }
+  ptr_c = C;
+  for (int r = 0; r < M; ++r) {
+    for (int c = 0; c < N; ++c, ++ptr_c) {
+      *ptr_c = A_scale[r] * B_scale[c] * (A_sum2[r] - 2 * *ptr_c) +
+               A_scale[r] * A_sum1[r] * B_bias[c] +
+               B_scale[c] * B_sum[c] * A_bias[r] +
+               A_bias[r] * B_bias[c] * K;
+    }
+  }
+}
+
+template<typename Dtype>
+void caffe_cpu_bt_gemm(
+  const bool transA, const bool transB,
+  const int M, const int N, const int K,
+  const vector<binary_t> &A, const vector<Dtype> &A_scale,
+  const vector<Dtype> &A_bias, const vector<Dtype> &A_sum,
+  const vector<binary_t> &B, const vector<binary_t> &B_mask,
+  const vector<Dtype> &B_scale, const vector<Dtype> &B_bias,
+  const vector<Dtype> &B_sum1, const vector<Dtype> &B_sum2,
+  Dtype *C) {
+  const int bK = (K + BINARY_SIZE - 1) / BINARY_SIZE;
+  Dtype *ptr_c = C;
+  // Check
+  CHECK_EQ(A.size(), M * bK);
+  CHECK_EQ(A_scale.size(), M);
+  CHECK_EQ(A_bias.size(), M);
+  CHECK_EQ(A_sum.size(), M);
+  CHECK_EQ(B.size(), bK * N);
+  CHECK_EQ(B_mask.size(), bK * N);
+  CHECK_EQ(B_scale.size(), N);
+  CHECK_EQ(B_bias.size(), N);
+  CHECK_EQ(B_sum1.size(), N);
+  CHECK_EQ(B_sum2.size(), N);
+  // C <-- 0
+  for (int r = 0; r < M * N; ++r) {
+    *ptr_c++ = 0;
+  }
+  // matrix multiplication
+  auto a_it = A.begin();
+  auto b_it = B.begin();
+  auto b_mask_it = B_mask.begin();
+  if (!transA && !transB) {
+    for (int r = 0; r < M; ++r) {
+      b_it = B.begin();
+      b_mask_it = B_mask.begin();
+      for (int k = 0; k < bK; ++k) {
+        auto temp = *a_it++;
+        ptr_c = C + r * N;
+        for (int c = 0; c < N; ++c) {
+          // c[r][c] += a[r][k] * b[k][c]
+          *ptr_c++ += bitcount((temp ^ (*b_it++)) & (*b_mask_it++));
+        }
+      }
+    }
+  }
+  else if (transA) {
+    for (int k = 0; k < bK; ++k) {
+      ptr_c = C;
+      for (int r = 0; r < M; ++r) {
+        auto temp = *a_it++;
+        for (int c = 0; c < N; ++c) {
+          // c[r][c] = a[k][r] * b[k][c]
+          *ptr_c++ += bitcount((temp ^ (*b_it++)) & (*b_mask_it++));
+        }
+        b_it -= N;
+        b_mask_it -= N;
+      }
+      b_it += N;
+      b_mask_it += N;
+    }
+  }
+  else if (transB) {
+    ptr_c = C;
+    for (int r = 0; r < M; ++r) {
+      b_it = B.begin();
+      b_mask_it = B_mask.begin();
+      for (int c = 0; c < N; ++c, ++ptr_c) {
+//        it_a = A.begin() + r * bK;
+        for (int k = 0; k < bK; ++k) {
+          // c[r][c] = a[r][k] * b[c][k]
+          *ptr_c += bitcount(((*a_it++) ^ (*b_it++)) & (*b_mask_it++));
+        }
+        a_it -= bK;
+      }
+      a_it += bK;
+    }
+  }
+  else {
+    ptr_c = C;
+    for (int r = 0; r < M; ++r) {
+      for (int c = 0; c < N; ++c, ++ptr_c) {
+        for (int k = 0; k < bK; ++k) {
+          // c[r][c] = a[k][r] * b[c][k]
+          *ptr_c += bitcount((A[k * M + r] ^ B[c * bK + k]) & B_mask[c * bK + k]);
+        }
+      }
+    }
+  }
+  ptr_c = C;
+  for (int r = 0; r < M; ++r) {
+    for (int c = 0; c < N; ++c, ++ptr_c) {
+      *ptr_c = A_scale[r] * B_scale[c] * (B_sum2[c] - 2 * *ptr_c) +
+               A_scale[r] * A_sum[r] * B_bias[c] +
+               B_scale[c] * B_sum1[c] * A_bias[r] +
                A_bias[r] * B_bias[c] * K;
     }
   }
@@ -635,7 +992,30 @@ template void caffe_cpu_binary_gemm<Dtype>( \
     Dtype *C);\
 template void caffe_cpu_binary_norm_gradient<Dtype>(\
     const int axis, const int M, const int N, const Dtype* In,\
-    const vector<Dtype> &scale, const vector<Dtype> &bias, Dtype *grad);
+    const vector<Dtype> &scale, const vector<Dtype> &bias, Dtype *grad); \
+template void caffe_cpu_ternary_norm<Dtype>( \
+  const int axis, const int M, const int N, const Dtype* in, \
+  vector<binary_t> &code, vector<binary_t> &mask, \
+  vector<Dtype> &delta, vector<Dtype> &scale, vector<Dtype> &bias, \
+  vector<Dtype> &sum1, vector<Dtype>&sum2); \
+template void caffe_cpu_tb_gemm<Dtype>( \
+  const bool transA, const bool transB, \
+  const int M, const int N, const int K, \
+  const vector<binary_t> &A, const vector<binary_t> &A_mask, \
+  const vector<Dtype> &A_scale, const vector<Dtype> &A_bias, \
+  const vector<Dtype> &A_sum1, const vector<Dtype> &A_sum2, \
+  const vector<binary_t> &B, const vector<Dtype> &B_scale, \
+  const vector<Dtype> &B_bias, const vector<Dtype> &B_sum, \
+  Dtype *C); \
+template void caffe_cpu_bt_gemm<Dtype>( \
+  const bool transA, const bool transB, \
+  const int M, const int N, const int K, \
+  const vector<binary_t> &A, const vector<Dtype> &A_scale, \
+  const vector<Dtype> &A_bias, const vector<Dtype> &A_sum, \
+  const vector<binary_t> &B, const vector<binary_t> &B_mask, \
+  const vector<Dtype> &B_scale, const vector<Dtype> &B_bias, \
+  const vector<Dtype> &B_sum1, const vector<Dtype> &B_sum2, \
+  Dtype *C);
 INSTANTIATE_BINARY_MATH(float);
 INSTANTIATE_BINARY_MATH(double);
 

@@ -1,5 +1,5 @@
-#ifndef CAFFE_BINARY_INNER_PRODUCT_LAYER_HPP_
-#define CAFFE_BINARY_INNER_PRODUCT_LAYER_HPP_
+#ifndef CAFFE_TB_INNER_PRODUCT_LAYER_HPP_
+#define CAFFE_TB_INNER_PRODUCT_LAYER_HPP_
 
 #include <vector>
 
@@ -14,9 +14,9 @@ namespace caffe {
  * @brief It is same with inner product layer.
  */
 template <typename Dtype>
-class BinaryInnerProductLayer : public Layer<Dtype> {
+class TBInnerProductLayer : public Layer<Dtype> {
  public:
-  explicit BinaryInnerProductLayer(const LayerParameter& param)
+  explicit TBInnerProductLayer(const LayerParameter& param)
       : Layer<Dtype>(param) {}
   virtual void LayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top);
@@ -46,10 +46,11 @@ class BinaryInnerProductLayer : public Layer<Dtype> {
   Blob<Dtype> bias_multiplier_;
 
  private:
-  vector<binary_t> binary_w_, binary_in_, binary_g_;
+  vector<binary_t> binary_w_, binary_in_, mask_in_, binary_g_, mask_g_;
   vector<Dtype> scale_w_, scale_in_, scale_g_;
   vector<Dtype> bias_w_, bias_in_, bias_g_;
-  vector<Dtype> sum_w_, sum_in_, sum_g_;
+  vector<Dtype> sum_w_, sum_in_, sum2_in_, sum_g_, sum2_g_;
+  vector<Dtype> delta_in_, delta_g_;
   vector<shared_ptr<Blob<Dtype> > > aux_;
   Dtype min_, max_;
 };

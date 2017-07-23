@@ -158,14 +158,14 @@ void XnorNetInnerProductLayer<Dtype>::Backward_cpu(
     const Dtype* top_diff = top[0]->cpu_diff();
     // Gradient with respect to bottom data
     if (transpose_) {
-      caffe_cpu_binary_approx<Dtype>(0, N_, K_, this->blobs_[0]->cpu_data(),
+      caffe_cpu_binary_approx<Dtype>(1, K_, N_, this->blobs_[0]->cpu_data(),
           binary_weight_scale_, weight_temp_);
       caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasTrans,
           M_, K_, N_,
           (Dtype)1., top_diff, &weight_temp_[0],
           (Dtype)0., bottom[0]->mutable_cpu_diff());
     } else {
-      caffe_cpu_binary_approx<Dtype>(1, K_, N_, this->blobs_[0]->cpu_data(),
+      caffe_cpu_binary_approx<Dtype>(0, N_, K_, this->blobs_[0]->cpu_data(),
           binary_weight_scale_, weight_temp_);
       caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans,
           M_, K_, N_,
