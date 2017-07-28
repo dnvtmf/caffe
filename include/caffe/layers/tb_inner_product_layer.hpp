@@ -51,7 +51,7 @@ class TBInnerProductLayer : public Layer<Dtype> {
   vector<Dtype> bias_w_, bias_in_, bias_g_;
   vector<Dtype> sum_w_, sum_in_, sum2_in_, sum_g_, sum2_g_;
   vector<Dtype> delta_in_, delta_g_;
-  vector<shared_ptr<Blob<Dtype> > > aux_;
+//  vector<shared_ptr<Blob<Dtype> > > aux_;
   Dtype min_, max_;
 };
 
