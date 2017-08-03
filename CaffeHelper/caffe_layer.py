@@ -245,7 +245,7 @@ def XnorNetFC(data_in, name="bin_fc", num_output=None, bias_term=None, weight_fi
 
 
 def TBFC(data_in, name="tb_fc", num_output=None, bias_term=None, weight_filler=None, bias_filler=None, axis=None,
-         optional_params=None):
+         optional_params=None, full_train=False):
     """
     - num_output: [uint32] The number of outputs for the layer
     - bias_term: [bool][default = true] whether to have bias terms
@@ -276,7 +276,9 @@ def TBFC(data_in, name="tb_fc", num_output=None, bias_term=None, weight_filler=N
         bias_filler.set_name('bias_filler')
         fc_param.add_subparam(bias_filler)
     fc_param.add_param_if("axis", axis)
-
+    tb_param = Parameter('tb_param')
+    tb_param.add_param_if('full_train', full_train)
+    param.add_subparam(tb_param)
     _caffe_net.write_to_proto(param)
     return data_out
 
