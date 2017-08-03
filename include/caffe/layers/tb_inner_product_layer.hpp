@@ -52,6 +52,7 @@ class TBInnerProductLayer : public Layer<Dtype> {
   vector<Dtype> sum_w_, sum_in_, sum2_in_, sum_g_, sum2_g_;
   vector<Dtype> delta_in_, delta_g_;
 //  vector<shared_ptr<Blob<Dtype> > > aux_;
+  bool full_train_;
   Dtype min_, max_;
 };
 

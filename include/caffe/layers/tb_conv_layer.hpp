@@ -63,10 +63,12 @@ class TBConvolutionLayer : public Layer<Dtype> {
   void forward_cpu_binary_gemm(
     const Dtype* input, Dtype* output, bool skip_im2col = false);
   void forward_cpu_bias(Dtype* output, const Dtype* bias);
-  void backward_cpu_gemm(
+  void tb_backward_cpu_gemm(
     const Dtype* input, const Dtype* weights, Dtype* output);
-  void weight_cpu_gemm(
+  void tb_weight_cpu_gemm(
     const Dtype* input, const Dtype* output, Dtype* weights);
+  void backward_cpu_gemm(const Dtype* output, const Dtype* weights, Dtype* input);
+  void weight_cpu_gemm(const Dtype* input, const Dtype* output, Dtype* weights);
   void backward_cpu_bias(Dtype* bias, const Dtype* input);
   virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
                            const vector<Blob<Dtype>*>& top);
@@ -208,6 +210,7 @@ class TBConvolutionLayer : public Layer<Dtype> {
   vector<Dtype> sum2_in_, sum2_g_;
   bool skip_weight_binary_;
   vector<shared_ptr<Blob<Dtype>>> aux_;
+  bool full_train_;
 };
 
 }  // namespace caffe

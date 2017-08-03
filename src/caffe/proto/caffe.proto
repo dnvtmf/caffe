@@ -308,7 +308,7 @@ message ParamSpec {
 // NOTE
 // Update the next available ID when you add a new LayerParameter field.
 //
-// LayerParameter next available layer-specific ID: 148 (last added: bt_inner_product_param)
+// LayerParameter next available layer-specific ID: 148 (last added: tb_param)
 message LayerParameter {
   optional string name = 1; // the layer name
   optional string type = 2; // the layer type
@@ -364,7 +364,6 @@ message LayerParameter {
   optional ArgMaxParameter argmax_param = 103;
   optional BatchNormParameter batch_norm_param = 139;
   optional BiasParameter bias_param = 141;
-  optional BTInnerProductParameter bt_inner_product_param = 147;
   optional ConcatParameter concat_param = 104;
   optional ContrastiveLossParameter contrastive_loss_param = 105;
   optional ConvolutionParameter convolution_param = 106;
@@ -403,6 +402,7 @@ message LayerParameter {
   optional SPPParameter spp_param = 132;
   optional SliceParameter slice_param = 126;
   optional TanHParameter tanh_param = 127;
+  optional TBParameter tb_param = 147;
   optional ThresholdParameter threshold_param = 128;
   optional TileParameter tile_param = 138;
   optional WindowDataParameter window_data_param = 129;
@@ -1412,12 +1412,7 @@ message PReLUParameter {
   optional bool channel_shared = 2 [default = false];
 }
 
-message BTInnerProductParameter {
-  optional uint32 num_output = 1; // The number of outputs for the layer
-  optional bool bias_term = 2 [default = true]; // whether to have bias terms
-  optional FillerParameter weight_filler = 3; // The filler for the weight
-  optional FillerParameter bias_filler = 4; // The filler for the bias
-
-  optional int32 axis = 5 [default = 1]; // See InnerParameterParameter
+message TBParameter {
+  optional bool full_train = 1 [default = false]; // whether to have bias terms
 }
 

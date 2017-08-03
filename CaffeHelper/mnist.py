@@ -13,9 +13,9 @@ Data([], phase=TEST, source="../mnist_test_lmdb", batch_size=100, backend=Net.LM
 out = [data]
 label = [label]
 # fc = XnorNetFC
-# fc = TBFC
+fc = TBFC
 # fc = BinFC
-fc = FC
+# fc = FC
 conv = TBConv
 # conv = Conv
 # 32-C5 + MP2 + 64-C5 + MP2 + 512 FC + SVM
@@ -39,8 +39,8 @@ loss = SoftmaxWithLoss(out + label)
 # ---------- solver ----
 solver = Solver().net('./model.prototxt').CPU()
 solver.test(test_iter=100, test_interval=500, test_initialization=False)
-solver.train(base_lr=0.001, lr_policy='fixed', max_iter=1000)
-# solver.train(base_lr=0.001, lr_policy='step', gamma=0.1, stepsize=1000, max_iter=3000, weight_decay=1e-6)
+# solver.train(base_lr=0.001, lr_policy='fixed', max_iter=1000)
+solver.train(base_lr=0.001, lr_policy='step', gamma=0.1, stepsize=1000, max_iter=3000)
 solver.optimizer(type='SGD', momentum=0.9)
 # solver.optimizer(type='Adam')
 solver.display(display=100)

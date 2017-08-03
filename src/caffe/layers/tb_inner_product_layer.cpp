@@ -57,6 +57,7 @@ void TBInnerProductLayer<Dtype>::LayerSetUp(
     }
   }  // parameter initialization
   this->param_propagate_down_.resize(this->blobs_.size(), true);
+  full_train_ = this->layer_param_.tb_param().full_train();
 }
 
 template <typename Dtype>
@@ -123,19 +124,21 @@ void TBInnerProductLayer<Dtype>::Backward_cpu(
     auto bottom_data = bottom[0]->cpu_data();
     auto weight_diff = this->blobs_[0]->mutable_cpu_diff();
     // dW = In' x dO
-//    caffe_cpu_gemm<Dtype>(CblasTrans, CblasNoTrans, K_, N_, M_,
-//                          Dtype(1.), bottom_data, top_diff,
-//                          Dtype(0.), weight_diff);
-    CHECK_EQ(0, weight_diff[rand() % (K_ * N_)]);
-    caffe_cpu_ternary_norm<Dtype>(
-      1, M_, K_, bottom_data, binary_in_, mask_in_,
-      delta_in_, scale_in_, bias_in_, sum_in_, sum2_in_);
-    caffe_cpu_binary_norm<Dtype>(1, M_, N_, top_diff,
-                                 binary_g_, scale_g_, bias_g_, sum_g_);
-    caffe_cpu_tb_gemm<Dtype>(true, false, K_, N_, M_, binary_in_, mask_in_,
-                             scale_in_, bias_in_, sum_in_, sum2_in_,
-                             binary_g_, scale_g_, bias_g_, sum_g_,
-                             weight_diff);
+    if (full_train_) {
+      caffe_cpu_gemm<Dtype>(CblasTrans, CblasNoTrans, K_, N_, M_,
+                            Dtype(1.), bottom_data, top_diff,
+                            Dtype(0.), weight_diff);
+    }
+    else {
+      caffe_cpu_ternary_norm<Dtype>(
+        1, M_, K_, bottom_data, binary_in_, mask_in_,
+        delta_in_, scale_in_, bias_in_, sum_in_, sum2_in_);
+      caffe_cpu_binary_norm<Dtype>(1, M_, N_, top_diff,
+                                   binary_g_, scale_g_, bias_g_, sum_g_);
+      caffe_cpu_tb_gemm<Dtype>(true, false, K_, N_, M_, binary_in_, mask_in_,
+                               scale_in_, bias_in_, sum_in_, sum2_in_,
+                               binary_g_, scale_g_, bias_g_, sum_g_,
+                               weight_diff);
 //    caffe_cpu_binary_norm<Dtype>(1, M_, K_, bottom_data,
 //                                 binary_in_, scale_in_, bias_in_, sum_in_);
 //    caffe_cpu_binary_norm<Dtype>(1, M_, N_, top_diff,
@@ -144,6 +147,7 @@ void TBInnerProductLayer<Dtype>::Backward_cpu(
 //                                 binary_in_, scale_in_, bias_in_, sum_in_,
 //                                 binary_g_, scale_g_, bias_g_, sum_g_,
 //                                 weight_diff);
+    }
   }
   if (bias_term_ && this->param_propagate_down_[1]) {
     const Dtype* top_diff = top[0]->cpu_diff();
@@ -158,18 +162,21 @@ void TBInnerProductLayer<Dtype>::Backward_cpu(
     const Dtype* weight   = this->blobs_[0]->cpu_data();
     Dtype* in_diff        = bottom[0]->mutable_cpu_diff();
     // dIn = dO x W'
-//    caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasTrans, M_, K_, N_,
-//                          Dtype(1.), top_diff, weight,
-//                          Dtype(0.), in_diff);
-    caffe_cpu_ternary_norm<Dtype>(0, M_, N_, top_diff, binary_g_,
-                                  mask_g_, delta_g_, scale_g_, bias_g_,
-                                  sum_g_, sum2_g_);
-    caffe_cpu_binary_norm<Dtype>(0, K_, N_, weight,
-                                 binary_w_, scale_w_, bias_w_, sum_w_);
-    caffe_cpu_tb_gemm<Dtype>(false, true, M_, K_, N_, binary_g_, mask_g_,
-                             scale_g_, bias_g_, sum_g_, sum2_g_,
-                             binary_w_, scale_w_, bias_w_, sum_w_,
-                             in_diff);
+    if (full_train_) {
+      caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasTrans, M_, K_, N_,
+                            Dtype(1.), top_diff, weight,
+                            Dtype(0.), in_diff);
+    }
+    else {
+      caffe_cpu_ternary_norm<Dtype>(0, M_, N_, top_diff, binary_g_,
+                                    mask_g_, delta_g_, scale_g_, bias_g_,
+                                    sum_g_, sum2_g_);
+      caffe_cpu_binary_norm<Dtype>(0, K_, N_, weight,
+                                   binary_w_, scale_w_, bias_w_, sum_w_);
+      caffe_cpu_tb_gemm<Dtype>(false, true, M_, K_, N_, binary_g_, mask_g_,
+                               scale_g_, bias_g_, sum_g_, sum2_g_,
+                               binary_w_, scale_w_, bias_w_, sum_w_,
+                               in_diff);
 //    caffe_cpu_binary_norm<Dtype>(0, M_, N_, top[0]->cpu_diff(),
 //                                 binary_g_, scale_g_, bias_g_, sum_g_);
 //    caffe_cpu_binary_norm<Dtype>(0, K_, N_, this->blobs_[0]->cpu_data(),
@@ -178,6 +185,7 @@ void TBInnerProductLayer<Dtype>::Backward_cpu(
 //                                 binary_g_, scale_g_, bias_g_, sum_g_,
 //                                 binary_w_, scale_w_, bias_w_, sum_w_,
 //                                 bottom[0]->mutable_cpu_diff());
+    }
   }
 }
 

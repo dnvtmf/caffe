@@ -189,6 +189,7 @@ void TBConvolutionLayer<Dtype>::LayerSetUp(
   weight_offset_ = conv_out_channels_ * kernel_dim_ / group_;
   // Propagate gradients to the parameters (as directed by backward pass).
   this->param_propagate_down_.resize(this->blobs_.size(), true);
+  full_train_ = this->layer_param_.tb_param().full_train();
 }
 
 template <typename Dtype>
@@ -303,7 +304,7 @@ void TBConvolutionLayer<Dtype>::forward_cpu_bias(Dtype* output,
 }
 
 template <typename Dtype>
-void TBConvolutionLayer<Dtype>::backward_cpu_gemm(const Dtype* output,
+void TBConvolutionLayer<Dtype>::tb_backward_cpu_gemm(const Dtype* output,
     const Dtype* weights, Dtype* input) {
   Dtype* col_buff = col_buffer_.mutable_cpu_data();
   if (is_1x1_) {
@@ -337,7 +338,7 @@ void TBConvolutionLayer<Dtype>::backward_cpu_gemm(const Dtype* output,
 }
 
 template <typename Dtype>
-void TBConvolutionLayer<Dtype>::weight_cpu_gemm(const Dtype* input,
+void TBConvolutionLayer<Dtype>::tb_weight_cpu_gemm(const Dtype* input,
     const Dtype* output, Dtype* weights) {
   const Dtype* col_buff = input;
   if (!is_1x1_) {
@@ -425,20 +426,73 @@ void TBConvolutionLayer<Dtype>::Backward_cpu(
         this->backward_cpu_bias(bias_diff, top_diff + n * this->top_dim_);
       }
     }
-    // gradient w.r.t. weight. Note that we will accumulate diffs.
-    if (this->param_propagate_down_[0]) {
-      for (int n = 0; n < this->num_; ++n) {
-        this->weight_cpu_gemm(bottom_data + n * this->bottom_dim_,
-                              top_diff + n * this->top_dim_, weight_diff);
+    if (full_train_) {
+      if (this->param_propagate_down_[0] || propagate_down[i]) {
+        for (int n = 0; n < this->num_; ++n) {
+          // gradient w.r.t. weight. Note that we will accumulate diffs.
+          if (this->param_propagate_down_[0]) {
+            this->weight_cpu_gemm(bottom_data + n * this->bottom_dim_,
+                                  top_diff + n * this->top_dim_, weight_diff);
+          }
+          // gradient w.r.t. bottom data, if necessary.
+          if (propagate_down[i]) {
+            this->backward_cpu_gemm(top_diff + n * this->top_dim_, weight,
+                                    bottom_diff + n * this->bottom_dim_);
+          }
+        }
       }
     }
-    // gradient w.r.t. bottom data, if necessary.
-    if (propagate_down[i]) {
-      for (int n = 0; n < this->num_; ++n) {
-        this->backward_cpu_gemm(top_diff + n * this->top_dim_, weight,
-                                bottom_diff + n * this->bottom_dim_);
+    else {
+      // gradient w.r.t. weight. Note that we will accumulate diffs.
+      if (this->param_propagate_down_[0]) {
+        for (int n = 0; n < this->num_; ++n) {
+          this->tb_weight_cpu_gemm(bottom_data + n * this->bottom_dim_,
+                                   top_diff + n * this->top_dim_, weight_diff);
+        }
+      }
+      // gradient w.r.t. bottom data, if necessary.
+      if (propagate_down[i]) {
+        for (int n = 0; n < this->num_; ++n) {
+          this->tb_backward_cpu_gemm(top_diff + n * this->top_dim_, weight,
+                                     bottom_diff + n * this->bottom_dim_);
+        }
       }
     }
+  }
+}
+
+
+template <typename Dtype>
+void TBConvolutionLayer<Dtype>::backward_cpu_gemm(const Dtype* output,
+    const Dtype* weights, Dtype* input) {
+  Dtype* col_buff = col_buffer_.mutable_cpu_data();
+  if (is_1x1_) {
+    col_buff = input;
+  }
+  for (int g = 0; g < group_; ++g) {
+    caffe_cpu_gemm<Dtype>(CblasTrans, CblasNoTrans, kernel_dim_,
+                          conv_out_spatial_dim_, conv_out_channels_ / group_,
+                          (Dtype)1., weights + weight_offset_ * g, output + output_offset_ * g,
+                          (Dtype)0., col_buff + col_offset_ * g);
+  }
+  if (!is_1x1_) {
+    conv_col2im_cpu(col_buff, input);
+  }
+}
+
+template <typename Dtype>
+void TBConvolutionLayer<Dtype>::weight_cpu_gemm(const Dtype* input,
+    const Dtype* output, Dtype* weights) {
+  const Dtype* col_buff = input;
+  if (!is_1x1_) {
+    conv_im2col_cpu(input, col_buffer_.mutable_cpu_data());
+    col_buff = col_buffer_.cpu_data();
+  }
+  for (int g = 0; g < group_; ++g) {
+    caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasTrans, conv_out_channels_ / group_,
+                          kernel_dim_, conv_out_spatial_dim_,
+                          (Dtype)1., output + output_offset_ * g, col_buff + col_offset_ * g,
+                          (Dtype)1., weights + weight_offset_ * g);
   }
 }
 /*
