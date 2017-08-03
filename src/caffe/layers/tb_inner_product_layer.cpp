@@ -8,7 +8,7 @@ namespace caffe {
 
 template <typename Dtype>
 void TBInnerProductLayer<Dtype>::LayerSetUp(
-  const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
+  const vector<Blob<Dtype>*> &bottom, const vector<Blob<Dtype>*> &top) {
   auto &params = this->layer_param_.inner_product_param();
   const int num_output = params.num_output();
   bias_term_ = params.bias_term();
@@ -62,7 +62,7 @@ void TBInnerProductLayer<Dtype>::LayerSetUp(
 
 template <typename Dtype>
 void TBInnerProductLayer<Dtype>::Reshape(
-  const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
+  const vector<Blob<Dtype>*> &bottom, const vector<Blob<Dtype>*> &top) {
   // Figure out the dimensions
   const int axis = bottom[0]->CanonicalAxisIndex(
                      this->layer_param_.inner_product_param().axis());
@@ -89,15 +89,15 @@ void TBInnerProductLayer<Dtype>::Reshape(
 
 template <typename Dtype>
 void TBInnerProductLayer<Dtype>::Forward_cpu(
-  const vector<Blob<Dtype>*>&bottom, const vector<Blob<Dtype>*>& top) {
+  const vector<Blob<Dtype>*> &bottom, const vector<Blob<Dtype>*> &top) {
 //  Dtype* pw = this->blobs_[0]->mutable_cpu_data();
 //  for (int i = 0; i < K_ * N_; ++i) {
 //    *pw = std::max(std::min(max_, *pw), min_);
 //    ++pw;
 //  }
-  const Dtype* weight      = this->blobs_[0]->cpu_data();
-  const Dtype* bottom_data = bottom[0]->cpu_data();
-  Dtype* top_data          = top[0]->mutable_cpu_data();
+  const Dtype *weight      = this->blobs_[0]->cpu_data();
+  const Dtype *bottom_data = bottom[0]->cpu_data();
+  Dtype *top_data          = top[0]->mutable_cpu_data();
   caffe_cpu_ternary_norm<Dtype>(
     0, M_, K_, bottom_data, binary_in_, mask_in_,
     delta_in_, scale_in_, bias_in_, sum_in_, sum2_in_);
@@ -117,8 +117,8 @@ void TBInnerProductLayer<Dtype>::Forward_cpu(
 
 template <typename Dtype>
 void TBInnerProductLayer<Dtype>::Backward_cpu(
-  const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
-  const vector<Blob<Dtype>*>& bottom) {
+  const vector<Blob<Dtype>*> &top, const vector<bool> &propagate_down,
+  const vector<Blob<Dtype>*> &bottom) {
   if (this->param_propagate_down_[0]) {
     auto top_diff    = top[0]->cpu_diff();
     auto bottom_data = bottom[0]->cpu_data();
@@ -150,7 +150,7 @@ void TBInnerProductLayer<Dtype>::Backward_cpu(
     }
   }
   if (bias_term_ && this->param_propagate_down_[1]) {
-    const Dtype* top_diff = top[0]->cpu_diff();
+    const Dtype *top_diff = top[0]->cpu_diff();
     // Gradient with respect to bias
     caffe_cpu_gemv<Dtype>(CblasTrans, M_, N_, (Dtype)1., top_diff,
                           bias_multiplier_.cpu_data(), (Dtype)1.,
@@ -158,9 +158,9 @@ void TBInnerProductLayer<Dtype>::Backward_cpu(
   }
   if (propagate_down[0]) {
     // Gradient with respect to bottom data
-    const Dtype* top_diff = top[0]->cpu_diff();
-    const Dtype* weight   = this->blobs_[0]->cpu_data();
-    Dtype* in_diff        = bottom[0]->mutable_cpu_diff();
+    const Dtype *top_diff = top[0]->cpu_diff();
+    const Dtype *weight   = this->blobs_[0]->cpu_data();
+    Dtype *in_diff        = bottom[0]->mutable_cpu_diff();
     // dIn = dO x W'
     if (full_train_) {
       caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasTrans, M_, K_, N_,
