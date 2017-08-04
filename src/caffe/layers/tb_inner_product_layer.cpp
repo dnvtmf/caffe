@@ -103,10 +103,12 @@ void TBInnerProductLayer<Dtype>::Forward_cpu(
     delta_in_, scale_in_, bias_in_, sum_in_, sum2_in_);
   caffe_cpu_binary_norm<Dtype>(1, K_, N_, weight,
                                binary_w_, scale_w_, bias_w_, sum_w_);
-  caffe_cpu_binary_restore<Dtype>(1, K_, N_, binary_w_, scale_w_, bias_w_,
-                                  this->blobs_[0]->mutable_cpu_data());
+  /*
   caffe_cpu_ternary_restore<Dtype>(0, M_, K_, binary_in_, mask_in_, scale_in_,
                                    bias_in_, bottom[0]->mutable_cpu_data());
+  caffe_cpu_binary_restore<Dtype>(1, K_, N_, binary_w_, scale_w_, bias_w_,
+                                  this->blobs_[0]->mutable_cpu_data());
+  */                                 
   caffe_cpu_tb_gemm<Dtype>(
     false, false, M_, N_, K_,
     binary_in_, mask_in_, scale_in_, bias_in_, sum_in_, sum2_in_,

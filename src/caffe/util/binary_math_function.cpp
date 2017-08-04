@@ -969,16 +969,16 @@ void caffe_cpu_binary_restore(
     const int BN = (N - 1) / BINARY_SIZE + 1;
     CHECK_EQ(code.size(), M * BN);
     CHECK_EQ(scale.size(), M);
-    CHECK_EQ(bais.size(), M);
+    CHECK_EQ(bias.size(), M);
     auto it = code.begin();
     Dtype *p = out;
     for (int i = 0; i < M; ++i) {
       for (int j = 0; j < N; ++it) {
-        for (int k = 0; k < BINARY_SIZE && j < N; ++j, ++k) {
+        for (int k = 0; k < BINARY_SIZE && j < N; ++j, ++k, ++p) {
           if (*it & (1 << k))
-            *p++ = scale[i] + bias[i];
+            *p = scale[i] + bias[i];
           else
-            *p++ = -scale[i] + bias[i];
+            *p = -scale[i] + bias[i];
         }
       }
     }
@@ -1009,7 +1009,7 @@ void caffe_cpu_binary_restore(
 template<typename Dtype>
 void caffe_cpu_ternary_restore(
   const int axis, const int M, const int N,
-  const vector<binary_t> &code, const vector<Dtype> &mask,
+  const vector<binary_t> &code, const vector<binary_t> &mask,
   const vector<Dtype> &scale, const vector<Dtype> &bias, Dtype *out) {
   if (axis == 0) {
     const int BN = (N - 1) / BINARY_SIZE + 1;
@@ -1021,7 +1021,7 @@ void caffe_cpu_ternary_restore(
     auto it_mask = mask.begin();
     auto p = out;
     for (int i = 0; i < M; ++i) {
-      for (int j = j; j < N;) {
+      for (int j = 0; j < N;) {
         for (int k = 0; k < BINARY_SIZE && j < N; ++j, ++k, ++p) {
           if (*it_mask & (1 << k)) {
             if (*it_code & (1 << k))
@@ -1144,7 +1144,7 @@ template void caffe_cpu_binary_restore<Dtype>( \
   const vector<Dtype> &bias, Dtype *out); \
 template void caffe_cpu_ternary_restore<Dtype>( \
   const int axis, const int M, const int N, \
-  const vector<binary_t> &code, const vector<Dtype> &mask, \
+  const vector<binary_t> &code, const vector<binary_t> &mask, \
   const vector<Dtype> &scale, const vector<Dtype> &bias, Dtype *out);
 INSTANTIATE_BINARY_MATH(float);
 INSTANTIATE_BINARY_MATH(double);
