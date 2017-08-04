@@ -9,9 +9,9 @@ filler_xavier = Filler('xavier')
 filler_uniform = Filler('uniform', min=-0.1, max=0.1)
 filler_constant = Filler('constant')
 data, label = Data([], phase=TRAIN, source="../cifar10_train_lmdb", batch_size=batch_size, backend=Net.LMDB,
-                   optional_params=[Transform(mean_file="mean.binaryproto")])
+                   optional_params=[Transform(mean_file="../mean.binaryproto")])
 Data([], phase=TEST, source="../cifar10_test_lmdb", batch_size=100, backend=Net.LMDB,
-     optional_params=[Transform(mean_file="mean.binaryproto")])
+     optional_params=[Transform(mean_file="../mean.binaryproto")])
 out = [data]
 label = [label]
 # fc = XnorNetFC
