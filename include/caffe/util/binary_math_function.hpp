@@ -143,5 +143,17 @@ void caffe_cpu_bt_gemm(
   const vector<Dtype> &B_scale, const vector<Dtype> &B_bias,
   const vector<Dtype> &B_sum1, const vector<Dtype> &B_sum2,
   Dtype *C);
+
+template<typename Dtype>
+void caffe_cpu_binary_restore(
+  const int axis, const int M, const int N,
+  const vector<binary_t> &code, const vector<Dtype> &scale,
+  const vector<Dtype> &bias, Dtype *out);
+
+template<typename Dtype>
+void caffe_cpu_ternary_restore(
+  const int axis, const int M, const int N,
+  const vector<binary_t> &code, const vector<Dtype> &mask,
+  const vector<Dtype> &scale, const vector<Dtype> &bias, Dtype *out);
 }
 #endif // CAFFE_UTIL_BINARY_MATH_FUNCTION_HPP_
