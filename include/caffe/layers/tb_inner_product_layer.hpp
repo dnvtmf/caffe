@@ -49,6 +49,7 @@ private:
   int BM_;
   int BK_;
   int BN_;
+  bool tb_use_bias_;
   vector<Btype> binary_w_, binary_in_, binary_g_;
   vector<Btype>            mask_in_,   mask_g_;
   vector<Dtype> scale_w_,  scale_in_,  scale_g_;

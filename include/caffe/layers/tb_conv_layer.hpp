@@ -213,6 +213,7 @@ class TBConvolutionLayer : public Layer<Dtype> {
   bool skip_weight_binary_;
   vector<shared_ptr<Blob<Dtype>>> aux_;
   bool full_train_;
+  bool tb_use_bias_;
 };
 
 }  // namespace caffe

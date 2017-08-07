@@ -279,7 +279,11 @@ void caffe_cpu_ternary(
 template<typename Dtype>
 void caffe_cpu_binary_norm(
   const int axis, const int M, const int N, const Dtype *in,
-  Btype *code, Dtype *scale, Dtype *bias, Dtype *sum) {
+  Btype *code, Dtype *scale, Dtype *bias, Dtype *sum, const bool use_bias) {
+  if(!use_bias) {
+    caffe_cpu_binary<Dtype>(axis, M, N, in, code, scale);
+    return ;
+  }
   if (axis == 0) {
     int BN = (N - 1) / BINARY_SIZE + 1;
     memset(code,  0, sizeof(Btype) * M * BN);
@@ -374,7 +378,11 @@ template<typename Dtype>
 void caffe_cpu_ternary_norm(
   const int axis, const int M, const int N, const Dtype *in,
   Btype *code, Btype *mask, Dtype *delta, Dtype *scale,
-  Dtype *bias, Dtype *sum,  Dtype *sum2)  {
+  Dtype *bias, Dtype *sum,  Dtype *sum2, const bool use_bias)  {
+  if(!use_bias) {
+    caffe_cpu_ternary<Dtype>(axis, M, N, in, code, mask, delta[0], scale, sum2);
+    return ;
+  }
   if (axis == 0) {
     const int BN = (N - 1) / BINARY_SIZE + 1;
     memset(code,  0, sizeof(Btype) * M * BN);
@@ -945,12 +953,12 @@ template void caffe_cpu_ternary<Dtype>( \
  \
 template void caffe_cpu_binary_norm<Dtype>( \
   const int axis, const int M, const int N, const Dtype *in, \
-  Btype *code, Dtype *scale, Dtype *bias, Dtype *sum); \
+  Btype *code, Dtype *scale, Dtype *bias, Dtype *sum, const bool use_bias); \
  \
 template void caffe_cpu_ternary_norm<Dtype>( \
   const int axis, const int M, const int N, const Dtype *in, \
   Btype *code, Btype *mask, Dtype *delta, Dtype *scale, \
-  Dtype *bias, Dtype *sum,  Dtype *sum2); \
+  Dtype *bias, Dtype *sum,  Dtype *sum2, const bool use_bias); \
  \
 template void caffe_cpu_binary_norm_gradient<Dtype>( \
   const int axis, const int M, const int N, const Dtype *In, \

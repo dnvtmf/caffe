@@ -130,8 +130,7 @@ def Layer(name, layer_type, data_in=None, data_out=None, optional_params=None):
 
 
 def FC(data_in, name="fc", num_output=None, bias_term=None, weight_filler=None, bias_filler=None, axis=None,
-       transpose=None,
-       optional_params=None):
+       transpose=None, optional_params=None, full_train=False, use_bias=True):
     """
     - num_output: [uint32] The number of outputs for the layer
     - bias_term: [bool][default = true] whether to have bias terms
@@ -245,7 +244,7 @@ def XnorNetFC(data_in, name="bin_fc", num_output=None, bias_term=None, weight_fi
 
 
 def TBFC(data_in, name="tb_fc", num_output=None, bias_term=None, weight_filler=None, bias_filler=None, axis=None,
-         optional_params=None, full_train=False):
+         optional_params=None, full_train=False, use_bias=True):
     """
     - num_output: [uint32] The number of outputs for the layer
     - bias_term: [bool][default = true] whether to have bias terms
@@ -278,6 +277,7 @@ def TBFC(data_in, name="tb_fc", num_output=None, bias_term=None, weight_filler=N
     fc_param.add_param_if("axis", axis)
     tb_param = Parameter('tb_param')
     tb_param.add_param_if('full_train', full_train)
+    tb_param.add_param_if('use_bias', use_bias)
     param.add_subparam(tb_param)
     _caffe_net.write_to_proto(param)
     return data_out
@@ -639,7 +639,8 @@ def Transform(scale=None, mirror=None, crop_size=None, mean_file=None, mean_valu
 
 def Conv(data_in, name="conv", num_output=None, bias_term=None, pad=None, kernel_size=None, group=None, stride=None,
          weight_filler=None, bias_filler=None, pad_h=None, pad_w=None, kernel_h=None, kernel_w=None, stride_h=None,
-         stride_w=None, axis=None, force_nd_im2col=None, dilation=None, optional_params=None):
+         stride_w=None, axis=None, force_nd_im2col=None, dilation=None, optional_params=None,
+           full_train=False, use_bias=True):
     """
     message ConvolutionParameter {
         optional uint32 num_output = 1; // The number of outputs for the layer
@@ -728,7 +729,7 @@ def Conv(data_in, name="conv", num_output=None, bias_term=None, pad=None, kernel
 def TBConv(data_in, name="tb_conv", num_output=None, bias_term=None, pad=None, kernel_size=None, group=None,
            stride=None, weight_filler=None, bias_filler=None, pad_h=None, pad_w=None, kernel_h=None, kernel_w=None,
            stride_h=None, stride_w=None, axis=None, force_nd_im2col=None, dilation=None, optional_params=None,
-           full_train=False):
+           full_train=False, use_bias=True):
     """
     message ConvolutionParameter {
         optional uint32 num_output = 1; // The number of outputs for the layer
@@ -811,6 +812,7 @@ def TBConv(data_in, name="tb_conv", num_output=None, bias_term=None, pad=None, k
     convolution_param.add_param_if("dilation", dilation)
     tb_param = Parameter('tb_param')
     tb_param.add_param_if('full_train', full_train)
+    tb_param.add_param_if('use_bias', use_bias)
     param.add_subparam(tb_param)
     _caffe_net.write_to_proto(param)
 

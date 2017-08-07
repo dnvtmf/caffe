@@ -64,7 +64,8 @@ void TBInnerProductLayer<Dtype>::LayerSetUp(
     }
   }  // parameter initialization
   this->param_propagate_down_.resize(this->blobs_.size(), true);
-  full_train_ = this->layer_param_.tb_param().full_train();
+  full_train_  = this->layer_param_.tb_param().full_train();
+  tb_use_bias_ = this->layer_param_.tb_param().add_bias();
 }
 
 template <typename Dtype>
@@ -123,10 +124,10 @@ void TBInnerProductLayer<Dtype>::Forward_cpu(
   caffe_cpu_ternary_norm<Dtype>(
     0, M_, K_, bottom_data, binary_in_.data(), mask_in_.data(),
     delta_in_.data(), scale_in_.data(), bias_in_.data(),
-    sum_in_.data(), sum2_in_.data());
+    sum_in_.data(), sum2_in_.data(), tb_use_bias_);
   caffe_cpu_binary_norm<Dtype>(
-    1, K_, N_, weight,
-    binary_w_.data(), scale_w_.data(), bias_w_.data(), sum_w_.data());
+    1, K_, N_, weight, binary_w_.data(), scale_w_.data(),
+    bias_w_.data(), sum_w_.data(), tb_use_bias_);
   /*
   caffe_cpu_ternary_restore<Dtype>(0, M_, K_, binary_in_, mask_in_, scale_in_,
                                    bias_in_, bottom[0]->mutable_cpu_data());
@@ -136,8 +137,8 @@ void TBInnerProductLayer<Dtype>::Forward_cpu(
   caffe_cpu_tb_gemm<Dtype>(
     false, false, M_, N_, K_,
     binary_in_.data(), mask_in_.data(), scale_in_.data(), sum2_in_.data(),
-    binary_w_.data(), scale_w_.data(), top_data,
-    true, bias_in_.data(), sum_in_.data(), bias_w_.data(), sum_w_.data());
+    binary_w_.data(), scale_w_.data(), top_data, tb_use_bias_,
+    bias_in_.data(), sum_in_.data(), bias_w_.data(), sum_w_.data());
   if (bias_term_) {
     caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, M_, N_, 1, (Dtype)1.,
                           bias_multiplier_.cpu_data(),
@@ -163,15 +164,15 @@ void TBInnerProductLayer<Dtype>::Backward_cpu(
       caffe_cpu_ternary_norm<Dtype>(
         1, M_, K_, bottom_data, binary_in_.data(), mask_in_.data(),
         delta_in_.data(), scale_in_.data(), bias_in_.data(),
-        sum_in_.data(), sum2_in_.data());
+        sum_in_.data(), sum2_in_.data(), tb_use_bias_);
       caffe_cpu_binary_norm<Dtype>(
-        1, M_, N_, top_diff,
-        binary_g_.data(), scale_g_.data(), bias_g_.data(), sum_g_.data());
+        1, M_, N_, top_diff, binary_g_.data(), scale_g_.data(),
+        bias_g_.data(), sum_g_.data(), tb_use_bias_);
       caffe_cpu_tb_gemm<Dtype>(
         true, false, K_, N_, M_,
         binary_in_.data(), mask_in_.data(), scale_in_.data(), sum2_in_.data(),
-        binary_g_.data(), scale_g_.data(), weight_diff,
-        true, bias_in_.data(), sum_in_.data(), bias_g_.data(), sum_g_.data());
+        binary_g_.data(), scale_g_.data(), weight_diff, tb_use_bias_,
+        bias_in_.data(), sum_in_.data(), bias_g_.data(), sum_g_.data());
 //    caffe_cpu_binary_norm<Dtype>(1, M_, K_, bottom_data,
 //                                 binary_in_, scale_in_, bias_in_, sum_in_);
 //    caffe_cpu_binary_norm<Dtype>(1, M_, N_, top_diff,
@@ -204,15 +205,15 @@ void TBInnerProductLayer<Dtype>::Backward_cpu(
       caffe_cpu_ternary_norm<Dtype>(
         0, M_, N_, top_diff, binary_g_.data(),
         mask_g_.data(), delta_g_.data(), scale_g_.data(), bias_g_.data(),
-        sum_g_.data(), sum2_g_.data());
+        sum_g_.data(), sum2_g_.data(), tb_use_bias_);
       caffe_cpu_binary_norm<Dtype>(
-        0, K_, N_, weight,
-        binary_w_.data(), scale_w_.data(), bias_w_.data(), sum_w_.data());
+        0, K_, N_, weight, binary_w_.data(), scale_w_.data(), bias_w_.data(),
+        sum_w_.data(), tb_use_bias_);
       caffe_cpu_tb_gemm<Dtype>(
         false, true, M_, K_, N_,
         binary_g_.data(), mask_g_.data(), scale_g_.data(), sum2_g_.data(),
-        binary_w_.data(), scale_w_.data(), in_diff,
-        true, bias_g_.data(), sum_g_.data(), bias_w_.data(), sum_w_.data());
+        binary_w_.data(), scale_w_.data(), in_diff, tb_use_bias_,
+        bias_g_.data(), sum_g_.data(), bias_w_.data(), sum_w_.data());
 //    caffe_cpu_binary_norm<Dtype>(0, M_, N_, top[0]->cpu_diff(),
 //                                 binary_g_, scale_g_, bias_g_, sum_g_);
 //    caffe_cpu_binary_norm<Dtype>(0, K_, N_, this->blobs_[0]->cpu_data(),

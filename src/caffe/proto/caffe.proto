@@ -1413,6 +1413,7 @@ message PReLUParameter {
 }
 
 message TBParameter {
-  optional bool full_train = 1 [default = false]; // whether to have bias terms
+  optional bool full_train = 1 [default = false];
+  optional bool use_bias = 1 [default = true];
 }
 
