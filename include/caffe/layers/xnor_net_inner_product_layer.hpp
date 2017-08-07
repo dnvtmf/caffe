@@ -23,7 +23,7 @@ class XnorNetInnerProductLayer : public Layer<Dtype> {
   virtual void Reshape(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top);
 
-  virtual inline const char* type() const { return "BinaryInnerProduct"; }
+  virtual inline const char* type() const { return "XnorInnerProduct"; }
   virtual inline int ExactNumBottomBlobs() const { return 1; }
   virtual inline int ExactNumTopBlobs() const { return 1; }
 
@@ -48,9 +48,9 @@ class XnorNetInnerProductLayer : public Layer<Dtype> {
 
  private:
   int binary_K_;
-  vector<binary_t> binary_weight_;
+  vector<Btype> binary_weight_;
   vector<Dtype> binary_weight_scale_;
-  vector<binary_t> binary_input_;
+  vector<Btype> binary_input_;
   vector<Dtype> binary_input_scale_;
   vector<Dtype> input_temp_;
   vector<Dtype> weight_temp_;

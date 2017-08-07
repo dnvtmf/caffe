@@ -34,6 +34,13 @@ void BinaryInnerProductLayer<Dtype>::LayerSetUp(
     weight_shape[0] = K_;
     weight_shape[1] = N_;
     this->blobs_[0].reset(new Blob<Dtype>(weight_shape));
+    // Initialize the vectors
+    BN_ = (N_ - 1) / BINARY_SIZE + 1;
+    BK_ = (K_ - 1) / BINARY_SIZE + 1;
+    binary_w_.resize(max(BN_ * K_, N_ * BK_));
+    scale_w_ .resize(max(K_, N_));
+    bias_w_  .resize(max(K_, N_));
+    sum_w_   .resize(max(K_, N_));
     this->aux_.resize(1);
     this->aux_[0].reset(new Blob<Dtype>(weight_shape));
     // fill the weights
@@ -83,6 +90,15 @@ void BinaryInnerProductLayer<Dtype>::Reshape(
     bias_multiplier_.Reshape(bias_shape);
     caffe_set(M_, Dtype(1), bias_multiplier_.mutable_cpu_data());
   }
+  BM_ = (M_ - 1) / BINARY_SIZE + 1;
+  binary_in_.resize(max(M_ * BK_, K_ * BM_));
+  scale_in_ .resize(max(M_, K_));
+  bias_in_  .resize(max(M_, K_));
+  sum_in_   .resize(max(M_, K_));
+  binary_g_ .resize(max(M_ * BN_, N_ * BM_));
+  scale_g_  .resize(max(M_, N_));
+  bias_g_   .resize(max(M_, N_));
+  sum_g_    .resize(max(M_, N_));
 }
 
 template <typename Dtype>
@@ -100,14 +116,14 @@ void BinaryInnerProductLayer<Dtype>::Forward_cpu(
 //  caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans,
 //                        M_, N_, K_, (Dtype)1.,
 //                        bottom_data, weight, (Dtype)0., aux_data);
-  caffe_cpu_binary_norm<Dtype>(0, M_, K_, bottom_data,
-                               binary_in_, scale_in_, bias_in_, sum_in_);
-  caffe_cpu_binary_norm<Dtype>(1, K_, N_, weight,
-                               binary_w_, scale_w_, bias_w_, sum_w_);
-  caffe_cpu_binary_gemm<Dtype>(false, false, M_, N_, K_,
-                               binary_in_, scale_in_, bias_in_, sum_in_,
-                               binary_w_, scale_w_, bias_w_, sum_w_,
-                               top_data);
+//  caffe_cpu_binary_norm<Dtype>(0, M_, K_, bottom_data,
+//                               binary_in_, scale_in_, bias_in_, sum_in_);
+//  caffe_cpu_binary_norm<Dtype>(1, K_, N_, weight,
+//                               binary_w_, scale_w_, bias_w_, sum_w_);
+//  caffe_cpu_binary_gemm<Dtype>(false, false, M_, N_, K_,
+//                               binary_in_, scale_in_, bias_in_, sum_in_,
+//                               binary_w_, scale_w_, bias_w_, sum_w_,
+//                               top_data);
 //  FILE *flog = fopen("log.csv", "a");
 //  Dtype mi = 1e60, mx = -1e60;
 //  double sum = 0;
@@ -151,14 +167,14 @@ void BinaryInnerProductLayer<Dtype>::Backward_cpu(
     auto bottom_data = bottom[0]->cpu_data();
     auto weight_diff = this->blobs_[0]->mutable_cpu_diff();
     // dW = In' x dO
-    caffe_cpu_binary_norm<Dtype>(1, M_, K_, bottom_data,
-                                 binary_in_, scale_in_, bias_in_, sum_in_);
-    caffe_cpu_binary_norm<Dtype>(1, M_, N_, top_diff,
-                                 binary_g_, scale_g_, bias_g_, sum_g_);
-    caffe_cpu_binary_gemm<Dtype>(true, false, K_, N_, M_,
-                                 binary_in_, scale_in_, bias_in_, sum_in_,
-                                 binary_g_, scale_g_, bias_g_, sum_g_,
-                                 weight_diff);
+//    caffe_cpu_binary_norm<Dtype>(1, M_, K_, bottom_data,
+//                                 binary_in_, scale_in_, bias_in_, sum_in_);
+//    caffe_cpu_binary_norm<Dtype>(1, M_, N_, top_diff,
+//                                 binary_g_, scale_g_, bias_g_, sum_g_);
+//    caffe_cpu_binary_gemm<Dtype>(true, false, K_, N_, M_,
+//                                 binary_in_, scale_in_, bias_in_, sum_in_,
+//                                 binary_g_, scale_g_, bias_g_, sum_g_,
+//                                 weight_diff);
 //    caffe_cpu_binary_norm<Dtype>(1, K_, N_, this->blobs_[0]->cpu_data(),
 //                                 binary_w_, scale_w_, bias_w_, sum_w_);
 //    caffe_cpu_binary_norm_gradient<Dtype>(
@@ -189,14 +205,14 @@ void BinaryInnerProductLayer<Dtype>::Backward_cpu(
   if (propagate_down[0]) {
     // Gradient with respect to bottom data
     // dIn = dO x W'
-    caffe_cpu_binary_norm<Dtype>(0, M_, N_, top[0]->cpu_diff(),
-                                 binary_g_, scale_g_, bias_g_, sum_g_);
-    caffe_cpu_binary_norm<Dtype>(0, K_, N_, this->blobs_[0]->cpu_data(),
-                                 binary_w_, scale_w_, bias_w_, sum_w_);
-    caffe_cpu_binary_gemm<Dtype>(false, true, M_, K_, N_,
-                                 binary_g_, scale_g_, bias_g_, sum_g_,
-                                 binary_w_, scale_w_, bias_w_, sum_w_,
-                                 bottom[0]->mutable_cpu_diff());
+//    caffe_cpu_binary_norm<Dtype>(0, M_, N_, top[0]->cpu_diff(),
+//                                 binary_g_, scale_g_, bias_g_, sum_g_);
+//    caffe_cpu_binary_norm<Dtype>(0, K_, N_, this->blobs_[0]->cpu_data(),
+//                                 binary_w_, scale_w_, bias_w_, sum_w_);
+//    caffe_cpu_binary_gemm<Dtype>(false, true, M_, K_, N_,
+//                                 binary_g_, scale_g_, bias_g_, sum_g_,
+//                                 binary_w_, scale_w_, bias_w_, sum_w_,
+//                                 bottom[0]->mutable_cpu_diff());
 //    caffe_cpu_binary_norm<Dtype>(0, M_, K_, bottom[0]->cpu_data(),
 //                                 binary_in_, scale_in_, bias_in_, sum_in_);
 //    caffe_cpu_binary_norm_gradient<Dtype>(

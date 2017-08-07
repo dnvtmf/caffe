@@ -92,6 +92,7 @@ void XnorNetInnerProductLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom
 template <typename Dtype>
 void XnorNetInnerProductLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
     const vector<Blob<Dtype>*>& top) {
+  /*
   const Dtype* bottom_data = bottom[0]->cpu_data();
   Dtype* top_data = top[0]->mutable_cpu_data();
   const Dtype* weight = this->blobs_[0]->cpu_data();
@@ -108,12 +109,12 @@ void XnorNetInnerProductLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bo
   caffe_cpu_binary_gemm_xor<Dtype>(false, !transpose_, M_, N_, K_,
       &binary_input_[0], &binary_weight_[0], &binary_input_scale_[0],
       &binary_weight_scale_[0], top_data);
+  */
   /*
   caffe_cpu_gemm<Dtype>(CblasNoTrans, transpose_ ? CblasNoTrans : CblasTrans,
       M_, N_, K_, (Dtype)1.,
       bottom_data, weight, (Dtype)0., top_data);
   */
-
   if (bias_term_) {
     caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, M_, N_, 1, (Dtype)1.,
         bias_multiplier_.cpu_data(),
@@ -125,6 +126,7 @@ template <typename Dtype>
 void XnorNetInnerProductLayer<Dtype>::Backward_cpu(
     const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
     const vector<Blob<Dtype>*>& bottom) {
+  /*
   if (this->param_propagate_down_[0]) {
     const Dtype* top_diff = top[0]->cpu_diff();
     caffe_cpu_binary_approx<Dtype>(0, M_, K_, bottom[0]->cpu_data(),
@@ -175,6 +177,7 @@ void XnorNetInnerProductLayer<Dtype>::Backward_cpu(
     caffe_cpu_binary_gradient<Dtype>(0, M_, K_, bottom[0]->cpu_data(),
         binary_input_scale_, bottom[0]->mutable_cpu_diff());
   }
+  */
 }
 
 /*

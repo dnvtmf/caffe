@@ -63,7 +63,7 @@ protected:
   // Helper functions that abstract away the column buffer and gemm arguments.
   // The last argument in forward_cpu_gemm is so that we can skip the im2col if
   // we just called weight_cpu_gemm with the same input.
-  void forward_cpu_binary_gemm(const Dtype* input, const binary_t* weights,
+  void forward_cpu_binary_gemm(const Dtype* input, const Btype* weights,
       const Dtype* weights_scale, Dtype* output, bool skip_im2col = false);
   void forward_cpu_bias(Dtype* output, const Dtype* bias);
   void backward_cpu_gemm(const Dtype* input, const Dtype* weights,
@@ -198,8 +198,8 @@ private:
   Blob<Dtype> col_buffer_;
   Blob<Dtype> bias_multiplier_;
 
-  vector<binary_t> binary_col_;
-  vector<binary_t> binary_weight_;
+  vector<Btype> binary_col_;
+  vector<Btype> binary_weight_;
   vector<Dtype> binary_weight_scale_;
   vector<Dtype> binary_col_scale_;
   int binary_kernel_dim_;

@@ -11,7 +11,7 @@ namespace caffe {
 
 template <typename Dtype>
 void TBConvolutionLayer<Dtype>::LayerSetUp(
-  const vector<Blob<Dtype>*>&bottom, const vector<Blob<Dtype>*>& top) {
+  const vector<Blob<Dtype>*> &bottom, const vector<Blob<Dtype>*> &top) {
   // Configure the kernel size, padding, stride, and inputs.
   ConvolutionParameter conv_param = this->layer_param_.convolution_param();
   force_nd_im2col_ = conv_param.force_nd_im2col();
@@ -23,7 +23,7 @@ void TBConvolutionLayer<Dtype>::LayerSetUp(
   vector<int> spatial_dim_blob_shape(1, std::max(num_spatial_axes_, 1));
   // Setup filter kernel dimensions (kernel_shape_).
   kernel_shape_.Reshape(spatial_dim_blob_shape);
-  int* kernel_shape_data = kernel_shape_.mutable_cpu_data();
+  int *kernel_shape_data = kernel_shape_.mutable_cpu_data();
   if (conv_param.has_kernel_h() || conv_param.has_kernel_w()) {
     CHECK_EQ(num_spatial_axes_, 2)
         << "kernel_h & kernel_w can only be used for 2D convolution.";
@@ -48,7 +48,7 @@ void TBConvolutionLayer<Dtype>::LayerSetUp(
   }
   // Setup stride dimensions (stride_).
   stride_.Reshape(spatial_dim_blob_shape);
-  int* stride_data = stride_.mutable_cpu_data();
+  int *stride_data = stride_.mutable_cpu_data();
   if (conv_param.has_stride_h() || conv_param.has_stride_w()) {
     CHECK_EQ(num_spatial_axes_, 2)
         << "stride_h & stride_w can only be used for 2D convolution.";
@@ -73,7 +73,7 @@ void TBConvolutionLayer<Dtype>::LayerSetUp(
   }
   // Setup pad dimensions (pad_).
   pad_.Reshape(spatial_dim_blob_shape);
-  int* pad_data = pad_.mutable_cpu_data();
+  int *pad_data = pad_.mutable_cpu_data();
   if (conv_param.has_pad_h() || conv_param.has_pad_w()) {
     CHECK_EQ(num_spatial_axes_, 2)
         << "pad_h & pad_w can only be used for 2D convolution.";
@@ -97,7 +97,7 @@ void TBConvolutionLayer<Dtype>::LayerSetUp(
   }
   // Setup dilation dimensions (dilation_).
   dilation_.Reshape(spatial_dim_blob_shape);
-  int* dilation_data = dilation_.mutable_cpu_data();
+  int *dilation_data = dilation_.mutable_cpu_data();
   const int num_dilation_dims = conv_param.dilation_size();
   CHECK(num_dilation_dims == 0 || num_dilation_dims == 1 ||
         num_dilation_dims == num_spatial_axes_)
@@ -182,19 +182,29 @@ void TBConvolutionLayer<Dtype>::LayerSetUp(
                                               this->layer_param_.convolution_param().bias_filler()));
       bias_filler->Fill(this->blobs_[1].get());
     }
+    // Initialize thw aux_
     aux_.resize(2);
     aux_[0].reset(new Blob<Dtype>(weight_shape));
   }
   kernel_dim_ = this->blobs_[0]->count(1);
   weight_offset_ = conv_out_channels_ * kernel_dim_ / group_;
+  // Initialize the vectors
+  M_ = conv_out_channels_ / group_;
+  K_ = kernel_dim_;
+  BM_ = (N_ - 1) / BINARY_SIZE + 1;
+  BK_ = (K_ - 1) / BINARY_SIZE + 1;
+  binary_w_.resize(max(BM_ * K_, M_ * BK_));
+  scale_w_ .resize(max(K_, M_));
+  bias_w_  .resize(max(K_, M_));
+  sum_w_   .resize(max(K_, M_));
   // Propagate gradients to the parameters (as directed by backward pass).
   this->param_propagate_down_.resize(this->blobs_.size(), true);
   full_train_ = this->layer_param_.tb_param().full_train();
 }
 
 template <typename Dtype>
-void TBConvolutionLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
-                                        const vector<Blob<Dtype>*>& top) {
+void TBConvolutionLayer<Dtype>::Reshape(const vector<Blob<Dtype>*> &bottom,
+                                        const vector<Blob<Dtype>*> &top) {
   const int first_spatial_axis = channel_axis_ + 1;
   CHECK_EQ(bottom[0]->num_axes(), first_spatial_axis + num_spatial_axes_)
       << "bottom num_axes may not change.";
@@ -224,12 +234,28 @@ void TBConvolutionLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
   else {
     conv_out_spatial_dim_ = top[0]->count(first_spatial_axis);
   }
+  N_ = conv_out_spatial_dim_;
+  BN_ = (N_ - 1) / BINARY_SIZE + 1;
+  binary_in_.resize(max(N_ * BK_, K_ * BN_));
+  mask_in_  .resize(max(N_ * BK_, K_ * BN_));
+  scale_in_ .resize(max(N_, K_));
+  bias_in_  .resize(max(N_, K_));
+  sum_in_   .resize(max(N_, K_));
+  sum2_in_  .resize(max(N_, K_));
+  delta_in_ .resize(max(N_, K_));
+  binary_g_ .resize(max(M_ * BN_, N_ * BM_));
+  mask_g_   .resize(max(M_ * BN_, N_ * BM_));
+  scale_g_  .resize(max(M_, N_));
+  bias_g_   .resize(max(M_, N_));
+  sum_g_    .resize(max(M_, N_));
+  sum2_g_   .resize(max(M_, N_));
+  delta_g_  .resize(max(M_, N_));
   col_offset_ = kernel_dim_ * conv_out_spatial_dim_;
   output_offset_ = conv_out_channels_ * conv_out_spatial_dim_ / group_;
   // Setup input dimensions (conv_input_shape_).
   vector<int> bottom_dim_blob_shape(1, num_spatial_axes_ + 1);
   conv_input_shape_.Reshape(bottom_dim_blob_shape);
-  int* conv_input_shape_data = conv_input_shape_.mutable_cpu_data();
+  int *conv_input_shape_data = conv_input_shape_.mutable_cpu_data();
   for (int i = 0; i < num_spatial_axes_ + 1; ++i) {
     if (reverse_dimensions()) {
       conv_input_shape_data[i] = top[0]->shape(channel_axis_ + i);
@@ -268,35 +294,37 @@ void TBConvolutionLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
 
 template <typename Dtype>
 void TBConvolutionLayer<Dtype>::forward_cpu_binary_gemm(
-  const Dtype* input, Dtype* output, bool skip_im2col) {
-  const Dtype* col_buff = input;
+  const Dtype *input, Dtype *output, bool skip_im2col) {
+  const Dtype *col_buff = input;
   if (!is_1x1_) {
     if (!skip_im2col) {
       conv_im2col_cpu(input, col_buffer_.mutable_cpu_data());
     }
     col_buff = col_buffer_.cpu_data();
   }
-//  for (int g = 0; g < group_; ++g) {
+//    for (int g = 0; g < group_; ++g) {
+//      caffe_cpu_gemm<Dtype>(
+//        CblasNoTrans, CblasNoTrans, conv_out_channels_ /
+//        group_, conv_out_spatial_dim_, kernel_dim_,
+//        (Dtype)1., weights + weight_offset_ * g, col_buff + col_offset_ * g,
+//        (Dtype)0., output + output_offset_ * g);
+//    }
   caffe_cpu_ternary_norm<Dtype>(
-    1, kernel_dim_, conv_out_spatial_dim_, col_buff,
-    binary_in_, mask_in_, delta_in_, scale_in_, bias_in_, sum_in_, sum2_in_);
+    1, K_, N_, col_buff,
+    binary_in_.data(), mask_in_.data(), delta_in_.data(), scale_in_.data(),
+    bias_in_.data(), sum_in_.data(), sum2_in_.data());
   caffe_cpu_bt_gemm<Dtype>(
-    false, false, conv_out_channels_, conv_out_spatial_dim_, kernel_dim_,
-    binary_w_, scale_w_, bias_w_, sum_w_,
-    binary_in_, mask_in_, scale_in_, bias_in_, sum_in_, sum2_in_,
-    output);
-  /*
-  caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, conv_out_channels_ /
-      group_, conv_out_spatial_dim_, kernel_dim_,
-      (Dtype)1., weights + weight_offset_ * g, col_buff + col_offset_ * g,
-      (Dtype)0., output + output_offset_ * g);
-  */
-//  }
+    false, false, M_, N_, K_,
+    binary_w_.data(), scale_w_.data(),
+    binary_in_.data(), mask_in_.data(), scale_in_.data(), sum2_in_.data(),
+    output,
+    true, bias_w_.data(), sum_w_.data(), bias_in_.data(), sum_in_.data());
+}
 }
 
 template <typename Dtype>
-void TBConvolutionLayer<Dtype>::forward_cpu_bias(Dtype* output,
-    const Dtype* bias) {
+void TBConvolutionLayer<Dtype>::forward_cpu_bias(Dtype *output,
+    const Dtype *bias) {
   caffe_cpu_gemm<Dtype>(
     CblasNoTrans, CblasNoTrans, num_output_,
     out_spatial_dim_, 1, (Dtype)1., bias, bias_multiplier_.cpu_data(),
@@ -304,79 +332,77 @@ void TBConvolutionLayer<Dtype>::forward_cpu_bias(Dtype* output,
 }
 
 template <typename Dtype>
-void TBConvolutionLayer<Dtype>::tb_backward_cpu_gemm(const Dtype* output,
-    const Dtype* weights, Dtype* input) {
-  Dtype* col_buff = col_buffer_.mutable_cpu_data();
+void TBConvolutionLayer<Dtype>::tb_backward_cpu_gemm(const Dtype *output,
+    const Dtype *weights, Dtype *input) {
+  Dtype *col_buff = col_buffer_.mutable_cpu_data();
   if (is_1x1_) {
     col_buff = input;
   }
   if (!skip_weight_binary_) {
     skip_weight_binary_ = true;
 //    for (int g = 0; g < group_; ++g) {
-    caffe_cpu_binary_norm<Dtype>(1, conv_out_channels_, kernel_dim_,
-                                 weights, binary_w_, scale_w_, bias_w_, sum_w_);
+    caffe_cpu_binary_norm<Dtype>(
+      1, M_, K_, weights,
+      binary_w_.data(), scale_w_.data(), bias_w_.data(), sum_w_.data());
 //    }
   }
   // dI = W' * dO
-//  for (int g = 0; g < group_; ++g) {
   caffe_cpu_ternary_norm<Dtype>(
-    1, conv_out_channels_, conv_out_spatial_dim_, output,
-    binary_g_, mask_g_, delta_g_, scale_g_, bias_g_, sum_g_, sum2_g_);
+    1, M_, N_, output,
+    binary_g_.data(), mask_g_.data(), delta_g_.data(), scale_g_.data(),
+    bias_g_.data(), sum_g_.data(), sum2_g_.data());
   caffe_cpu_bt_gemm<Dtype>(
-    true, false, kernel_dim_, conv_out_spatial_dim_, conv_out_channels_,
-    binary_w_, scale_w_, bias_w_, sum_w_,
-    binary_g_, mask_g_, scale_g_, bias_g_, sum_g_, sum2_g_,
-    col_buff);
-//    caffe_cpu_gemm<Dtype>(CblasTrans, CblasNoTrans, kernel_dim_,
-//        conv_out_spatial_dim_, conv_out_channels_ / group_,
-//        (Dtype)1., weights + weight_offset_ * g, output + output_offset_ * g,
-//        (Dtype)0., col_buff + col_offset_ * g);
-//  }
+    true, false, K_, N_, M_,
+    binary_w_.data(), scale_w_.data(),
+    binary_g_.data(), mask_g_.data(), scale_g_.data(), sum2_g_.data(), col_buff,
+    true, bias_w_.data(), sum_w_.data(), bias_g_.data(), sum_g_.data());
   if (!is_1x1_) {
     conv_col2im_cpu(col_buff, input);
   }
 }
 
 template <typename Dtype>
-void TBConvolutionLayer<Dtype>::tb_weight_cpu_gemm(const Dtype* input,
-    const Dtype* output, Dtype* weights) {
-  const Dtype* col_buff = input;
+void TBConvolutionLayer<Dtype>::tb_weight_cpu_gemm(const Dtype *input,
+    const Dtype *output, Dtype *weights) {
+  const Dtype *col_buff = input;
   if (!is_1x1_) {
     conv_im2col_cpu(input, col_buffer_.mutable_cpu_data());
     col_buff = col_buffer_.cpu_data();
   }
-  Dtype* aux_weights = aux_[0]->mutable_cpu_diff();
+  Dtype *aux_weights = aux_[0]->mutable_cpu_diff();
   // dW = O * I'
 //  for (int g = 0; g < group_; ++g) {
   caffe_cpu_binary_norm<Dtype>(
-    0, conv_out_channels_, conv_out_spatial_dim_,
-    output, binary_g_, scale_g_, bias_g_, sum_g_);
+    0, M_, N_, output,
+    binary_g_.data(), scale_g_.data(), bias_g_.data(), sum_g_.data());
   caffe_cpu_ternary_norm<Dtype>(
-    0, kernel_dim_, conv_out_spatial_dim_, col_buff,
-    binary_in_, mask_in_, delta_in_, scale_in_, bias_in_, sum_in_, sum2_in_);
+    0, K_, N_, col_buff,
+    binary_in_.data(), mask_in_.data(), delta_in_.data(), scale_in_.data(),
+    bias_in_.data(), sum_in_.data(), sum2_in_.data());
   caffe_cpu_bt_gemm<Dtype>(
-    false, true, conv_out_channels_, kernel_dim_, conv_out_spatial_dim_,
-    binary_g_, scale_g_, bias_g_, sum_g_,
-    binary_in_, mask_in_, scale_in_, bias_in_, sum_in_, sum2_in_,
-    aux_weights);
+    false, true, M_, K_, N_,
+    binary_g_.data(), scale_g_.data(),
+    binary_in_.data(), mask_in_.data(), scale_in_.data(),, sum2_in_.data(),
+    aux_weights,
+    true, bias_g_.data(), sum_g_.data()bias_in_.data(), sum_in_.data());
   caffe_cpu_axpby<Dtype>(conv_out_channels_ * kernel_dim_,
                          Dtype(1.), aux_weights, Dtype(1.), weights);
 //  }
 }
 
 template <typename Dtype>
-void TBConvolutionLayer<Dtype>::backward_cpu_bias(Dtype* bias,
-    const Dtype* input) {
+void TBConvolutionLayer<Dtype>::backward_cpu_bias(Dtype *bias,
+    const Dtype *input) {
   caffe_cpu_gemv<Dtype>(CblasNoTrans, num_output_, out_spatial_dim_, 1.,
                         input, bias_multiplier_.cpu_data(), 1., bias);
 }
 
 template <typename Dtype>
 void TBConvolutionLayer<Dtype>::compute_output_shape() {
-  const int* kernel_shape_data = this->kernel_shape_.cpu_data();
-  const int* stride_data = this->stride_.cpu_data();
-  const int* pad_data = this->pad_.cpu_data();
-  const int* dilation_data = this->dilation_.cpu_data();
+  const int *kernel_shape_data = this->kernel_shape_.cpu_data();
+  const int *stride_data = this->stride_.cpu_data();
+  const int *pad_data = this->pad_.cpu_data();
+  const int *dilation_data = this->dilation_.cpu_data();
   this->output_shape_.clear();
   for (int i = 0; i < this->num_spatial_axes_; ++i) {
     // i + 1 to skip channel axis
@@ -390,18 +416,19 @@ void TBConvolutionLayer<Dtype>::compute_output_shape() {
 
 template <typename Dtype>
 void TBConvolutionLayer<Dtype>::Forward_cpu(
-  const vector<Blob<Dtype>*>&bottom, const vector<Blob<Dtype>*>& top) {
-  const Dtype* weight = this->blobs_[0]->cpu_data();
-  caffe_cpu_binary_norm<Dtype>(0, conv_out_channels_, kernel_dim_, weight,
-                               binary_w_, scale_w_, bias_w_, sum_w_);
+  const vector<Blob<Dtype>*> &bottom, const vector<Blob<Dtype>*> &top) {
+  const Dtype *weight = this->blobs_[0]->cpu_data();
+  caffe_cpu_binary_norm<Dtype>(
+    0, M_, K_, weight, binary_w_.data(), scale_w_.data(),
+    bias_w_.data(), sum_w_.data());
   for (int i = 0; i < bottom.size(); ++i) {
-    const Dtype* bottom_data = bottom[i]->cpu_data();
-    Dtype* top_data = top[i]->mutable_cpu_data();
+    const Dtype *bottom_data = bottom[i]->cpu_data();
+    Dtype *top_data = top[i]->mutable_cpu_data();
     for (int n = 0; n < this->num_; ++n) {
       this->forward_cpu_binary_gemm(bottom_data + n * this->bottom_dim_,
                                     top_data + n * this->top_dim_);
       if (this->bias_term_) {
-        const Dtype* bias = this->blobs_[1]->cpu_data();
+        const Dtype *bias = this->blobs_[1]->cpu_data();
         this->forward_cpu_bias(top_data + n * this->top_dim_, bias);
       }
     }
@@ -410,18 +437,19 @@ void TBConvolutionLayer<Dtype>::Forward_cpu(
 
 template <typename Dtype>
 void TBConvolutionLayer<Dtype>::Backward_cpu(
-  const vector<Blob<Dtype>*>&top, const vector<bool>& propagate_down,
-  const vector<Blob<Dtype>*>& bottom) {
-  const Dtype* weight = this->blobs_[0]->cpu_data();
-  Dtype* weight_diff = this->blobs_[0]->mutable_cpu_diff();
+  const vector<Blob<Dtype>*> &top, const vector<bool> &propagate_down,
+  const vector<Blob<Dtype>*> &bottom) {
+  const Dtype *weight = this->blobs_[0]->cpu_data();
+  Dtype *weight_diff  = this->blobs_[0]->mutable_cpu_diff();
   skip_weight_binary_ = false;
+
   for (int i = 0; i < top.size(); ++i) {
-    const Dtype* top_diff = top[i]->cpu_diff();
-    const Dtype* bottom_data = bottom[i]->cpu_data();
-    Dtype* bottom_diff = bottom[i]->mutable_cpu_diff();
+    const Dtype *top_diff = top[i]->cpu_diff();
+    const Dtype *bottom_data = bottom[i]->cpu_data();
+    Dtype *bottom_diff = bottom[i]->mutable_cpu_diff();
     // Bias gradient, if necessary.
     if (this->bias_term_ && this->param_propagate_down_[1]) {
-      Dtype* bias_diff = this->blobs_[1]->mutable_cpu_diff();
+      Dtype *bias_diff = this->blobs_[1]->mutable_cpu_diff();
       for (int n = 0; n < this->num_; ++n) {
         this->backward_cpu_bias(bias_diff, top_diff + n * this->top_dim_);
       }
@@ -463,17 +491,18 @@ void TBConvolutionLayer<Dtype>::Backward_cpu(
 
 
 template <typename Dtype>
-void TBConvolutionLayer<Dtype>::backward_cpu_gemm(const Dtype* output,
-    const Dtype* weights, Dtype* input) {
-  Dtype* col_buff = col_buffer_.mutable_cpu_data();
+void TBConvolutionLayer<Dtype>::backward_cpu_gemm(const Dtype *output,
+    const Dtype *weights, Dtype *input) {
+  Dtype *col_buff = col_buffer_.mutable_cpu_data();
   if (is_1x1_) {
     col_buff = input;
   }
   for (int g = 0; g < group_; ++g) {
-    caffe_cpu_gemm<Dtype>(CblasTrans, CblasNoTrans, kernel_dim_,
-                          conv_out_spatial_dim_, conv_out_channels_ / group_,
-                          (Dtype)1., weights + weight_offset_ * g, output + output_offset_ * g,
-                          (Dtype)0., col_buff + col_offset_ * g);
+    caffe_cpu_gemm<Dtype>(
+      CblasTrans, CblasNoTrans, kernel_dim_,
+      conv_out_spatial_dim_, conv_out_channels_ / group_,
+      (Dtype)1., weights + weight_offset_ * g, output + output_offset_ * g,
+      (Dtype)0., col_buff + col_offset_ * g);
   }
   if (!is_1x1_) {
     conv_col2im_cpu(col_buff, input);
@@ -481,18 +510,19 @@ void TBConvolutionLayer<Dtype>::backward_cpu_gemm(const Dtype* output,
 }
 
 template <typename Dtype>
-void TBConvolutionLayer<Dtype>::weight_cpu_gemm(const Dtype* input,
-    const Dtype* output, Dtype* weights) {
-  const Dtype* col_buff = input;
+void TBConvolutionLayer<Dtype>::weight_cpu_gemm(const Dtype *input,
+    const Dtype *output, Dtype *weights) {
+  const Dtype *col_buff = input;
   if (!is_1x1_) {
     conv_im2col_cpu(input, col_buffer_.mutable_cpu_data());
     col_buff = col_buffer_.cpu_data();
   }
   for (int g = 0; g < group_; ++g) {
-    caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasTrans, conv_out_channels_ / group_,
-                          kernel_dim_, conv_out_spatial_dim_,
-                          (Dtype)1., output + output_offset_ * g, col_buff + col_offset_ * g,
-                          (Dtype)1., weights + weight_offset_ * g);
+    caffe_cpu_gemm<Dtype>(
+      CblasNoTrans, CblasTrans, conv_out_channels_ / group_,
+      kernel_dim_, conv_out_spatial_dim_,
+      (Dtype)1., output + output_offset_ * g, col_buff + col_offset_ * g,
+      (Dtype)1., weights + weight_offset_ * g);
   }
 }
 /*
