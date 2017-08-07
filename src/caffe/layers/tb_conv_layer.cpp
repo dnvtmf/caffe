@@ -320,7 +320,6 @@ void TBConvolutionLayer<Dtype>::forward_cpu_binary_gemm(
     output,
     true, bias_w_.data(), sum_w_.data(), bias_in_.data(), sum_in_.data());
 }
-}
 
 template <typename Dtype>
 void TBConvolutionLayer<Dtype>::forward_cpu_bias(Dtype *output,
@@ -382,9 +381,9 @@ void TBConvolutionLayer<Dtype>::tb_weight_cpu_gemm(const Dtype *input,
   caffe_cpu_bt_gemm<Dtype>(
     false, true, M_, K_, N_,
     binary_g_.data(), scale_g_.data(),
-    binary_in_.data(), mask_in_.data(), scale_in_.data(),, sum2_in_.data(),
+    binary_in_.data(), mask_in_.data(), scale_in_.data(), sum2_in_.data(),
     aux_weights,
-    true, bias_g_.data(), sum_g_.data()bias_in_.data(), sum_in_.data());
+    true, bias_g_.data(), sum_g_.data(), bias_in_.data(), sum_in_.data());
   caffe_cpu_axpby<Dtype>(conv_out_channels_ * kernel_dim_,
                          Dtype(1.), aux_weights, Dtype(1.), weights);
 //  }

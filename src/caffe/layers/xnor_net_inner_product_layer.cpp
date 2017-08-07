@@ -115,11 +115,13 @@ void XnorNetInnerProductLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bo
       M_, N_, K_, (Dtype)1.,
       bottom_data, weight, (Dtype)0., top_data);
   */
+  /*
   if (bias_term_) {
     caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, M_, N_, 1, (Dtype)1.,
         bias_multiplier_.cpu_data(),
         this->blobs_[1]->cpu_data(), (Dtype)1., top_data);
   }
+  */
 }
 
 template <typename Dtype>

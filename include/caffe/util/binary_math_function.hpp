@@ -5,6 +5,7 @@
 
 namespace caffe {
 using std::vector;
+using std::max;
 #ifndef BINARY_32_BIT
 typedef uint64_t Btype;
 const int BINARY_SIZE = 8 * sizeof(Btype);

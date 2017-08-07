@@ -18,6 +18,7 @@ fc = TBFC
 # fc = FC
 conv = TBConv
 # conv = Conv
+full_train = False
 # 32-C5 + MP2 + 64-C5 + MP2 + 512 FC + SVM
 out = Conv(out, name='conv1', num_output=32, bias_term=True, kernel_size=5, stride=1,
            weight_filler=filler_xavier, bias_filler=filler_constant)
@@ -25,12 +26,12 @@ out = ReLU(out, name='relu1')
 out = Pool(out, name='pool1')
 out = BN(out, name='bn1')
 out = conv(out, name='conv2', num_output=64, bias_term=True, kernel_size=5, stride=1,
-           weight_filler=filler_xavier, bias_filler=filler_constant, full_train=True)
+           weight_filler=filler_xavier, bias_filler=filler_constant, full_train=full_train)
 out = ReLU(out, name='relu2')
 out = Pool(out, name='pool2')
 out = BN(out, name='bn2')
 out = fc(out, name='fc3', num_output=512, bias_term=True, weight_filler=filler_xavier, bias_filler=filler_constant,
-         full_train=True)
+         full_train=full_train)
 out = ReLU(out, name='relu3')
 out = FC(out, name='fc4', num_output=10, weight_filler=filler_xavier, bias_term=True, bias_filler=filler_constant)
 accuracy = Accuracy(out + label)
@@ -40,7 +41,7 @@ loss = SoftmaxWithLoss(out + label)
 # ---------- solver ----
 solver = Solver().net('./model.prototxt').CPU()
 solver.test(test_iter=100, test_interval=500, test_initialization=False)
-solver.train(base_lr=0.001, lr_policy='fixed', max_iter=3000)
+solver.train(base_lr=0.001, lr_policy='fixed', max_iter=3000)#, weight_decay=1e-4)
 # solver.train(base_lr=0.001, lr_policy='step', gamma=0.1, stepsize=1000, max_iter=3000)
 solver.optimizer(type='SGD', momentum=0.9)
 # solver.optimizer(type='Adam')
