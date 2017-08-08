@@ -511,16 +511,20 @@ void caffe_cpu_binary_norm_gradient(
   const int axis, const int M, const int N, const Dtype *in,
   const Dtype *scale, const Dtype *bias, Dtype *grad) {
   if (axis == 0) {
+    Dtype mul = 1. / N;
     for (int i = 0; i < M; ++i) {
       for (int j = 0; j < N; ++j) {
-        *grad++ *= std::abs(*in++ - bias[i]) / scale[i];
+//        *grad++ *= std::abs(*in++ - bias[i]) / scale[i];
+        *grad++ *= (mul + scale[i]) * (1 + mul);
       }
     }
   }
   else {
+    Dtype mul = 1. / M;
     for (int i = 0; i < M; ++i) {
       for (int j = 0; j < N; ++j) {
-        *grad++ *= std::abs(*in++ - bias[j]) / scale[j];
+//        *grad++ *= std::abs(*in++ - bias[j]) / scale[j];
+        *grad++ *= (mul + scale[j]) * (1 + mul);
       }
     }
   }
@@ -531,14 +535,22 @@ void caffe_cpu_ternary_norm_gradient(
   const int axis, const int M, const int N, const Dtype *in,
   const Dtype *delta, const Dtype *scale, const Dtype *bias, Dtype *grad) {
   if (axis == 0) {
+    Dtype mul = 1. / N;
     for (int i = 0; i < M; ++i) {
       for (int j = 0; j < N; ++j) {
-
+//        *grad++ *= std::abs(*in++ - bias[i]) / scale[i];
+        *grad++ *= (mul + scale[i]) * (1 + mul);
       }
     }
   }
   else {
-
+    Dtype mul = 1. / M;
+    for (int i = 0; i < M; ++i) {
+      for (int j = 0; j < N; ++j) {
+//        *grad++ *= std::abs(*in++ - bias[j]) / scale[j];
+        *grad++ *= (mul + scale[j]) * (1 + mul);
+      }
+    }
   }
 }
 template<typename Dtype>
@@ -836,7 +848,7 @@ void caffe_cpu_binary_restore(
   const Btype *code, const Dtype *scale,
   const Dtype *bias, Dtype *out) {
   if (axis == 0) {
-    const int BN = (N - 1) / BINARY_SIZE + 1;
+    // const int BN = (N - 1) / BINARY_SIZE + 1;
     auto it = code;
     Dtype *p = out;
     for (int i = 0; i < M; ++i) {
@@ -851,7 +863,7 @@ void caffe_cpu_binary_restore(
     }
   }
   else {
-    const int BM = (M - 1) / BINARY_SIZE + 1;
+    // const int BM = (M - 1) / BINARY_SIZE + 1;
     auto it = code;
     Dtype *p = out;
     for (int i = 0; i < M;) {
@@ -875,7 +887,7 @@ void caffe_cpu_ternary_restore(
   const Btype *code, const Btype *mask,
   const Dtype *scale, const Dtype *bias, Dtype *out) {
   if (axis == 0) {
-    const int BN = (N - 1) / BINARY_SIZE + 1;
+    // const int BN = (N - 1) / BINARY_SIZE + 1;
     auto it_code = code;
     auto it_mask = mask;
     auto p = out;
@@ -897,7 +909,7 @@ void caffe_cpu_ternary_restore(
     }
   }
   else {
-    const int BM = (M - 1) / BINARY_SIZE + 1;
+    // const int BM = (M - 1) / BINARY_SIZE + 1;
     auto it_code = code;
     auto it_mask = mask;
     auto p = out;
