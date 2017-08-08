@@ -150,10 +150,11 @@ template <typename Dtype>
 void TBInnerProductLayer<Dtype>::Backward_cpu(
   const vector<Blob<Dtype>*> &top, const vector<bool> &propagate_down,
   const vector<Blob<Dtype>*> &bottom) {
+  const Dtype *top_diff = top[0]->cpu_diff();
+  const Dtype *weight   = this->blobs_[0]->cpu_data();
+  const Dtype *bottom_data = bottom[0]->cpu_data();
   if (this->param_propagate_down_[0]) {
-    auto top_diff    = top[0]->cpu_diff();
-    auto bottom_data = bottom[0]->cpu_data();
-    auto weight_diff = this->blobs_[0]->mutable_cpu_diff();
+    Dtype *weight_diff = this->blobs_[0]->mutable_cpu_diff();
     // dW = In' x dO
     if (full_train_) {
       caffe_cpu_gemm<Dtype>(CblasTrans, CblasNoTrans, K_, N_, M_,
@@ -182,9 +183,13 @@ void TBInnerProductLayer<Dtype>::Backward_cpu(
 //                                 binary_g_, scale_g_, bias_g_, sum_g_,
 //                                 weight_diff);
     }
+    caffe_cpu_binary_norm<Dtype>(
+      1, K_, N_, weight, binary_w_.data(), scale_w_.data(),
+      bias_w_.data(), sum_w_.data(), tb_use_bias_);
+    caffe_cpu_binary_norm_gradient<Dtype>(
+      1, K_, N_, weight, scale_w_.data(), bias_w_.data(), weight_diff);
   }
   if (bias_term_ && this->param_propagate_down_[1]) {
-    const Dtype *top_diff = top[0]->cpu_diff();
     // Gradient with respect to bias
     caffe_cpu_gemv<Dtype>(CblasTrans, M_, N_, (Dtype)1., top_diff,
                           bias_multiplier_.cpu_data(), (Dtype)1.,
@@ -192,8 +197,6 @@ void TBInnerProductLayer<Dtype>::Backward_cpu(
   }
   if (propagate_down[0]) {
     // Gradient with respect to bottom data
-    const Dtype *top_diff = top[0]->cpu_diff();
-    const Dtype *weight   = this->blobs_[0]->cpu_data();
     Dtype *in_diff        = bottom[0]->mutable_cpu_diff();
     // dIn = dO x W'
     if (full_train_) {
