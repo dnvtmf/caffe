@@ -65,7 +65,7 @@ void TBInnerProductLayer<Dtype>::LayerSetUp(
   }  // parameter initialization
   this->param_propagate_down_.resize(this->blobs_.size(), true);
   full_train_  = this->layer_param_.tb_param().full_train();
-  tb_use_bias_ = this->layer_param_.tb_param().add_bias();
+  tb_use_bias_ = this->layer_param_.tb_param().use_bias();
 }
 
 template <typename Dtype>
