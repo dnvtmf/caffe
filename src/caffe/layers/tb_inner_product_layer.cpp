@@ -231,7 +231,8 @@ void TBInnerProductLayer<Dtype>::Backward_cpu(
       delta_in_.data(), scale_in_.data(), bias_in_.data(),
       sum_in_.data(), sum2_in_.data(), tb_use_bias_);
     caffe_cpu_ternary_norm_gradient<Dtype>(
-      0, M_, K_, bottom_data, scale_in_.data(), bias_in_.data(), in_diff);
+      0, M_, K_, bottom_data, delta_in_.data(), scale_in_.data(),
+      bias_in_.data(), in_diff);
   }
 }
 
