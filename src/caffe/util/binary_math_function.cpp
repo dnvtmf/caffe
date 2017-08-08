@@ -514,8 +514,8 @@ void caffe_cpu_binary_norm_gradient(
     Dtype mul = 1. / N;
     for (int i = 0; i < M; ++i) {
       for (int j = 0; j < N; ++j) {
-//        *grad++ *= std::abs(*in++ - bias[i]) / scale[i];
-        *grad++ *= (mul + scale[i]) * (1 + mul);
+        *grad++ *= std::abs(*in++ - bias[i]) / scale[i];
+//        *grad++ *= (mul + (std::abs(*in++ - bias[i]) <= 1.) * scale[i]) * (1 + mul);
       }
     }
   }
@@ -523,8 +523,8 @@ void caffe_cpu_binary_norm_gradient(
     Dtype mul = 1. / M;
     for (int i = 0; i < M; ++i) {
       for (int j = 0; j < N; ++j) {
-//        *grad++ *= std::abs(*in++ - bias[j]) / scale[j];
-        *grad++ *= (mul + scale[j]) * (1 + mul);
+        *grad++ *= std::abs(*in++ - bias[j]) / scale[j];
+//        *grad++ *= (mul + (std::abs(*in++ - bias[j]) <= 1.) * scale[j]) * (1 + mul);
       }
     }
   }
@@ -538,8 +538,8 @@ void caffe_cpu_ternary_norm_gradient(
     Dtype mul = 1. / N;
     for (int i = 0; i < M; ++i) {
       for (int j = 0; j < N; ++j) {
-//        *grad++ *= std::abs(*in++ - bias[i]) / scale[i];
-        *grad++ *= (mul + scale[i]) * (1 + mul);
+        *grad++ *= std::abs(*in++ - bias[i]) / scale[i];
+//        *grad++ *= (mul + (std::abs(*in++ - bias[i]) <= 1.) * scale[i]) * (1 + mul);
       }
     }
   }
@@ -547,8 +547,8 @@ void caffe_cpu_ternary_norm_gradient(
     Dtype mul = 1. / M;
     for (int i = 0; i < M; ++i) {
       for (int j = 0; j < N; ++j) {
-//        *grad++ *= std::abs(*in++ - bias[j]) / scale[j];
-        *grad++ *= (mul + scale[j]) * (1 + mul);
+        *grad++ *= std::abs(*in++ - bias[j]) / scale[j];
+//        *grad++ *= (mul +(std::abs(*in++ - bias[j]) <= 1.) *  scale[j]) * (1 + mul);
       }
     }
   }

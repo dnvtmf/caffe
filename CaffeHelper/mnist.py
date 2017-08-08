@@ -19,12 +19,12 @@ conv = TBConv
 full_train = False
 use_bias = False
 # 32-C5 + MP2 + 64-C5 + MP2 + 512 FC + SVM
-out = Conv(out, name='conv1', num_output=32, bias_term=True, kernel_size=5, stride=1,
+out = Conv(out, name='conv1', num_output=32, bias_term=True, kernel_size=5, stride=1, pad=2,
            weight_filler=filler_xavier, bias_filler=filler_constant)
 out = ReLU(out, name='relu1')
 out = Pool(out, name='pool1')
 out = BN(out, name='bn1')
-out = conv(out, name='conv2', num_output=64, bias_term=True, kernel_size=5, stride=1,
+out = conv(out, name='conv2', num_output=64, bias_term=True, kernel_size=5, stride=1, pad=2,
            weight_filler=filler_xavier, bias_filler=filler_constant, full_train=full_train, use_bias=use_bias)
 out = ReLU(out, name='relu2')
 out = Pool(out, name='pool2')
