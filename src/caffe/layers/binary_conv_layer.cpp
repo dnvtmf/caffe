@@ -348,7 +348,7 @@ void BinaryConvolutionLayer<Dtype>::tb_backward_cpu_gemm(const Dtype *output,
   caffe_cpu_binary_norm<Dtype>(
     1, M_, N_, output, binary_g_.data(), scale_g_.data(),
     bias_g_.data(), sum_g_.data(), use_bias_);
-  caffe_cpu_bt_gemm<Dtype>(
+  caffe_cpu_binary_gemm<Dtype>(
     true, false, K_, N_, M_,
     binary_w_.data(), scale_w_.data(), binary_g_.data(), scale_g_.data(),
     col_buff,
@@ -375,7 +375,7 @@ void BinaryConvolutionLayer<Dtype>::tb_weight_cpu_gemm(const Dtype *input,
   caffe_cpu_binary_norm<Dtype>(
     0, K_, N_, col_buff, binary_in_.data(), scale_in_.data(),
     bias_in_.data(), sum_in_.data(), use_bias_);
-  caffe_cpu_bt_gemm<Dtype>(
+  caffe_cpu_binary_gemm<Dtype>(
     false, true, M_, K_, N_,
     binary_g_.data(), scale_g_.data(),
     binary_in_.data(), scale_in_.data(),
