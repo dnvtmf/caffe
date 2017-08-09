@@ -13,18 +13,21 @@ Data([], phase=TEST, source="../mnist_test_lmdb", batch_size=100, backend=Net.LM
 out = [data]
 label = [label]
 # fc = XnorNetFC
-fc = TBFC
-# fc = BinFC
+# fc = TBFC
+fc = BinFC
 # fc = FC
+full_train = True
 out = BN(out, name='bn0')
 out = FC(out, name='fc1', num_output=128, weight_filler=filler_xavier, bias_term=True, bias_filler=filler_constant)
 out = BN(out, name='bn1')
 out = ReLU(out, name='relu1')
 out = BN(out, name='bn_relu1')
-out = fc(out, name='fc2', num_output=256, weight_filler=filler_uniform, bias_term=True, bias_filler=filler_constant)
+out = fc(out, name='fc2', num_output=256, weight_filler=filler_uniform, bias_term=True, bias_filler=filler_constant,
+         full_train=full_train)
 out = BN(out, name='bn2')
 out = ReLU(out, name='relu2')
-# out = fc(out, name='fc3', num_output=128, weight_filler=filler_uniform, bias_term=True, bias_filler=filler_constant)
+# out = fc(out, name='fc3', num_output=128, weight_filler=filler_uniform, bias_term=True, bias_filler=filler_constant,
+# full_train=full_train)
 # out = BN(out, name='bn3')
 # out = ReLU(out, name='relu3')
 out = FC(out, name='fc4', num_output=10, weight_filler=filler_xavier, bias_term=True, bias_filler=filler_constant)

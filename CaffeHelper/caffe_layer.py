@@ -168,7 +168,7 @@ def FC(data_in, name="fc", num_output=None, bias_term=None, weight_filler=None, 
 
 
 def BinFC(data_in, name="bin_fc", num_output=None, bias_term=None, weight_filler=None, bias_filler=None, axis=None,
-          transpose=None, optional_params=None):
+          transpose=None, optional_params=None, full_train=False, use_bias=True):
     """
     - num_output: [uint32] The number of outputs for the layer
     - bias_term: [bool][default = true] whether to have bias terms
@@ -200,7 +200,10 @@ def BinFC(data_in, name="bin_fc", num_output=None, bias_term=None, weight_filler
         fc_param.add_subparam(bias_filler)
     fc_param.add_param_if("axis", axis)
     fc_param.add_param_if("transpose", transpose)
-
+    tb_param = Parameter('tb_param')
+    tb_param.add_param_if('full_train', full_train)
+    tb_param.add_param_if('use_bias', use_bias)
+    param.add_subparam(tb_param)
     _caffe_net.write_to_proto(param)
     return data_out
 
@@ -362,12 +365,12 @@ def Pool(data_in, name="pool", method=0, pad=None, pad_h=None, pad_w=None, kerne
          kernel_w=None, stride=2, stride_h=None, stride_w=None, global_pooling=None, optional_params=None):
     """
     message PoolingParameter {
-      enum PoolMethod {
+      enum pool_method {
         MAX = 0;
         AVE = 1;
         STOCHASTIC = 2;
       }
-      optional PoolMethod pool = 1 [default = MAX]; // The pooling method
+      optional pool_method pool = 1 [default = MAX]; // The pooling method
       // Pad, kernel size, and stride are all given as a single value for equal
       // dimensions in height and width or as Y, X pairs.
       optional uint32 pad = 4 [default = 0]; // The padding size (equal in Y, X)
@@ -395,8 +398,8 @@ def Pool(data_in, name="pool", method=0, pad=None, pad_h=None, pad_w=None, kerne
     param = Layer(name, "Pooling", data_in, data_out, optional_params)
     pooling_param = Parameter("pooling_param")
     param.add_subparam(pooling_param)
-    PoolMethod = ["MAX", 'AVE', 'STOCHASTIC']
-    pooling_param.add_param("pool: %s" % PoolMethod[method])
+    pool_method = ["MAX", 'AVE', 'STOCHASTIC']
+    pooling_param.add_param("pool: %s" % pool_method[method])
     pooling_param.add_param("kernel_size", kernel_size)
     pooling_param.add_param_if("pad", pad)
     pooling_param.add_param_if("pad_h", pad_h)
@@ -411,7 +414,7 @@ def Pool(data_in, name="pool", method=0, pad=None, pad_h=None, pad_w=None, kerne
     return data_out
 
 
-def Filler(filler_type=None, value=None, min=None, max=None, mean=None, std=None, sparse=None,
+def Filler(filler_type=None, value=None, min_=None, max_=None, mean=None, std=None, sparse=None,
            variance_norm=None):
     """
     message FillerParameter {
@@ -439,8 +442,8 @@ def Filler(filler_type=None, value=None, min=None, max=None, mean=None, std=None
     param = Parameter("filler")
     param.add_param_if("type", filler_type)
     param.add_param_if("value", value)
-    param.add_param_if("min", min)
-    param.add_param_if("max", max)
+    param.add_param_if("min", min_)
+    param.add_param_if("max", max_)
     param.add_param_if("mean", mean)
     param.add_param_if("std", std)
     param.add_param_if("sparse", sparse)
@@ -487,6 +490,7 @@ def BatchNorm(data_in, name="bn", use_global_stats=None, moving_average_fraction
 def Scale(data_in, name="scale", axis=None, num_axes=None, filler=None, bias_term=None, bias_filler=None,
           optional_params=None):
     """
+    :param name:
     :param data_in:
     :param axis: int32 [default = 1];
         The first axis of bottom[0] (the first input Blob) along which to apply
@@ -640,7 +644,7 @@ def Transform(scale=None, mirror=None, crop_size=None, mean_file=None, mean_valu
 def Conv(data_in, name="conv", num_output=None, bias_term=None, pad=None, kernel_size=None, group=None, stride=None,
          weight_filler=None, bias_filler=None, pad_h=None, pad_w=None, kernel_h=None, kernel_w=None, stride_h=None,
          stride_w=None, axis=None, force_nd_im2col=None, dilation=None, optional_params=None,
-           full_train=False, use_bias=True):
+         full_train=False, use_bias=True):
     """
     message ConvolutionParameter {
         optional uint32 num_output = 1; // The number of outputs for the layer
@@ -821,7 +825,8 @@ def TBConv(data_in, name="tb_conv", num_output=None, bias_term=None, pad=None, k
 
 def BinConv(data_in, name="conv", num_output=None, bias_term=None, pad=None, kernel_size=None, group=None, stride=None,
             weight_filler=None, bias_filler=None, pad_h=None, pad_w=None, kernel_h=None, kernel_w=None, stride_h=None,
-            stride_w=None, axis=None, force_nd_im2col=None, dilation=None, optional_params=None):
+            stride_w=None, axis=None, force_nd_im2col=None, dilation=None, optional_params=None,
+            full_train=False, use_bias=True):
     """
     message ConvolutionParameter {
         optional uint32 num_output = 1; // The number of outputs for the layer
@@ -902,6 +907,10 @@ def BinConv(data_in, name="conv", num_output=None, bias_term=None, pad=None, ker
     convolution_param.add_param_if("axis", axis)
     convolution_param.add_param_if("force_nd_im2col", force_nd_im2col)
     convolution_param.add_param_if("dilation", dilation)
+    tb_param = Parameter('tb_param')
+    tb_param.add_param_if('full_train', full_train)
+    tb_param.add_param_if('use_bias', use_bias)
+    param.add_subparam(tb_param)
     _caffe_net.write_to_proto(param)
 
     return data_out
