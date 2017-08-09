@@ -47,6 +47,8 @@ class BinaryInnerProductLayer : public Layer<Dtype> {
 
  private:
   int BM_, BK_, BN_;
+  bool use_bias_;
+  bool full_train_;
   vector<Btype> binary_w_, binary_in_, binary_g_;
   vector<Dtype> scale_w_,  scale_in_,  scale_g_;
   vector<Dtype> bias_w_,   bias_in_,   bias_g_;
