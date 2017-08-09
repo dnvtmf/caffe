@@ -11,9 +11,6 @@
 
 namespace caffe {
 
-/**
- * TODO(dox) add documentation
- */
 template <typename Dtype>
 class BinaryConvolutionLayer : public Layer<Dtype> {
 public:
@@ -48,14 +45,14 @@ public:
    *  - engine: convolution has CAFFE (matrix multiplication) and CUDNN (library
    *    kernels + stream parallelism) engines.
    */
-  explicit BinaryConvolutionLayer(const LayerParameter& param)
-      : Layer<Dtype>(param) {}
-  virtual void LayerSetUp(const vector<Blob<Dtype>*>& bottom,
-      const vector<Blob<Dtype>*>& top);
-  virtual void Reshape(const vector<Blob<Dtype>*>& bottom,
-      const vector<Blob<Dtype>*>& top);
+  explicit BinaryConvolutionLayer(const LayerParameter &param)
+    : Layer<Dtype>(param) {}
+  virtual void LayerSetUp(const vector<Blob<Dtype>*> &bottom,
+                          const vector<Blob<Dtype>*> &top);
+  virtual void Reshape(const vector<Blob<Dtype>*> &bottom,
+                       const vector<Blob<Dtype>*> &top);
 
-  virtual inline const char* type() const { return "BinaryConvolution"; }
+  virtual inline const char *type() const { return "BinaryConvolution"; }
   virtual inline int ExactNumBottomBlobs() const {return 1;}
   virtual inline int ExactNumTopBlobs() const {return 1;}
 
@@ -63,21 +60,21 @@ protected:
   // Helper functions that abstract away the column buffer and gemm arguments.
   // The last argument in forward_cpu_gemm is so that we can skip the im2col if
   // we just called weight_cpu_gemm with the same input.
-  void forward_cpu_binary_gemm(const Dtype* input, const Btype* weights,
-      const Dtype* weights_scale, Dtype* output, bool skip_im2col = false);
-  void forward_cpu_bias(Dtype* output, const Dtype* bias);
-  void backward_cpu_gemm(const Dtype* input, const Dtype* weights,
-      Dtype* output);
-  void weight_cpu_gemm(const Dtype* input, const Dtype* output, Dtype*
-      weights);
-  void backward_cpu_input_weight(const bool pd_input, const bool pd_weights,
-      const Dtype* output, const Dtype* input, const Dtype* weights, Dtype* ginput,
-      Dtype* gweights);
-  void backward_cpu_bias(Dtype* bias, const Dtype* input);
-  virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
-      const vector<Blob<Dtype>*>& top);
-  virtual void Backward_cpu(const vector<Blob<Dtype>*>& top,
-      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
+  void forward_cpu_binary_gemm(
+    const Dtype *input, Dtype *output, bool skip_im2col = false);
+  void forward_cpu_bias(Dtype *output, const Dtype *bias);
+  void tb_backward_cpu_gemm(
+    const Dtype *input, const Dtype *weights, Dtype *output);
+  void tb_weight_cpu_gemm(
+    const Dtype *input, const Dtype *output, Dtype *weights);
+  void backward_cpu_gemm(const Dtype *output, const Dtype *weights, Dtype *input);
+  void weight_cpu_gemm(const Dtype *input, const Dtype *output, Dtype *weights);
+  void backward_cpu_bias(Dtype *bias, const Dtype *input);
+  virtual void Forward_cpu(const vector<Blob<Dtype>*> &bottom,
+                           const vector<Blob<Dtype>*> &top);
+  virtual void Backward_cpu(const vector<Blob<Dtype>*> &top,
+                            const vector<bool> &propagate_down,
+                            const vector<Blob<Dtype>*> &bottom);
   /*
   virtual void Forward_gpu(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top);
@@ -104,7 +101,7 @@ protected:
   vector<int> col_buffer_shape_;
   /// @brief The spatial dimensions of the output.
   vector<int> output_shape_;
-  const vector<int>* bottom_shape_;
+  const vector<int> *bottom_shape_;
 
   int num_spatial_axes_;
   int bottom_dim_;
@@ -123,68 +120,74 @@ protected:
 
 private:
   // wrap im2col/col2im so we don't have to remember the (long) argument lists
-  inline void conv_im2col_cpu(const Dtype* data, Dtype* col_buff) {
+  inline void conv_im2col_cpu(const Dtype *data, Dtype *col_buff) {
     if (!force_nd_im2col_ && num_spatial_axes_ == 2) {
-      im2col_cpu(data, conv_in_channels_,
-          conv_input_shape_.cpu_data()[1], conv_input_shape_.cpu_data()[2],
-          kernel_shape_.cpu_data()[0], kernel_shape_.cpu_data()[1],
-          pad_.cpu_data()[0], pad_.cpu_data()[1],
-          stride_.cpu_data()[0], stride_.cpu_data()[1],
-          dilation_.cpu_data()[0], dilation_.cpu_data()[1], col_buff);
-    } else {
-      im2col_nd_cpu(data, num_spatial_axes_, conv_input_shape_.cpu_data(),
-          col_buffer_shape_.data(), kernel_shape_.cpu_data(),
-          pad_.cpu_data(), stride_.cpu_data(), dilation_.cpu_data(), col_buff);
+      im2col_cpu(
+        data, conv_in_channels_,
+        conv_input_shape_.cpu_data()[1], conv_input_shape_.cpu_data()[2],
+        kernel_shape_.cpu_data()[0], kernel_shape_.cpu_data()[1],
+        pad_.cpu_data()[0], pad_.cpu_data()[1],
+        stride_.cpu_data()[0], stride_.cpu_data()[1],
+        dilation_.cpu_data()[0], dilation_.cpu_data()[1], col_buff);
+    }
+    else {
+      im2col_nd_cpu(
+        data, num_spatial_axes_, conv_input_shape_.cpu_data(),
+        col_buffer_shape_.data(), kernel_shape_.cpu_data(),
+        pad_.cpu_data(), stride_.cpu_data(), dilation_.cpu_data(), col_buff);
     }
   }
-  inline void conv_col2im_cpu(const Dtype* col_buff, Dtype* data) {
+  inline void conv_col2im_cpu(const Dtype *col_buff, Dtype *data) {
     if (!force_nd_im2col_ && num_spatial_axes_ == 2) {
-      col2im_cpu(col_buff, conv_in_channels_,
-          conv_input_shape_.cpu_data()[1], conv_input_shape_.cpu_data()[2],
-          kernel_shape_.cpu_data()[0], kernel_shape_.cpu_data()[1],
-          pad_.cpu_data()[0], pad_.cpu_data()[1],
-          stride_.cpu_data()[0], stride_.cpu_data()[1],
-          dilation_.cpu_data()[0], dilation_.cpu_data()[1], data);
-    } else {
-      col2im_nd_cpu(col_buff, num_spatial_axes_, conv_input_shape_.cpu_data(),
-          col_buffer_shape_.data(), kernel_shape_.cpu_data(),
-          pad_.cpu_data(), stride_.cpu_data(), dilation_.cpu_data(), data);
+      col2im_cpu(
+        col_buff, conv_in_channels_,
+        conv_input_shape_.cpu_data()[1], conv_input_shape_.cpu_data()[2],
+        kernel_shape_.cpu_data()[0], kernel_shape_.cpu_data()[1],
+        pad_.cpu_data()[0], pad_.cpu_data()[1],
+        stride_.cpu_data()[0], stride_.cpu_data()[1],
+        dilation_.cpu_data()[0], dilation_.cpu_data()[1], data);
+    }
+    else {
+      col2im_nd_cpu(
+        col_buff, num_spatial_axes_, conv_input_shape_.cpu_data(),
+        col_buffer_shape_.data(), kernel_shape_.cpu_data(),
+        pad_.cpu_data(), stride_.cpu_data(), dilation_.cpu_data(), data);
     }
   }
-/*
-#ifndef CPU_ONLY
-  inline void conv_im2col_gpu(const Dtype* data, Dtype* col_buff) {
-    if (!force_nd_im2col_ && num_spatial_axes_ == 2) {
-      im2col_gpu(data, conv_in_channels_,
-          conv_input_shape_.cpu_data()[1], conv_input_shape_.cpu_data()[2],
-          kernel_shape_.cpu_data()[0], kernel_shape_.cpu_data()[1],
-          pad_.cpu_data()[0], pad_.cpu_data()[1],
-          stride_.cpu_data()[0], stride_.cpu_data()[1],
-          dilation_.cpu_data()[0], dilation_.cpu_data()[1], col_buff);
-    } else {
-      im2col_nd_gpu(data, num_spatial_axes_, num_kernels_im2col_,
-          conv_input_shape_.gpu_data(), col_buffer_.gpu_shape(),
-          kernel_shape_.gpu_data(), pad_.gpu_data(),
-          stride_.gpu_data(), dilation_.gpu_data(), col_buff);
+  /*
+  #ifndef CPU_ONLY
+    inline void conv_im2col_gpu(const Dtype* data, Dtype* col_buff) {
+      if (!force_nd_im2col_ && num_spatial_axes_ == 2) {
+        im2col_gpu(data, conv_in_channels_,
+            conv_input_shape_.cpu_data()[1], conv_input_shape_.cpu_data()[2],
+            kernel_shape_.cpu_data()[0], kernel_shape_.cpu_data()[1],
+            pad_.cpu_data()[0], pad_.cpu_data()[1],
+            stride_.cpu_data()[0], stride_.cpu_data()[1],
+            dilation_.cpu_data()[0], dilation_.cpu_data()[1], col_buff);
+      } else {
+        im2col_nd_gpu(data, num_spatial_axes_, num_kernels_im2col_,
+            conv_input_shape_.gpu_data(), col_buffer_.gpu_shape(),
+            kernel_shape_.gpu_data(), pad_.gpu_data(),
+            stride_.gpu_data(), dilation_.gpu_data(), col_buff);
+      }
     }
-  }
-  inline void conv_col2im_gpu(const Dtype* col_buff, Dtype* data) {
-    if (!force_nd_im2col_ && num_spatial_axes_ == 2) {
-      col2im_gpu(col_buff, conv_in_channels_,
-          conv_input_shape_.cpu_data()[1], conv_input_shape_.cpu_data()[2],
-          kernel_shape_.cpu_data()[0], kernel_shape_.cpu_data()[1],
-          pad_.cpu_data()[0], pad_.cpu_data()[1],
-          stride_.cpu_data()[0], stride_.cpu_data()[1],
-          dilation_.cpu_data()[0], dilation_.cpu_data()[1], data);
-    } else {
-      col2im_nd_gpu(col_buff, num_spatial_axes_, num_kernels_col2im_,
-          conv_input_shape_.gpu_data(), col_buffer_.gpu_shape(),
-          kernel_shape_.gpu_data(), pad_.gpu_data(), stride_.gpu_data(),
-          dilation_.gpu_data(), data);
+    inline void conv_col2im_gpu(const Dtype* col_buff, Dtype* data) {
+      if (!force_nd_im2col_ && num_spatial_axes_ == 2) {
+        col2im_gpu(col_buff, conv_in_channels_,
+            conv_input_shape_.cpu_data()[1], conv_input_shape_.cpu_data()[2],
+            kernel_shape_.cpu_data()[0], kernel_shape_.cpu_data()[1],
+            pad_.cpu_data()[0], pad_.cpu_data()[1],
+            stride_.cpu_data()[0], stride_.cpu_data()[1],
+            dilation_.cpu_data()[0], dilation_.cpu_data()[1], data);
+      } else {
+        col2im_nd_gpu(col_buff, num_spatial_axes_, num_kernels_col2im_,
+            conv_input_shape_.gpu_data(), col_buffer_.gpu_shape(),
+            kernel_shape_.gpu_data(), pad_.gpu_data(), stride_.gpu_data(),
+            dilation_.gpu_data(), data);
+      }
     }
-  }
-#endif
-*/
+  #endif
+  */
 
   int num_kernels_im2col_;
   int num_kernels_col2im_;
@@ -198,15 +201,19 @@ private:
   Blob<Dtype> col_buffer_;
   Blob<Dtype> bias_multiplier_;
 
-  vector<Btype> binary_col_;
-  vector<Btype> binary_weight_;
-  vector<Dtype> binary_weight_scale_;
-  vector<Dtype> binary_col_scale_;
-  int binary_kernel_dim_;
-  int binary_weight_offset_;
-
-  vector<Dtype> col_temp_;
-  vector<Dtype> weight_temp_;
+  int M_, N_, K_;
+  int BM_, BN_, BK_;
+  vector<Btype> binary_w_, binary_in_, binary_g_;
+  vector<Btype>            mask_in_,   mask_g_;
+  vector<Dtype> scale_w_,  scale_in_,  scale_g_;
+  vector<Dtype> bias_w_,   bias_in_,   bias_g_;
+  vector<Dtype>            delta_in_,  delta_g_;
+  vector<Dtype> sum_w_,    sum_in_,    sum_g_;
+  vector<Dtype>            sum2_in_,   sum2_g_;
+  bool skip_weight_binary_;
+  vector<shared_ptr<Blob<Dtype>>> aux_;
+  bool full_train_;
+  bool use_bias_;
 };
 
 }  // namespace caffe

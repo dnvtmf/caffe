@@ -41,8 +41,8 @@ void BinaryInnerProductLayer<Dtype>::LayerSetUp(
     scale_w_ .resize(max(K_, N_));
     bias_w_  .resize(max(K_, N_));
     sum_w_   .resize(max(K_, N_));
-    this->aux_.resize(1);
-    this->aux_[0].reset(new Blob<Dtype>(weight_shape));
+//    this->aux_.resize(1);
+//    this->aux_[0].reset(new Blob<Dtype>(weight_shape));
     // fill the weights
     shared_ptr<Filler<Dtype>> weight_filler(GetFiller<Dtype>(
         params.weight_filler()));
@@ -143,9 +143,9 @@ void BinaryInnerProductLayer<Dtype>::Backward_cpu(
     auto weight_diff = this->blobs_[0]->mutable_cpu_diff();
     // dW = In' x dO
     if (full_train_) {
-      caffe_cpu_binary_restore<Dtype>(
-        0, M_, K_, binary_in_.data(), scale_in_.data(), bias_in_.data(),
-        bottom[0]->mutable_cpu_data());
+//      caffe_cpu_binary_restore<Dtype>(
+//        0, M_, K_, binary_in_.data(), scale_in_.data(), bias_in_.data(),
+//        bottom[0]->mutable_cpu_data());
       caffe_cpu_gemm<Dtype>(CblasTrans, CblasNoTrans,
                             K_, N_, M_,
                             (Dtype)1., bottom_data, top_diff,
@@ -175,12 +175,12 @@ void BinaryInnerProductLayer<Dtype>::Backward_cpu(
     // Gradient with respect to bottom data
     // dIn = dO x W'
     if (full_train_) {
-      Dtype *aux_data = aux_[0]->mutable_cpu_data();
-      caffe_cpu_binary_restore<Dtype>(
-        1, K_, N_, binary_w_.data(), scale_w_.data(), bias_w_.data(),
-        aux_data);
+//      Dtype *weight = aux_[0]->mutable_cpu_data();
+//      caffe_cpu_binary_restore<Dtype>(
+//        1, K_, N_, binary_w_.data(), scale_w_.data(), bias_w_.data(),
+//        weight);
       caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasTrans, M_, K_, N_,
-                            Dtype(1.), top_diff, aux_data,
+                            Dtype(1.), top_diff, weight,
                             Dtype(0.), bottom[0]->mutable_cpu_diff());
     }
     else {

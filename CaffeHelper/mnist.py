@@ -12,12 +12,14 @@ Data([], phase=TEST, source="../mnist_test_lmdb", batch_size=100, backend=Net.LM
      optional_params=[Transform(scale=0.00390625)])
 out = [data]
 label = [label]
-fc = TBFC
+# fc = TBFC
+fc = BinFC
 # fc = FC
-conv = TBConv
+# conv = TBConv
+conv = BinConv
 # conv = Conv
-full_train = False
-use_bias = False
+full_train = True
+use_bias = True
 # 32-C5 + MP2 + 64-C5 + MP2 + 512 FC + SVM
 out = Conv(out, name='conv1', num_output=32, bias_term=True, kernel_size=5, stride=1, pad=2,
            weight_filler=filler_xavier, bias_filler=filler_constant)
