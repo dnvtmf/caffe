@@ -4,7 +4,7 @@ import time
 
 Net("mnist_MLP")
 filler_xavier = Filler('xavier')
-filler_uniform = filler_xavier  # Filler('uniform', min=-0.1, max=0.1)
+filler_uniform = Filler('uniform', min_=-1, max_=1)
 filler_constant = Filler('constant')
 data, label = Data([], phase=TRAIN, source="../mnist_train_lmdb", batch_size=100, backend=Net.LMDB,
                    optional_params=[Transform(scale=0.00390625)])

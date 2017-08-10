@@ -113,11 +113,13 @@ void TBInnerProductLayer<Dtype>::Reshape(
 template <typename Dtype>
 void TBInnerProductLayer<Dtype>::Forward_cpu(
   const vector<Blob<Dtype>*> &bottom, const vector<Blob<Dtype>*> &top) {
-//  Dtype* pw = this->blobs_[0]->mutable_cpu_data();
-//  for (int i = 0; i < K_ * N_; ++i) {
-//    *pw = std::max(std::min(max_, *pw), min_);
-//    ++pw;
-//  }
+  Dtype *pw = this->blobs_[0]->mutable_cpu_data();
+  max_ = 1.;
+  min_ = -1.;
+  for (int i = 0; i < K_ * N_; ++i) {
+    *pw = std::max(std::min(max_, *pw), min_);
+    ++pw;
+  }
   const Dtype *weight      = this->blobs_[0]->cpu_data();
   const Dtype *bottom_data = bottom[0]->cpu_data();
   Dtype *top_data          = top[0]->mutable_cpu_data();
@@ -144,16 +146,13 @@ template <typename Dtype>
 void TBInnerProductLayer<Dtype>::Backward_cpu(
   const vector<Blob<Dtype>*> &top, const vector<bool> &propagate_down,
   const vector<Blob<Dtype>*> &bottom) {
-  const Dtype *top_diff = top[0]->cpu_diff();
-  const Dtype *weight   = this->blobs_[0]->cpu_data();
+  const Dtype *top_diff    = top[0]->cpu_diff();
+  const Dtype *weight      = this->blobs_[0]->cpu_data();
   const Dtype *bottom_data = bottom[0]->cpu_data();
   if (this->param_propagate_down_[0]) {
     Dtype *weight_diff = this->blobs_[0]->mutable_cpu_diff();
     // dW = In' x dO
     if (full_train_) {
-      caffe_cpu_ternary_restore<Dtype>(
-        0, M_, K_, binary_in_, mask_in_, scale_in_,
-        bias_in_, bottom[0]->mutable_cpu_data());
       caffe_cpu_gemm<Dtype>(CblasTrans, CblasNoTrans, K_, N_, M_,
                             Dtype(1.), bottom_data, top_diff,
                             Dtype(0.), weight_diff);
@@ -194,12 +193,9 @@ void TBInnerProductLayer<Dtype>::Backward_cpu(
   }
   if (propagate_down[0]) {
     // Gradient with respect to bottom data
-    Dtype *in_diff        = bottom[0]->mutable_cpu_diff();
+    Dtype *in_diff = bottom[0]->mutable_cpu_diff();
     // dIn = dO x W'
     if (full_train_) {
-      caffe_cpu_binary_restore<Dtype>(
-        1, K_, N_, binary_w_, scale_w_, bias_w_,
-        this->blobs_[0]->mutable_cpu_data());
       caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasTrans, M_, K_, N_,
                             Dtype(1.), top_diff, weight,
                             Dtype(0.), in_diff);
