@@ -43,18 +43,12 @@ void TBInnerProductLayer<Dtype>::LayerSetUp(
     sum_w_   .resize(max(K_, N_));
 //    this->aux_.resize(1);
 //    this->aux_[0].reset(new Blob<Dtype>(weight_shape));
+    max_ = sqrt(6.0 / N_);
+    min_ = -max_;
     // fill the weights
     shared_ptr<Filler<Dtype>> weight_filler(GetFiller<Dtype>(
         params.weight_filler()));
     weight_filler->Fill(this->blobs_[0].get());
-//    min_ = 1e60, max_ = -1e60;
-//    const Dtype *pw = this->blobs_[0]->cpu_data();
-//    for (int i = 0; i < K_ * N_; ++i, ++pw) {
-//      min_ = std::min(min_, *pw);
-//      max_ = std::max(max_, *pw);
-//    }
-//    LOG(INFO) << "\033[32mmin: " << min_ << "   max: " << max_  << " N = " << N_ <<
-//              "\033[0m";
     // If necessary, intiialize and fill the bias term
     if (bias_term_) {
       vector<int> bias_shape(1, N_);
@@ -114,8 +108,6 @@ template <typename Dtype>
 void TBInnerProductLayer<Dtype>::Forward_cpu(
   const vector<Blob<Dtype>*> &bottom, const vector<Blob<Dtype>*> &top) {
   Dtype *pw = this->blobs_[0]->mutable_cpu_data();
-  max_ = 1.;
-  min_ = -1.;
   for (int i = 0; i < K_ * N_; ++i) {
     *pw = std::max(std::min(max_, *pw), min_);
     ++pw;
@@ -123,6 +115,14 @@ void TBInnerProductLayer<Dtype>::Forward_cpu(
   const Dtype *weight      = this->blobs_[0]->cpu_data();
   const Dtype *bottom_data = bottom[0]->cpu_data();
   Dtype *top_data          = top[0]->mutable_cpu_data();
+  if (N_ == 256) {
+    Dtype _min_ = 100, _max_ = -100;
+    for (int i = 0; i < K_ * N_; ++i) {
+      _min_ = std::min(_min_, *(weight + i));
+      _max_ = std::max(_max_, *(weight + i));
+    }
+    LOG(INFO) << "\033[31m min_ = " << _min_ << ", max_ = " << _max_ << "\033[0m";
+  }
   caffe_cpu_ternary_norm<Dtype>(
     0, M_, K_, bottom_data, binary_in_.data(), mask_in_.data(),
     delta_in_.data(), scale_in_.data(), bias_in_.data(),
