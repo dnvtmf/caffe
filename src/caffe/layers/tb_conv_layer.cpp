@@ -197,6 +197,8 @@ void TBConvolutionLayer<Dtype>::LayerSetUp(
   scale_w_ .resize(max(K_, M_));
   bias_w_  .resize(max(K_, M_));
   sum_w_   .resize(max(K_, M_));
+  max_ = sqrt(12. / M_);
+  min_ = -max_;
   // Propagate gradients to the parameters (as directed by backward pass).
   this->param_propagate_down_.resize(this->blobs_.size(), true);
   full_train_ = this->layer_param_.tb_param().full_train();
@@ -418,6 +420,11 @@ template <typename Dtype>
 void TBConvolutionLayer<Dtype>::Forward_cpu(
   const vector<Blob<Dtype>*> &bottom, const vector<Blob<Dtype>*> &top) {
   const Dtype *weight = this->blobs_[0]->cpu_data();
+  const Dtype *p = weight;
+  for (int i = 0; i < K_ * M_; ++i) {
+    *p = std::max(std::min(*p, max_), min_);
+    p++;
+  }
   caffe_cpu_binary_norm<Dtype>(
     0, M_, K_, weight, binary_w_.data(), scale_w_.data(),
     bias_w_.data(), sum_w_.data(), tb_use_bias_);

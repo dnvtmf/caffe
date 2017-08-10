@@ -4,7 +4,7 @@ import time
 
 Net("mnist_MLP")
 filler_xavier = Filler('xavier')
-filler_uniform = filler_xavier # Filler('uniform', min_=-1, max_=1)
+filler_uniform = filler_xavier  # Filler('uniform', min_=-1, max_=1)
 filler_constant = Filler('constant')
 data, label = Data([], phase=TRAIN, source="../mnist_train_lmdb", batch_size=100, backend=Net.LMDB,
                    optional_params=[Transform(scale=0.00390625)])
@@ -26,6 +26,7 @@ out = fc(out, name='fc2', num_output=256, weight_filler=filler_uniform, bias_ter
          full_train=full_train)
 out = BN(out, name='bn2')
 out = ReLU(out, name='relu2')
+out = BN(out, name='bn_relu2')
 out = fc(out, name='fc3', num_output=128, weight_filler=filler_uniform, bias_term=True, bias_filler=filler_constant,
          full_train=full_train)
 out = BN(out, name='bn3')
