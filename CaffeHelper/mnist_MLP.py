@@ -46,28 +46,5 @@ solver.optimizer(type='SGD', momentum=0.9)
 solver.display(display=100)
 solver.snapshot(snapshot=5000, snapshot_prefix='binary')
 
-sh_content = """#!/usr/bin/env sh
-set -e
-
-~/caffe/build/tools/caffe train --solver solver.prototxt $@
-
-"""
-
 model_dir = os.path.join(os.getenv('HOME'), 'mnist/mlp_model')
-if not os.path.exists(model_dir):
-    os.mkdir(model_dir)
-# print solver.get_solver_proto()
-# print get_prototxt()
-
-with open(os.path.join(model_dir, 'model.prototxt'), 'w') as f:
-    f.write(get_prototxt())
-
-with open(os.path.join(model_dir, 'solver.prototxt'), 'w') as f:
-    f.write(solver.get_solver_proto())
-
-with open(os.path.join(model_dir, 'train.sh'), 'w') as f:
-    f.write(sh_content)
-os.chmod(os.path.join(model_dir, 'train.sh'), 0777)
-
-print 'time: ' + time.ctime()
-print 'successful create model.prototxt, solver.prototxt and train.sh in directory: ' + model_dir
+gen_model(model_dir, solver, [0, 2, 4, 6])

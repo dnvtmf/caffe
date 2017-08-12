@@ -394,14 +394,8 @@ void Solver<Dtype>::Test(const int test_net_id) {
       loss_msg_stream << " (* " << loss_weight
                       << " = " << loss_weight * mean_score << " loss)";
     }
-#ifndef __linux__
     LOG(INFO) << "    Test net output #" << i << ": " << output_name << " = "
               << mean_score << loss_msg_stream.str();
-#else
-  // colored print
-  LOG(INFO) << "\033[31;47m    Test net output #" << i << ": " << output_name << " = "
-              << mean_score << loss_msg_stream.str() << "\033[0m";
-#endif
   }
 }
 
