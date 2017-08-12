@@ -107,11 +107,11 @@ void TBInnerProductLayer<Dtype>::Reshape(
 template <typename Dtype>
 void TBInnerProductLayer<Dtype>::Forward_cpu(
   const vector<Blob<Dtype>*> &bottom, const vector<Blob<Dtype>*> &top) {
-  Dtype *pw = this->blobs_[0]->mutable_cpu_data();
-  for (int i = 0; i < K_ * N_; ++i) {
-    *pw = std::max(std::min(max_, *pw), min_);
-    ++pw;
-  }
+//  Dtype *pw = this->blobs_[0]->mutable_cpu_data();
+//  for (int i = 0; i < K_ * N_; ++i) {
+//    *pw = std::max(std::min(max_, *pw), min_);
+//    ++pw;
+//  }
   const Dtype *weight      = this->blobs_[0]->cpu_data();
   const Dtype *bottom_data = bottom[0]->cpu_data();
   Dtype *top_data          = top[0]->mutable_cpu_data();

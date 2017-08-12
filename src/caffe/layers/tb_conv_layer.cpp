@@ -420,11 +420,11 @@ template <typename Dtype>
 void TBConvolutionLayer<Dtype>::Forward_cpu(
   const vector<Blob<Dtype>*> &bottom, const vector<Blob<Dtype>*> &top) {
   const Dtype *weight = this->blobs_[0]->cpu_data();
-  const Dtype *p = weight;
-  for (int i = 0; i < K_ * M_; ++i) {
-    *p = std::max(std::min(*p, max_), min_);
-    p++;
-  }
+//  Dtype *p = this->blobs_[0]->mutable_cpu_data();
+//  for (int i = 0; i < K_ * M_; ++i) {
+//    *p = std::max(std::min(*p, max_), min_);
+//    p++;
+//  }
   caffe_cpu_binary_norm<Dtype>(
     0, M_, K_, weight, binary_w_.data(), scale_w_.data(),
     bias_w_.data(), sum_w_.data(), tb_use_bias_);
