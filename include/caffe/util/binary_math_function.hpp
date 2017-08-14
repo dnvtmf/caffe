@@ -59,8 +59,7 @@ void caffe_cpu_binary_gemm_and(
  */
 
 template<typename Dtype>
-void caffe_cpu_binary(const int axis, const int M, const int N,
-                      const Dtype *in, Btype *code, Dtype *scale);
+void caffe_cpu_binary(const int N, Dtype *in, Btype *code);
 
 template<typename Dtype>
 void caffe_cpu_binary_approx(const int axis, const int M, const int N,

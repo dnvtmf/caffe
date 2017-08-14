@@ -41,19 +41,10 @@ void BinaryInnerProductLayer<Dtype>::LayerSetUp(
     scale_w_ .resize(max(K_, N_));
     bias_w_  .resize(max(K_, N_));
     sum_w_   .resize(max(K_, N_));
-//    this->aux_.resize(1);
-//    this->aux_[0].reset(new Blob<Dtype>(weight_shape));
     // fill the weights
     shared_ptr<Filler<Dtype>> weight_filler(GetFiller<Dtype>(
         params.weight_filler()));
     weight_filler->Fill(this->blobs_[0].get());
-//    min_ = 1e60, max_ = -1e60;
-//    const Dtype *pw = this->blobs_[0]->cpu_data();
-//    for (int i = 0; i < K_ * N_; ++i, ++pw) {
-//      min_ = std::min(min_, *pw);
-//      max_ = std::max(max_, *pw);
-//    }
-//    LOG(INFO) << "\033[32mmin: " << min_ << "   max: " << max_ << "\033[0m";
     // If necessary, intiialize and fill the bias term
     if (bias_term_) {
       vector<int> bias_shape(1, N_);
@@ -63,7 +54,7 @@ void BinaryInnerProductLayer<Dtype>::LayerSetUp(
     }
   }  // parameter initialization
   this->param_propagate_down_.resize(this->blobs_.size(), true);
-  full_train_  = this->layer_param_.tb_param().full_train();
+  full_train_  = true; // this->layer_param_.tb_param().full_train();
   use_bias_ = this->layer_param_.tb_param().use_bias();
 }
 
@@ -85,7 +76,6 @@ void BinaryInnerProductLayer<Dtype>::Reshape(
   top_shape.resize(axis + 1);
   top_shape[axis] = N_;
   top[0]->Reshape(top_shape);
-//  this->aux_[0].reset(new Blob<Dtype>(top_shape));
   // Set up the bias multiplier
   if (bias_term_) {
     vector<int> bias_shape(1, M_);
@@ -106,20 +96,13 @@ void BinaryInnerProductLayer<Dtype>::Reshape(
 template <typename Dtype>
 void BinaryInnerProductLayer<Dtype>::Forward_cpu(
   const vector<Blob<Dtype>*> &bottom, const vector<Blob<Dtype>*> &top) {
-//  Dtype *pw = this->blobs_[0]->mutable_cpu_data();
-//  for (int i = 0; i < K_ * N_; ++i) {
-//    *pw = std::max(std::min(max_, *pw), min_);
-//    ++pw;
-//  }
   const Dtype *weight = this->blobs_[0]->cpu_data();
   const Dtype *bottom_data = bottom[0]->cpu_data();
   Dtype *top_data = top[0]->mutable_cpu_data();
+  caffe_cpu_binary<Dtype>(
+    0, M_, K_, bottom[0]->mutable_cpu_data(), binary_in_.data());
   caffe_cpu_binary_norm<Dtype>(
-    0, M_, K_, bottom_data, binary_in_.data(), scale_in_.data(),
-    bias_in_.data(), sum_in_.data(), use_bias_);
-  caffe_cpu_binary_norm<Dtype>(
-    1, K_, N_, weight, binary_w_.data(), scale_w_.data(),
-    bias_w_.data(), sum_w_.data(), use_bias_);
+    1, K_, N_, this->blobs_[0]->mutable_cpu_data(), binary_w_.data());
   caffe_cpu_binary_gemm<Dtype>(
     false, false, M_, N_, K_,
     binary_in_.data(), scale_in_.data(), binary_w_.data(), scale_w_.data(),
@@ -143,9 +126,6 @@ void BinaryInnerProductLayer<Dtype>::Backward_cpu(
     auto weight_diff = this->blobs_[0]->mutable_cpu_diff();
     // dW = In' x dO
     if (full_train_) {
-//      caffe_cpu_binary_restore<Dtype>(
-//        0, M_, K_, binary_in_.data(), scale_in_.data(), bias_in_.data(),
-//        bottom[0]->mutable_cpu_data());
       caffe_cpu_gemm<Dtype>(CblasTrans, CblasNoTrans,
                             K_, N_, M_,
                             (Dtype)1., bottom_data, top_diff,
@@ -175,10 +155,6 @@ void BinaryInnerProductLayer<Dtype>::Backward_cpu(
     // Gradient with respect to bottom data
     // dIn = dO x W'
     if (full_train_) {
-//      Dtype *weight = aux_[0]->mutable_cpu_data();
-//      caffe_cpu_binary_restore<Dtype>(
-//        1, K_, N_, binary_w_.data(), scale_w_.data(), bias_w_.data(),
-//        weight);
       caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasTrans, M_, K_, N_,
                             Dtype(1.), top_diff, weight,
                             Dtype(0.), bottom[0]->mutable_cpu_diff());
@@ -196,11 +172,6 @@ void BinaryInnerProductLayer<Dtype>::Backward_cpu(
         bottom[0]->mutable_cpu_diff(), use_bias_,
         bias_g_.data(), sum_g_.data(), bias_w_.data(), sum_w_.data());
     }
-//    caffe_cpu_binary_norm<Dtype>(0, M_, K_, bottom[0]->cpu_data(),
-//                                 binary_in_, scale_in_, bias_in_, sum_in_);
-//    caffe_cpu_binary_norm_gradient<Dtype>(
-//      0, M_, K_, bottom[0]->cpu_data(),
-//      scale_in_, bias_in_, bottom[0]->mutable_cpu_diff());
   }
 }
 

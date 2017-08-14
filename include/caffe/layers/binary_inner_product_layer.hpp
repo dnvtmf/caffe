@@ -53,8 +53,6 @@ class BinaryInnerProductLayer : public Layer<Dtype> {
   vector<Dtype> scale_w_,  scale_in_,  scale_g_;
   vector<Dtype> bias_w_,   bias_in_,   bias_g_;
   vector<Dtype> sum_w_,    sum_in_,    sum_g_;
-  vector<shared_ptr<Blob<Dtype> > > aux_;
-  Dtype min_, max_;
 };
 
 }  // namespace caffe

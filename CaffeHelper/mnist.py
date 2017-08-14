@@ -1,6 +1,5 @@
 from caffe_user import *
 import os
-import time
 
 Net("mnist")
 filler_xavier = Filler('xavier')
@@ -12,10 +11,8 @@ Data([], phase=TEST, source="../mnist_test_lmdb", batch_size=100, backend=Net.LM
      optional_params=[Transform(scale=0.00390625)])
 out = [data]
 label = [label]
-# fc = TBFC
 fc = BinFC
 # fc = FC
-# conv = TBConv
 conv = BinConv
 # conv = Conv
 full_train = True

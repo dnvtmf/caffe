@@ -1,6 +1,5 @@
 from caffe_user import *
 import os
-import time
 
 num_epoch = 500
 batch_size = 200
@@ -14,12 +13,10 @@ Data([], phase=TEST, source="../cifar10_test_lmdb", batch_size=100, backend=Net.
      optional_params=[Transform(mean_file="../mean.binaryproto")])
 out = [data]
 label = [label]
-# fc = XnorNetFC
-fc = TBFC
 # fc = BinFC
-# fc = FC
-conv = TBConv
-# conv = Conv
+fc = FC
+# conv = BinConv
+conv = Conv
 # 2x(128C3)-MP2-2x(256C3)-MP2-2x(512C3)-MP2-1024FC-SVM
 out = Conv(out, name='conv1', num_output=128, bias_term=True, kernel_size=3, stride=1,
            weight_filler=filler_xavier, bias_filler=filler_constant)

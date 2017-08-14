@@ -1,9 +1,13 @@
 #include <algorithm>
 #include <iostream>
+#include <random>
 
 #include "caffe/util/binary_math_function.hpp"
 #include "caffe/util/math_functions.hpp"
 namespace caffe {
+std::mt19937 gen(time(0));
+std::uniform_real_distribution<Dtype> dis(0.0, 1.0);
+
 template<typename Dtype>
 void caffe_cpu_binary_gemm_and(
   const bool transposeA, const bool transposeB,
@@ -86,44 +90,43 @@ void caffe_cpu_binary_gemm_and(
 
 
 template<typename Dtype>
-void caffe_cpu_binary(const int axis, const int M, const int N,
-                      const Dtype *in, Btype *code, Dtype *scale) {
+void caffe_cpu_binary(
+  const int axis, const int M, const int N, Dtype *in, Btype *code) {
+  Dtype *p = in;
+  for (int i = 0; i < M * N; ++i) {
+    *p = tanh(*p);
+    ++p;
+  }
   if (axis == 0) {
-    const int BN = (N + BINARY_SIZE - 1) / BINARY_SIZE;
-    memset(code,  0, sizeof(Btype) * M * BN);
-    memset(scale, 0, sizeof(Dtype) * M);
-    auto p_in = in;
-    auto p_code = code;
+    int BN = (N - 1) / BINARY_SIZE + 1;
+    memset(code, 0, sizeof(Btype) * M * BN);
+    p = in;
     for (int i = 0; i < M; ++i) {
-      for (int j = 0; j < N; ++p_code) {
-        for (Btype k = 0; j < N && k < BINARY_SIZE; ++k, ++j) {
-          scale[i] += std::abs(*p_in);
-          *p_code |= (static_cast<Btype>(*p_in++ >= 0)) << k;
+      for (int j = 0; j < N;) {
+        for (int k = 0; k < BINARY_SIZE && j < N; ++j, ++k) {
+          if (*p < dis(gen))
+            *code |= Btype(1) << k;
+          ++p;
         }
+        ++code;
       }
-    }
-    for (int i = 0; i < M; ++i) {
-      scale[i] /= N;
     }
   }
   else {
-    const int BM = (M - 1) / BINARY_SIZE + 1;
-    memset(code,  0, sizeof(Btype) * BM * N);
-    memset(scale, 0, sizeof(Dtype) * N);
-    auto p = in;
-    auto q = code;
+    int BM = (M - 1) / BINARY_SIZE + 1;
+    memset(code, 0, sizeof(Btype) * BM * N);
+    p = in;
     for (int i = 0; i < M;) {
-      for (Btype k = 0; i < M && k < BINARY_SIZE; ++k, ++i) {
+      for (int k = 0; k < BINARY_SIZE && i < M; ++k, ++i) {
         for (int j = 0; j < N; ++j) {
-          scale[j] += std::abs(*p);
-          *q++ |= (static_cast<Btype>(*p++ >= 0)) << k;
+          if (*p < dis(gen))
+            *code |= Btype(1) << k;
+          ++p;
+          ++code;
         }
-        q -= N;
+        code -= N;
       }
-      q += N;
-    }
-    for (int j = 0; j < N; ++j) {
-      scale[j] /= M;
+      code += N;
     }
   }
 }
@@ -644,7 +647,8 @@ void caffe_cpu_binary_gemm(
   ptr_c = C;
   for (int r = 0; r < M; ++r) {
     for (int c = 0; c < N; ++c, ++ptr_c) {
-      *ptr_c = A_scale[r] * B_scale[c] * (K - 2 * *ptr_c);
+//      *ptr_c = A_scale[r] * B_scale[c] * (K - 2 * *ptr_c);
+        *ptr_c = K - 2 * *ptr_c;
     }
   }
   if (!bias) return ;
@@ -961,10 +965,9 @@ template void caffe_cpu_binary_gemm_and<Dtype>( \
   const int M, const int N, const int K, const Dtype alpha, const Btype *A, \
   const Btype *B, const Dtype *scaleA, const Dtype *scaleB, \
   Dtype beta, Dtype *C); \
-   \
+  \
 template void caffe_cpu_binary<Dtype>( \
-  const int axis, const int M, const int N, \
-  const Dtype *in, Btype *code, Dtype *scale); \
+  const int axis, const int M, const int N, Dtype *in, Btype *code) \
   \
 template void caffe_cpu_binary_approx<Dtype>( \
   const int axis, const int M, const int N, \
