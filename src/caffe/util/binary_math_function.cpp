@@ -5,8 +5,6 @@
 #include "caffe/util/binary_math_function.hpp"
 #include "caffe/util/math_functions.hpp"
 namespace caffe {
-std::mt19937 gen(time(0));
-std::uniform_real_distribution<Dtype> dis(0.0, 1.0);
 
 template<typename Dtype>
 void caffe_cpu_binary_gemm_and(
@@ -92,15 +90,14 @@ void caffe_cpu_binary_gemm_and(
 template<typename Dtype>
 void caffe_cpu_binary(
   const int axis, const int M, const int N, Dtype *in, Btype *code) {
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_real_distribution<Dtype> dis(0.0, 1.0);
   Dtype *p = in;
-  for (int i = 0; i < M * N; ++i) {
-    *p = tanh(*p);
-    ++p;
-  }
+
   if (axis == 0) {
     int BN = (N - 1) / BINARY_SIZE + 1;
     memset(code, 0, sizeof(Btype) * M * BN);
-    p = in;
     for (int i = 0; i < M; ++i) {
       for (int j = 0; j < N;) {
         for (int k = 0; k < BINARY_SIZE && j < N; ++j, ++k) {
@@ -115,7 +112,6 @@ void caffe_cpu_binary(
   else {
     int BM = (M - 1) / BINARY_SIZE + 1;
     memset(code, 0, sizeof(Btype) * BM * N);
-    p = in;
     for (int i = 0; i < M;) {
       for (int k = 0; k < BINARY_SIZE && i < M; ++k, ++i) {
         for (int j = 0; j < N; ++j) {
@@ -302,7 +298,7 @@ void caffe_cpu_binary_norm(
   const int axis, const int M, const int N, const Dtype *in,
   Btype *code, Dtype *scale, Dtype *bias, Dtype *sum, const bool use_bias) {
   if (!use_bias) {
-    caffe_cpu_binary<Dtype>(axis, M, N, in, code, scale);
+//    caffe_cpu_binary<Dtype>(axis, M, N, in, code, scale);
     return ;
   }
   if (axis == 0) {
@@ -648,7 +644,7 @@ void caffe_cpu_binary_gemm(
   for (int r = 0; r < M; ++r) {
     for (int c = 0; c < N; ++c, ++ptr_c) {
 //      *ptr_c = A_scale[r] * B_scale[c] * (K - 2 * *ptr_c);
-        *ptr_c = K - 2 * *ptr_c;
+      *ptr_c = K - 2 * *ptr_c;
     }
   }
   if (!bias) return ;
@@ -967,7 +963,7 @@ template void caffe_cpu_binary_gemm_and<Dtype>( \
   Dtype beta, Dtype *C); \
   \
 template void caffe_cpu_binary<Dtype>( \
-  const int axis, const int M, const int N, Dtype *in, Btype *code) \
+  const int axis, const int M, const int N, Dtype *in, Btype *code); \
   \
 template void caffe_cpu_binary_approx<Dtype>( \
   const int axis, const int M, const int N, \

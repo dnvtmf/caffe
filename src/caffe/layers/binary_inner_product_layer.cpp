@@ -55,7 +55,7 @@ void BinaryInnerProductLayer<Dtype>::LayerSetUp(
   }  // parameter initialization
   this->param_propagate_down_.resize(this->blobs_.size(), true);
   full_train_  = true; // this->layer_param_.tb_param().full_train();
-  use_bias_ = this->layer_param_.tb_param().use_bias();
+  use_bias_ = false; // this->layer_param_.tb_param().use_bias();
 }
 
 template <typename Dtype>
@@ -96,13 +96,17 @@ void BinaryInnerProductLayer<Dtype>::Reshape(
 template <typename Dtype>
 void BinaryInnerProductLayer<Dtype>::Forward_cpu(
   const vector<Blob<Dtype>*> &bottom, const vector<Blob<Dtype>*> &top) {
-  const Dtype *weight = this->blobs_[0]->cpu_data();
-  const Dtype *bottom_data = bottom[0]->cpu_data();
+  Dtype *weight = this->blobs_[0]->mutable_cpu_data();
+  Dtype *aux = this->blobs_[0]->mutable_cpu_diff();
+  Dtype *bottom_data = bottom[0]->mutable_cpu_data();
   Dtype *top_data = top[0]->mutable_cpu_data();
+  caffe_cpu_sigmoid<Dtype>(K_ * N_, weight);
+  caffe_cpu_sigmoid<Dtype>(M_ * K_, bottom_data);
+  caffe_copy<Dtype>(K_ * N_, weight, aux);
   caffe_cpu_binary<Dtype>(
-    0, M_, K_, bottom[0]->mutable_cpu_data(), binary_in_.data());
-  caffe_cpu_binary_norm<Dtype>(
-    1, K_, N_, this->blobs_[0]->mutable_cpu_data(), binary_w_.data());
+    0, M_, K_, bottom_data, binary_in_.data());
+  caffe_cpu_binary<Dtype>(
+    1, K_, N_, aux, binary_w_.data());
   caffe_cpu_binary_gemm<Dtype>(
     false, false, M_, N_, K_,
     binary_in_.data(), scale_in_.data(), binary_w_.data(), scale_w_.data(),
@@ -121,7 +125,29 @@ void BinaryInnerProductLayer<Dtype>::Backward_cpu(
   const vector<Blob<Dtype>*> &bottom) {
   const Dtype *top_diff = top[0]->cpu_diff();
   const Dtype *bottom_data = bottom[0]->cpu_data();
-  const Dtype *weight = this->blobs_[0]->cpu_data();
+  const Dtype *weight = this->blobs_[0]->cpu_diff();
+  if (propagate_down[0]) {
+    // Gradient with respect to bottom data
+    // dIn = dO x W'
+    if (full_train_) {
+      caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasTrans, M_, K_, N_,
+                            Dtype(1.), top_diff, weight,
+                            Dtype(0.), bottom[0]->mutable_cpu_diff());
+    }
+    else {
+      caffe_cpu_binary_norm<Dtype>(
+        0, M_, N_, top_diff, binary_g_.data(), scale_g_.data(),
+        bias_g_.data(), sum_g_.data(), use_bias_);
+      caffe_cpu_binary_norm<Dtype>(
+        0, K_, N_, weight, binary_w_.data(), scale_w_.data(),
+        bias_w_.data(), sum_w_.data(), use_bias_);
+      caffe_cpu_binary_gemm<Dtype>(
+        false, true, M_, K_, N_,
+        binary_g_.data(), scale_g_.data(), binary_w_.data(), scale_w_.data(),
+        bottom[0]->mutable_cpu_diff(), use_bias_,
+        bias_g_.data(), sum_g_.data(), bias_w_.data(), sum_w_.data());
+    }
+  }
   if (this->param_propagate_down_[0]) {
     auto weight_diff = this->blobs_[0]->mutable_cpu_diff();
     // dW = In' x dO
@@ -150,28 +176,6 @@ void BinaryInnerProductLayer<Dtype>::Backward_cpu(
     caffe_cpu_gemv<Dtype>(CblasTrans, M_, N_, (Dtype)1., top_diff,
                           bias_multiplier_.cpu_data(), (Dtype)1.,
                           this->blobs_[1]->mutable_cpu_diff());
-  }
-  if (propagate_down[0]) {
-    // Gradient with respect to bottom data
-    // dIn = dO x W'
-    if (full_train_) {
-      caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasTrans, M_, K_, N_,
-                            Dtype(1.), top_diff, weight,
-                            Dtype(0.), bottom[0]->mutable_cpu_diff());
-    }
-    else {
-      caffe_cpu_binary_norm<Dtype>(
-        0, M_, N_, top_diff, binary_g_.data(), scale_g_.data(),
-        bias_g_.data(), sum_g_.data(), use_bias_);
-      caffe_cpu_binary_norm<Dtype>(
-        0, K_, N_, weight, binary_w_.data(), scale_w_.data(),
-        bias_w_.data(), sum_w_.data(), use_bias_);
-      caffe_cpu_binary_gemm<Dtype>(
-        false, true, M_, K_, N_,
-        binary_g_.data(), scale_g_.data(), binary_w_.data(), scale_w_.data(),
-        bottom[0]->mutable_cpu_diff(), use_bias_,
-        bias_g_.data(), sum_g_.data(), bias_w_.data(), sum_w_.data());
-    }
   }
 }
 

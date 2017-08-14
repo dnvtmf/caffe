@@ -340,6 +340,22 @@ def ReLU(data_in, name="relu", optional_params=None):
     return data_out
 
 
+def TanH(data_in, name="TanH", optional_params=None):
+    data_out = [Blob(name)]
+    assert len(data_in) == 1
+    param = Layer(name, "TanH", data_in, data_out, optional_params)
+    _caffe_net.write_to_proto(param)
+    return data_out
+
+
+def Sigmoid(data_in, name="sigmoid", optional_params=None):
+    data_out = [Blob(name)]
+    assert len(data_in) == 1
+    param = Layer(name, "Sigmoid", data_in, data_out, optional_params)
+    _caffe_net.write_to_proto(param)
+    return data_out
+
+
 def HingeLoss(data_in, name="loss", norm=1, optional_params=None):
     """
     message HingeLossParameter {
