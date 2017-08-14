@@ -66,7 +66,7 @@ num_iter = num_epoch * 50000 / batch_size
 solver.train(base_lr=0.001, lr_policy='step', gamma=0.1, stepsize=num_iter / 5, max_iter=num_iter)
 # solver.optimizer(type='SGD', momentum=0.9)
 solver.optimizer(type='Adam')
-solver.display(display=200)
+solver.display(display=200, average_loss=100)
 solver.snapshot(snapshot=10000, snapshot_prefix='cifar10')
 
 model_dir = os.path.join(os.getenv('HOME'), 'cifar10/cnn')

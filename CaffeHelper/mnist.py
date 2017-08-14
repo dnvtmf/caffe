@@ -46,7 +46,7 @@ solver.train(base_lr=0.001, lr_policy='fixed', max_iter=3000)#, weight_decay=1e-
 # solver.train(base_lr=0.001, lr_policy='step', gamma=0.1, stepsize=1000, max_iter=3000)
 solver.optimizer(type='SGD', momentum=0.9)
 # solver.optimizer(type='Adam')
-solver.display(display=100)
+solver.display(display=100, average_loss=100)
 solver.snapshot(snapshot=5000, snapshot_prefix='tb')
 
 # print solver.get_solver_proto()
