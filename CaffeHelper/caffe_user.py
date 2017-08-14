@@ -32,16 +32,18 @@ def gen_model(model_dir, solver, log=None):
         os.mkdir(model_dir)
 
     sh_content = """#!/usr/bin/env sh
-    set -e
-    LOG = log`date +%H_%M_at_%y_%m_%d`.log
-    CAFFE=~/caffe
-    $CAFFE/build/tools/caffe train --solver solver.prototxt 2>&1 | tee $LOG
-    
-    python $CAFFE/extra/parse_log.py $LOG .
-    """
+set -e
+LOG=my.log
+export MPLBACKEND="agg"
+CAFFE=~/caffe
+$CAFFE/build/tools/caffe train --solver solver.prototxt 2>&1 | tee $LOG
+
+python $CAFFE/tools/extra/parse_log.py $LOG .
+"""
     if log is not None:
         for x in log:
-            sh_content += "python $CAFFE/extra/plot_training_log.py.example " + x + "pic" + x + ".png $LOG"
+            sh_content += "python $CAFFE/tools/extra/plot_training_log.py.example "
+            sh_content += str(x) + " pic" + str(x) + ".png $LOG\n"
 
     with open(os.path.join(model_dir, 'model.prototxt'), 'w') as f:
         f.write(get_prototxt())
