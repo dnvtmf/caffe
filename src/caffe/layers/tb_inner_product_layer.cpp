@@ -37,10 +37,13 @@ void TBInnerProductLayer<Dtype>::LayerSetUp(
     // Initialize the vectors
     BN_ = (N_ - 1) / BINARY_SIZE + 1;
     BK_ = (K_ - 1) / BINARY_SIZE + 1;
-    binary_w_.resize(max(BN_ * K_, N_ * BK_));
-    scale_w_ .resize(max(K_, N_));
-    bias_w_  .resize(max(K_, N_));
-    sum_w_   .resize(max(K_, N_));
+    binary_w_ .resize(max(BN_ * K_, N_ * BK_));
+    mask_w_   .resize(max(BN_ * K_, N_ * BK_));
+    scale_w_  .resize(max(K_, N_));
+    bias_w_   .resize(max(K_, N_));
+    sum_w_    .resize(max(K_, N_));
+    sum2_w_   .resize(max(K_, N_));
+    delta_w_  .resize(max(K_, N_));
 //    this->aux_.resize(1);
 //    this->aux_[0].reset(new Blob<Dtype>(weight_shape));
     max_ = sqrt(12.0 / N_);
@@ -123,7 +126,7 @@ void TBInnerProductLayer<Dtype>::Forward_cpu(
       0, M_, K_, bottom_data, binary_in_.data(),
       scale_in_.data(), bias_in_.data(), sum_w_.data(), use_bias_);
   }
-  else if (!w_method_) {
+  else if (w_method_) {
     caffe_cpu_ternary_norm<Dtype>(
       0, M_, K_, bottom_data, binary_in_.data(), mask_in_.data(),
       delta_in_.data(), scale_in_.data(), bias_in_.data(),
@@ -135,7 +138,7 @@ void TBInnerProductLayer<Dtype>::Forward_cpu(
       1, K_, N_, weight, binary_w_.data(), scale_w_.data(),
       bias_w_.data(), sum_w_.data(), use_bias_);
   }
-  else if (!in_method_) {
+  else if (in_method_) {
     caffe_cpu_ternary_norm<Dtype>(
       1, K_, N_, weight, binary_w_.data(), mask_w_.data(),
       delta_w_.data(), scale_w_.data(), bias_w_.data(),
@@ -152,8 +155,8 @@ void TBInnerProductLayer<Dtype>::Forward_cpu(
   else if (in_method_) {
     caffe_cpu_bt_gemm<Dtype>(
       false, false, M_, N_, K_,
-      binary_in_.data(), mask_in_.data(),
-      binary_w_.data(), scale_w_.data(), scale_w_.data(), sum2_w_.data(),
+      binary_in_.data(), scale_in_.data(),
+      binary_w_.data(), mask_w_.data(), scale_w_.data(), sum2_w_.data(),
       top_data, use_bias_,
       bias_in_.data(), sum_in_.data(), bias_w_.data(), sum_w_.data());
   }
@@ -195,14 +198,14 @@ void TBInnerProductLayer<Dtype>::Backward_cpu(
       caffe_cpu_ternary_norm<Dtype>(
         1, M_, K_, bottom_data, binary_in_.data(), mask_in_.data(),
         delta_in_.data(), scale_in_.data(), bias_in_.data(),
-        sum_in_.data(), sum2_in_.data(), tb_use_bias_);
+        sum_in_.data(), sum2_in_.data(), use_bias_);
       caffe_cpu_binary_norm<Dtype>(
         1, M_, N_, top_diff, binary_g_.data(), scale_g_.data(),
-        bias_g_.data(), sum_g_.data(), tb_use_bias_);
+        bias_g_.data(), sum_g_.data(), use_bias_);
       caffe_cpu_tb_gemm<Dtype>(
         true, false, K_, N_, M_,
         binary_in_.data(), mask_in_.data(), scale_in_.data(), sum2_in_.data(),
-        binary_g_.data(), scale_g_.data(), weight_diff, tb_use_bias_,
+        binary_g_.data(), scale_g_.data(), weight_diff, use_bias_,
         bias_in_.data(), sum_in_.data(), bias_g_.data(), sum_g_.data());
 //    caffe_cpu_binary_norm<Dtype>(1, M_, K_, bottom_data,
 //                                 binary_in_, scale_in_, bias_in_, sum_in_);
@@ -215,7 +218,7 @@ void TBInnerProductLayer<Dtype>::Backward_cpu(
     }
 //    caffe_cpu_binary_norm<Dtype>(
 //      1, K_, N_, weight, binary_w_.data(), scale_w_.data(),
-//      bias_w_.data(), sum_w_.data(), tb_use_bias_);
+//      bias_w_.data(), sum_w_.data(), use_bias_);
 //    caffe_cpu_binary_norm_gradient<Dtype>(
 //      1, K_, N_, weight, scale_w_.data(), bias_w_.data(), weight_diff);
   }
@@ -238,14 +241,14 @@ void TBInnerProductLayer<Dtype>::Backward_cpu(
       caffe_cpu_ternary_norm<Dtype>(
         0, M_, N_, top_diff, binary_g_.data(),
         mask_g_.data(), delta_g_.data(), scale_g_.data(), bias_g_.data(),
-        sum_g_.data(), sum2_g_.data(), tb_use_bias_);
+        sum_g_.data(), sum2_g_.data(), use_bias_);
       caffe_cpu_binary_norm<Dtype>(
         0, K_, N_, weight, binary_w_.data(), scale_w_.data(), bias_w_.data(),
-        sum_w_.data(), tb_use_bias_);
+        sum_w_.data(), use_bias_);
       caffe_cpu_tb_gemm<Dtype>(
         false, true, M_, K_, N_,
         binary_g_.data(), mask_g_.data(), scale_g_.data(), sum2_g_.data(),
-        binary_w_.data(), scale_w_.data(), in_diff, tb_use_bias_,
+        binary_w_.data(), scale_w_.data(), in_diff, use_bias_,
         bias_g_.data(), sum_g_.data(), bias_w_.data(), sum_w_.data());
 //    caffe_cpu_binary_norm<Dtype>(0, M_, N_, top[0]->cpu_diff(),
 //                                 binary_g_, scale_g_, bias_g_, sum_g_);
@@ -259,7 +262,7 @@ void TBInnerProductLayer<Dtype>::Backward_cpu(
 //    caffe_cpu_ternary_norm<Dtype>(
 //      0, M_, K_, bottom_data, binary_in_.data(), mask_in_.data(),
 //      delta_in_.data(), scale_in_.data(), bias_in_.data(),
-//      sum_in_.data(), sum2_in_.data(), tb_use_bias_);
+//      sum_in_.data(), sum2_in_.data(), use_bias_);
 //    caffe_cpu_ternary_norm_gradient<Dtype>(
 //      0, M_, K_, bottom_data, delta_in_.data(), scale_in_.data(),
 //      bias_in_.data(), in_diff);

@@ -168,7 +168,7 @@ def FC(data_in, name="fc", num_output=None, bias_term=None, weight_filler=None, 
 
 
 def TBFC(data_in, name="tb_fc", num_output=None, bias_term=None, weight_filler=None, bias_filler=None, axis=None,
-         full_train=True, use_bias=True, w_method=False, in_method=False, optional_params=None):
+         full_train=True, use_bias=True, w_binary=False, in_binary=False, optional_params=None):
     """
     - num_output: [uint32] The number of outputs for the layer
     - bias_term: [bool][default = true] whether to have bias terms
@@ -202,8 +202,8 @@ def TBFC(data_in, name="tb_fc", num_output=None, bias_term=None, weight_filler=N
     tb_param = Parameter('tb_param')
     tb_param.add_param_if('full_train', full_train)
     tb_param.add_param_if('use_bias', use_bias)
-    tb_param.add_param_if('w_method', w_method)
-    tb_param.add_param_if('in_method', in_method)
+    tb_param.add_param_if('w_binary', w_binary)
+    tb_param.add_param_if('in_binary', in_binary)
     param.add_subparam(tb_param)
     _caffe_net.write_to_proto(param)
     return data_out
@@ -640,7 +640,7 @@ def Conv(data_in, name="conv", num_output=None, bias_term=None, pad=None, kernel
 def TBConv(data_in, name="tb_conv", num_output=None, bias_term=None, pad=None, kernel_size=None, group=None,
            stride=None, weight_filler=None, bias_filler=None, pad_h=None, pad_w=None, kernel_h=None, kernel_w=None,
            stride_h=None, stride_w=None, axis=None, force_nd_im2col=None, dilation=None,
-           full_train=True, use_bias=True, w_method=False, in_method=False, optional_params=None):
+           full_train=True, use_bias=True, w_binary=False, in_binary=False, optional_params=None):
     """
     message ConvolutionParameter {
         optional uint32 num_output = 1; // The number of outputs for the layer
@@ -724,8 +724,8 @@ def TBConv(data_in, name="tb_conv", num_output=None, bias_term=None, pad=None, k
     tb_param = Parameter('tb_param')
     tb_param.add_param_if('full_train', full_train)
     tb_param.add_param_if('use_bias', use_bias)
-    tb_param.add_param_if('w_method', w_method)
-    tb_param.add_param_if('in_method', in_method)
+    tb_param.add_param_if('w_binary', w_binary)
+    tb_param.add_param_if('in_binary', in_binary)
     param.add_subparam(tb_param)
     _caffe_net.write_to_proto(param)
 

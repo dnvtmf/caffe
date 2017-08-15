@@ -29,37 +29,37 @@ out = Activation(out, name='act1', method=activation_method)
 out = BN(out, name='bn1')
 out = TBConv(out, name='conv2', num_output=128, bias_term=True, kernel_size=3, stride=1, pad=1,
              weight_filler=filler_xavier, bias_filler=filler_constant,
-             full_train=full_train, use_bias=use_bias, w_method=w_binary, in_method=in_binary)
+             full_train=full_train, use_bias=use_bias, w_binary=w_binary, in_binary=in_binary)
 out = Activation(out, name='act2', method=activation_method)
 out = Pool(out, name='pool1')
 
 out = BN(out, name='bn3')
 out = TBConv(out, name='conv3', num_output=256, bias_term=True, kernel_size=3, stride=1, pad=1,
              weight_filler=filler_xavier, bias_filler=filler_constant,
-             full_train=full_train, use_bias=use_bias, w_method=w_binary, in_method=in_binary)
+             full_train=full_train, use_bias=use_bias, w_binary=w_binary, in_binary=in_binary)
 out = Activation(out, name='act3', method=activation_method)
 out = BN(out, name='bn4')
 out = TBConv(out, name='conv4', num_output=256, bias_term=True, kernel_size=3, stride=1, pad=1,
              weight_filler=filler_xavier, bias_filler=filler_constant,
-             full_train=full_train, use_bias=use_bias, w_method=w_binary, in_method=in_binary)
+             full_train=full_train, use_bias=use_bias, w_binary=w_binary, in_binary=in_binary)
 out = Activation(out, name='act4', method=activation_method)
 out = Pool(out, name='pool2')
 
 out = BN(out, name='bn5')
 out = TBConv(out, name='conv5', num_output=512, bias_term=True, kernel_size=3, stride=1, pad=1,
              weight_filler=filler_xavier, bias_filler=filler_constant,
-             full_train=full_train, use_bias=use_bias, w_method=w_binary, in_method=in_binary)
+             full_train=full_train, use_bias=use_bias, w_binary=w_binary, in_binary=in_binary)
 out = Activation(out, name='act5', method=activation_method)
 out = BN(out, name='bn6')
 out = TBConv(out, name='conv6', num_output=512, bias_term=True, kernel_size=3, stride=1, pad=1,
              weight_filler=filler_xavier, bias_filler=filler_constant,
-             full_train=full_train, use_bias=use_bias, w_method=w_binary, in_method=in_binary)
+             full_train=full_train, use_bias=use_bias, w_binary=w_binary, in_binary=in_binary)
 out = Activation(out, name='act6', method=activation_method)
 out = Pool(out, name='pool3')
 
 out = BN(out, name='bn7')
 out = TBFC(out, name='fc7', num_output=1024, bias_term=True, weight_filler=filler_xavier, bias_filler=filler_constant,
-           full_train=full_train, use_bias=use_bias, w_method=w_binary, in_method=in_binary)
+           full_train=full_train, use_bias=use_bias, w_binary=w_binary, in_method=in_binary)
 out = Activation(out, name='act7', method=activation_method)
 out = FC(out, name='fc8', num_output=10, weight_filler=filler_xavier, bias_term=True, bias_filler=filler_constant)
 accuracy = Accuracy(out + label)

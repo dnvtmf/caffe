@@ -50,12 +50,12 @@ private:
   int BK_;
   int BN_;
   vector<Btype> binary_w_, binary_in_, binary_g_;
-  vector<Btype>            mask_in_,   mask_g_;
+  vector<Btype> mask_w_,   mask_in_,   mask_g_;
   vector<Dtype> scale_w_,  scale_in_,  scale_g_;
   vector<Dtype> bias_w_,   bias_in_,   bias_g_;
-  vector<Dtype>            delta_in_,  delta_g_;
+  vector<Dtype> delta_w_,  delta_in_,  delta_g_;
   vector<Dtype> sum_w_,    sum_in_,    sum_g_;
-  vector<Dtype>            sum2_in_,   sum2_g_;
+  vector<Dtype> sum2_w_,   sum2_in_,   sum2_g_;
 //  vector<shared_ptr<Blob<Dtype> > > aux_;
   bool full_train_;
   bool use_bias_;

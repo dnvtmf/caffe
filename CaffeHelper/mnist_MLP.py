@@ -9,7 +9,7 @@ full_train = True
 use_bias = True
 w_binary = True
 in_binary = False
-activation_method = "ReLU"
+activation_method = "TanH"
 filler_xavier = Filler('xavier')
 filler_uniform = Filler('uniform', min_=-0.1, max_=0.1)
 filler_constant = Filler('constant')
@@ -25,13 +25,13 @@ label = [label]
 out = FC(out, name='fc1', num_output=128, weight_filler=filler_xavier, bias_term=True, bias_filler=filler_constant)
 out = BN(out, name='bn1')
 out = Activation(out, name='act1', method=activation_method)
-out = BN(out, name='bn_relu1')
-out = TBFC(out, name='fc2', num_output=256, weight_filler=filler_uniform, bias_term=True, bias_filler=filler_constant,
-           full_train=full_train, use_bias=use_bias, w_method=w_binary, in_method=in_binary)
+out = BN(out, name='bn1')
+out = TBFC(out, name='fc2', num_output=256, weight_filler=filler_xavier, bias_term=True, bias_filler=filler_constant,
+           full_train=full_train, use_bias=use_bias, w_binary=w_binary, in_binary=in_binary)
 out = Activation(out, name='act2', method=activation_method)
-out = BN(out, name='bn_relu2')
-out = TBFC(out, name='fc3', num_output=128, weight_filler=filler_uniform, bias_term=True, bias_filler=filler_constant,
-           full_train=full_train, use_bias=use_bias, w_method=w_binary, in_method=in_binary)
+out = BN(out, name='bn2')
+out = TBFC(out, name='fc3', num_output=128, weight_filler=filler_xavier, bias_term=True, bias_filler=filler_constant,
+           full_train=full_train, use_bias=use_bias, w_binary=w_binary, in_binary=in_binary)
 out = Activation(out, name='act3', method=activation_method)
 out = FC(out, name='fc4', num_output=10, weight_filler=filler_xavier, bias_term=True, bias_filler=filler_constant)
 accuracy = Accuracy(out + label)

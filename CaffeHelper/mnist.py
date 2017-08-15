@@ -9,7 +9,7 @@ full_train = True
 use_bias = True
 w_binary = True
 in_binary = False
-activation_method = "ReLU"
+activation_method = "TanH"
 filler_xavier = Filler('xavier')
 filler_uniform = Filler('uniform', min_=-0.1, max_=0.1)
 filler_constant = Filler('constant')
@@ -30,12 +30,12 @@ out = Pool(out, name='pool1')
 out = BN(out, name='bn1')
 out = TBConv(out, name='conv2', num_output=64, bias_term=True, kernel_size=5, stride=1, pad=2,
              weight_filler=filler_xavier, bias_filler=filler_constant,
-             full_train=full_train, use_bias=use_bias, w_method=w_binary, in_method=in_binary)
+             full_train=full_train, use_bias=use_bias, w_binary=w_binary, in_binary=in_binary)
 out = Activation(out, name='act2', method=activation_method)
 out = Pool(out, name='pool2')
 out = BN(out, name='bn2')
 out = TBFC(out, name='fc3', num_output=512, bias_term=True, weight_filler=filler_xavier, bias_filler=filler_constant,
-           full_train=full_train, use_bias=use_bias, w_method=w_binary, in_method=in_binary)
+           full_train=full_train, use_bias=use_bias, w_binary=w_binary, in_binary=in_binary)
 out = Activation(out, name='act3', method=activation_method)
 out = FC(out, name='fc4', num_output=10, weight_filler=filler_xavier, bias_term=True, bias_filler=filler_constant)
 accuracy = Accuracy(out + label)
