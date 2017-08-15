@@ -56,12 +56,12 @@ private:
   vector<Dtype> delta_w_,  delta_in_,  delta_g_;
   vector<Dtype> sum_w_,    sum_in_,    sum_g_;
   vector<Dtype> sum2_w_,   sum2_in_,   sum2_g_;
-//  vector<shared_ptr<Blob<Dtype> > > aux_;
   bool full_train_;
   bool use_bias_;
   bool w_method_;
   bool in_method_;
-  Dtype min_, max_;
+//  vector<shared_ptr<Blob<Dtype> > > aux_;
+//  Dtype min_, max_;
 };
 
 }  // namespace caffe

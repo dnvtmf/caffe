@@ -864,7 +864,7 @@ template<typename Dtype>
 void caffe_cpu_binary_restore(
   const int axis, const int M, const int N,
   const Btype *code, const Dtype *scale,
-  const Dtype *bias, Dtype *out) {
+  const Dtype *bias, const bool use_bias, Dtype *out) {
   if (axis == 0) {
     // const int BN = (N - 1) / BINARY_SIZE + 1;
     auto it = code;
@@ -873,9 +873,17 @@ void caffe_cpu_binary_restore(
       for (int j = 0; j < N; ++it) {
         for (int k = 0; k < BINARY_SIZE && j < N; ++j, ++k, ++p) {
           if (*it & (1 << k))
-            *p = scale[i] + bias[i];
+            *p = scale[i];
           else
-            *p = -scale[i] + bias[i];
+            *p = -scale[i];
+        }
+      }
+    }
+    if (use_bias) {
+      p = out;
+      for (int i = 0; i < M; ++i, ++bias) {
+        for (int j = 0; j < N; ++j) {
+          *p++ += *bias;
         }
       }
     }
@@ -888,13 +896,22 @@ void caffe_cpu_binary_restore(
       for (int k = 0; k < BINARY_SIZE && i < M; ++i, ++k) {
         for (int j = 0; j < N; ++j, ++p, ++it) {
           if (*it & (1 << k))
-            *p = scale[j] + bias[j];
+            *p = scale[j];
           else
-            *p = -scale[j] + bias[j];
+            *p = -scale[j];
         }
         it -= N;
       }
       it += N;
+    }
+    if (use_bias) {
+      p = out;
+      for (int i = 0; i < M; ++i) {
+        for (int j = 0; j < N; ++j) {
+          *p++ += *bias++;
+        }
+        bias -= N;
+      }
     }
   }
 }
@@ -903,9 +920,8 @@ template<typename Dtype>
 void caffe_cpu_ternary_restore(
   const int axis, const int M, const int N,
   const Btype *code, const Btype *mask,
-  const Dtype *scale, const Dtype *bias, Dtype *out) {
+  const Dtype *scale, const Dtype *bias, const bool use_bias, Dtype *out) {
   if (axis == 0) {
-    // const int BN = (N - 1) / BINARY_SIZE + 1;
     auto it_code = code;
     auto it_mask = mask;
     auto p = out;
@@ -914,20 +930,25 @@ void caffe_cpu_ternary_restore(
         for (int k = 0; k < BINARY_SIZE && j < N; ++j, ++k, ++p) {
           if (*it_mask & (1 << k)) {
             if (*it_code & (1 << k))
-              *p = scale[i] + bias[i];
+              *p = scale[i];
             else
-              *p = -scale[i] + bias[i];
+              *p = -scale[i];
           }
-          else
-            *p = bias[i];
         }
         ++it_code;
         ++it_mask;
       }
     }
+    if (use_bias) {
+      p = out;
+      for (int i = 0; i < M; ++i, ++bias) {
+        for (int j = 0; j < N; ++j) {
+          *p++ += *bias;
+        }
+      }
+    }
   }
   else {
-    // const int BM = (M - 1) / BINARY_SIZE + 1;
     auto it_code = code;
     auto it_mask = mask;
     auto p = out;
@@ -936,12 +957,10 @@ void caffe_cpu_ternary_restore(
         for (int j = 0; j < N; ++j, ++p) {
           if (*it_mask & (1 << k)) {
             if (*it_code & (1 << k))
-              *p = scale[j] + bias[j];
+              *p = scale[j];
             else
-              *p = -scale[j] + bias[j];
+              *p = -scale[j];
           }
-          else
-            *p = bias[j];
           ++it_code;
           ++it_mask;
         }
@@ -950,6 +969,15 @@ void caffe_cpu_ternary_restore(
       }
       it_code += N;
       it_mask += N;
+    }
+    if (use_bias) {
+      p = out;
+      for (int i = 0; i < M; ++i) {
+        for (int j = 0; j < N; ++j) {
+          *p++ += *bias++;
+        }
+        bias -= N;
+      }
     }
   }
 }
@@ -1033,12 +1061,12 @@ template void caffe_cpu_bt_gemm<Dtype>( \
 template void caffe_cpu_binary_restore<Dtype>( \
   const int axis, const int M, const int N, \
   const Btype *code, const Dtype *scale, \
-  const Dtype *bias, Dtype *out); \
+  const Dtype *bias, const bool use_bias, Dtype *out); \
   \
 template void caffe_cpu_ternary_restore<Dtype>( \
   const int axis, const int M, const int N, \
   const Btype *code, const Btype *mask, \
-  const Dtype *scale, const Dtype *bias, Dtype *out);
+  const Dtype *scale, const Dtype *bias, const bool use_bias, Dtype *out);
 INSTANTIATE_BINARY_MATH(float);
 INSTANTIATE_BINARY_MATH(double);
 }

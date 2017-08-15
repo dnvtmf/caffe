@@ -112,14 +112,10 @@ void TBInnerProductLayer<Dtype>::Reshape(
 template <typename Dtype>
 void TBInnerProductLayer<Dtype>::Forward_cpu(
   const vector<Blob<Dtype>*> &bottom, const vector<Blob<Dtype>*> &top) {
-//  Dtype *pw = this->blobs_[0]->mutable_cpu_data();
-//  for (int i = 0; i < K_ * N_; ++i) {
-//    *pw = std::max(std::min(max_, *pw), min_);
-//    ++pw;
-//  }
   const Dtype *weight      = this->blobs_[0]->cpu_data();
   const Dtype *bottom_data = bottom[0]->cpu_data();
   Dtype *top_data          = top[0]->mutable_cpu_data();
+
   // binary or ternary the input
   if (in_method_) {
     caffe_cpu_binary_norm<Dtype>(
@@ -132,6 +128,7 @@ void TBInnerProductLayer<Dtype>::Forward_cpu(
       delta_in_.data(), scale_in_.data(), bias_in_.data(),
       sum_in_.data(), sum2_in_.data(), use_bias_);
   }
+
   // binary or ternary the weight
   if (w_method_) {
     caffe_cpu_binary_norm<Dtype>(
@@ -144,6 +141,7 @@ void TBInnerProductLayer<Dtype>::Forward_cpu(
       delta_w_.data(), scale_w_.data(), bias_w_.data(),
       sum_w_.data(), sum2_w_.data(), use_bias_);
   }
+
   // output = I x W
   if (in_method_ && w_method_) {
     caffe_cpu_binary_gemm<Dtype>(
@@ -164,12 +162,13 @@ void TBInnerProductLayer<Dtype>::Forward_cpu(
     caffe_cpu_tb_gemm<Dtype>(
       false, false, M_, N_, K_,
       binary_in_.data(), mask_in_.data(), scale_in_.data(), sum2_in_.data(),
-      binary_w_.data(), scale_w_.data(), top_data, use_bias_,
+      binary_w_.data(), scale_w_.data(),
+      top_data, use_bias_,
       bias_in_.data(), sum_in_.data(), bias_w_.data(), sum_w_.data());
   }
   else {
     caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, M_, N_, K_, (Dtype)1.,
-                          bottom_data, top_data, (Dtype)0., top_data);
+                          bottom_data, weight, (Dtype)0., top_data);
   }
   // bias
   if (bias_term_) {

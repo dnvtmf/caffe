@@ -39,6 +39,7 @@ CAFFE=~/caffe
 $CAFFE/build/tools/caffe train --solver solver.prototxt 2>&1 | tee $LOG
 
 python $CAFFE/tools/extra/parse_log.py $LOG .
+cat $LOG.test
 """
     if log is not None:
         for x in log:

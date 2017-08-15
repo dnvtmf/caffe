@@ -66,8 +66,9 @@ void Solver<Dtype>::InitTrainNet() {
   const string &field_names = "net, net_param, train_net, train_net_param";
   CHECK_GE(num_train_nets, 1) << "SolverParameter must specify a train net "
                               << "using one of these fields: " << field_names;
-  CHECK_LE(num_train_nets, 1) << "SolverParameter must not contain more than "
-                              << "one of these fields specifying a train_net: " << field_names;
+  CHECK_LE(num_train_nets, 1)
+      << "SolverParameter must not contain more than "
+      << "one of these fields specifying a train_net: " << field_names;
   NetParameter net_param;
   if (param_.has_train_net_param()) {
     LOG_IF(INFO, Caffe::root_solver())
@@ -195,6 +196,7 @@ void Solver<Dtype>::Step(int iters) {
   while (iter_ < stop_iter) {
     // Increment the internal iter_ counter
     ++iter_;
+    net_->ClearParamDiffs();
     for (int i = 0; i < callbacks_.size(); ++i) {
       callbacks_[i]->on_start();
     }
@@ -211,9 +213,10 @@ void Solver<Dtype>::Step(int iters) {
     if (display) {
       float lapse = iteration_timer_.Seconds();
       float per_s = (iter_ - iterations_last_) / (lapse ? lapse : 1);
-      LOG_IF(INFO, Caffe::root_solver()) << "Iteration " << iter_
-                                         << " (" << per_s << " iter/s, " << lapse << "s/"
-                                         << param_.display() << " iters), loss = " << smoothed_loss_;
+      LOG_IF(INFO, Caffe::root_solver())
+          << "Iteration " << iter_
+          << " (" << per_s << " iter/s, " << lapse << "s/"
+          << param_.display() << " iters), loss = " << smoothed_loss_;
       iteration_timer_.Start();
       iterations_last_ = iter_;
       const vector<Blob<Dtype>*> &result = net_->output_blobs();
@@ -230,9 +233,10 @@ void Solver<Dtype>::Step(int iters) {
             loss_msg_stream << " (* " << loss_weight
                             << " = " << loss_weight *result_vec[k] << " loss)";
           }
-          LOG_IF(INFO, Caffe::root_solver()) << "    Train net output #"
-                                             << score_index++ << ": " << output_name << " = "
-                                             << result_vec[k] << loss_msg_stream.str();
+          LOG_IF(INFO, Caffe::root_solver())
+              << "    Train net output #"
+              << score_index++ << ": " << output_name << " = "
+              << result_vec[k] << loss_msg_stream.str();
         }
       }
     }
@@ -272,8 +276,10 @@ void Solver<Dtype>::Solve(const char *resume_file) {
   CHECK(Caffe::root_solver());
   LOG(INFO) << "Solving " << net_->name();
   LOG(INFO) << "Learning Rate Policy: " << param_.lr_policy();
+
   // Initialize to false every time we start solving.
   requested_early_exit_ = false;
+
   if (resume_file) {
     LOG(INFO) << "Restoring previous solver status from " << resume_file;
     Restore(resume_file);

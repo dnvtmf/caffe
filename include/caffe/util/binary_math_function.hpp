@@ -139,12 +139,12 @@ template<typename Dtype>
 void caffe_cpu_binary_restore(
   const int axis, const int M, const int N,
   const Btype *code, const Dtype *scale,
-  const Dtype *bias, Dtype *out);
+  const Dtype *bias, const bool use_bias, Dtype *out);
 
 template<typename Dtype>
 void caffe_cpu_ternary_restore(
   const int axis, const int M, const int N,
   const Btype *code, const Btype *mask,
-  const Dtype *scale, const Dtype *bias, Dtype *out);
+  const Dtype *scale, const Dtype *bias, const bool use_bias, Dtype *out);
 }
 #endif // CAFFE_UTIL_BINARY_MATH_FUNCTION_HPP_

@@ -23,7 +23,6 @@ Data([], phase=TEST, source="../mnist_test_lmdb", batch_size=100, backend=Net.LM
 out = [data]
 label = [label]
 out = FC(out, name='fc1', num_output=128, weight_filler=filler_xavier, bias_term=True, bias_filler=filler_constant)
-out = BN(out, name='bn1')
 out = Activation(out, name='act1', method=activation_method)
 out = BN(out, name='bn1')
 out = TBFC(out, name='fc2', num_output=256, weight_filler=filler_xavier, bias_term=True, bias_filler=filler_constant,
