@@ -167,87 +167,8 @@ def FC(data_in, name="fc", num_output=None, bias_term=None, weight_filler=None, 
     return data_out
 
 
-def BinFC(data_in, name="bin_fc", num_output=None, bias_term=None, weight_filler=None, bias_filler=None, axis=None,
-          transpose=None, optional_params=None, full_train=False, use_bias=True):
-    """
-    - num_output: [uint32] The number of outputs for the layer
-    - bias_term: [bool][default = true] whether to have bias terms
-    - weight_filler: [FillerParameter] The filler for the weight
-    - bias_filler: [FillerParameter] The filler for the bias
-    - axis: [int32][default = 1]
-        The first axis to be lumped into a single inner product computation;
-        all preceding axes are retained in the output.
-        May be negative to index from the end (e.g., -1 for the last axis).
-    - transpose: [bool][default = false]
-        Specify whether to transpose the weight matrix or not.
-        If transpose == true, any operations will be performed on the transpose
-        of the weight matrix. The weight matrix itself is not going to be transposed
-        but rather the transfer flag of operations will be toggled accordingly.
-    """
-    global _caffe_net
-    assert len(data_in) == 1, "fully connect layer input only and if only have one input"
-    data_out = [Blob(name)]
-    param = Layer(name, "BinaryInnerProduct", data_in, data_out, optional_params)
-    fc_param = Parameter('inner_product_param')
-    param.add_subparam(fc_param)
-    fc_param.add_param_if("num_output", num_output)
-    fc_param.add_param_if("bias_term", bias_term)
-    if weight_filler is not None:
-        weight_filler.set_name('weight_filler')
-        fc_param.add_subparam(weight_filler)
-    if bias_filler is not None:
-        bias_filler.set_name('bias_filler')
-        fc_param.add_subparam(bias_filler)
-    fc_param.add_param_if("axis", axis)
-    fc_param.add_param_if("transpose", transpose)
-    tb_param = Parameter('tb_param')
-    tb_param.add_param_if('full_train', full_train)
-    tb_param.add_param_if('use_bias', use_bias)
-    param.add_subparam(tb_param)
-    _caffe_net.write_to_proto(param)
-    return data_out
-
-
-def XnorNetFC(data_in, name="bin_fc", num_output=None, bias_term=None, weight_filler=None, bias_filler=None, axis=None,
-              transpose=None, optional_params=None):
-    """
-    - num_output: [uint32] The number of outputs for the layer
-    - bias_term: [bool][default = true] whether to have bias terms
-    - weight_filler: [FillerParameter] The filler for the weight
-    - bias_filler: [FillerParameter] The filler for the bias
-    - axis: [int32][default = 1]
-        The first axis to be lumped into a single inner product computation;
-        all preceding axes are retained in the output.
-        May be negative to index from the end (e.g., -1 for the last axis).
-    - transpose: [bool][default = false]
-        Specify whether to transpose the weight matrix or not.
-        If transpose == true, any operations will be performed on the transpose
-        of the weight matrix. The weight matrix itself is not going to be transposed
-        but rather the transfer flag of operations will be toggled accordingly.
-    """
-    global _caffe_net
-    assert len(data_in) == 1, "fully connect layer input only and if only have one input"
-    data_out = [Blob(name)]
-    param = Layer(name, "XnorNetInnerProduct", data_in, data_out, optional_params)
-    fc_param = Parameter('inner_product_param')
-    param.add_subparam(fc_param)
-    fc_param.add_param_if("num_output", num_output)
-    fc_param.add_param_if("bias_term", bias_term)
-    if weight_filler is not None:
-        weight_filler.set_name('weight_filler')
-        fc_param.add_subparam(weight_filler)
-    if bias_filler is not None:
-        bias_filler.set_name('bias_filler')
-        fc_param.add_subparam(bias_filler)
-    fc_param.add_param_if("axis", axis)
-    fc_param.add_param_if("transpose", transpose)
-
-    _caffe_net.write_to_proto(param)
-    return data_out
-
-
 def TBFC(data_in, name="tb_fc", num_output=None, bias_term=None, weight_filler=None, bias_filler=None, axis=None,
-         optional_params=None, full_train=False, use_bias=True):
+         full_train=True, use_bias=True, w_method=False, in_method=False, optional_params=None):
     """
     - num_output: [uint32] The number of outputs for the layer
     - bias_term: [bool][default = true] whether to have bias terms
@@ -281,6 +202,8 @@ def TBFC(data_in, name="tb_fc", num_output=None, bias_term=None, weight_filler=N
     tb_param = Parameter('tb_param')
     tb_param.add_param_if('full_train', full_train)
     tb_param.add_param_if('use_bias', use_bias)
+    tb_param.add_param_if('w_method', w_method)
+    tb_param.add_param_if('in_method', in_method)
     param.add_subparam(tb_param)
     _caffe_net.write_to_proto(param)
     return data_out
@@ -316,26 +239,10 @@ def Accuracy(data_in, name="accuracy", top_k=None, axis=None, ignore_label=None,
     return data_out
 
 
-def ReLU(data_in, name="relu", optional_params=None):
-    """
-    message ReLUParameter {
-      // Allow non-zero slope for negative inputs to speed up optimization
-      // Described in:
-      // Maas, A. L., Hannun, A. Y., & Ng, A. Y. (2013). Rectifier nonlinearities
-      // improve neural network acoustic models. In ICML Workshop on Deep Learning
-      // for Audio, Speech, and Language Processing.
-      optional float negative_slope = 1 [default = 0];
-      enum Engine {
-        DEFAULT = 0;
-        CAFFE = 1;
-        CUDNN = 2;
-      }
-      optional Engine engine = 2 [default = DEFAULT];
-    }
-    """
+def Activation(data_in, name="act", method="ReLU", optional_params=None):
     data_out = [Blob(name)]
     assert len(data_in) == 1
-    param = Layer(name, "ReLU", data_in, data_out, optional_params)
+    param = Layer(name, method, data_in, data_out, optional_params)
     _caffe_net.write_to_proto(param)
     return data_out
 
@@ -732,8 +639,8 @@ def Conv(data_in, name="conv", num_output=None, bias_term=None, pad=None, kernel
 
 def TBConv(data_in, name="tb_conv", num_output=None, bias_term=None, pad=None, kernel_size=None, group=None,
            stride=None, weight_filler=None, bias_filler=None, pad_h=None, pad_w=None, kernel_h=None, kernel_w=None,
-           stride_h=None, stride_w=None, axis=None, force_nd_im2col=None, dilation=None, optional_params=None,
-           full_train=False, use_bias=True):
+           stride_h=None, stride_w=None, axis=None, force_nd_im2col=None, dilation=None,
+           full_train=True, use_bias=True, w_method=False, in_method=False, optional_params=None):
     """
     message ConvolutionParameter {
         optional uint32 num_output = 1; // The number of outputs for the layer
@@ -817,6 +724,8 @@ def TBConv(data_in, name="tb_conv", num_output=None, bias_term=None, pad=None, k
     tb_param = Parameter('tb_param')
     tb_param.add_param_if('full_train', full_train)
     tb_param.add_param_if('use_bias', use_bias)
+    tb_param.add_param_if('w_method', w_method)
+    tb_param.add_param_if('in_method', in_method)
     param.add_subparam(tb_param)
     _caffe_net.write_to_proto(param)
 

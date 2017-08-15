@@ -1415,5 +1415,9 @@ message PReLUParameter {
 message TBParameter {
   optional bool full_train = 1 [default = false];
   optional bool use_bias = 2 [default = true];
+  // If true, binary the weight or input, otherwise ternary it.
+  // If both false, is full precision.
+  optional bool w_binary = 3 [default = true];
+  optional bool in_binary = 4 [default = true];
 }
 

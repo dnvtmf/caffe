@@ -49,7 +49,6 @@ private:
   int BM_;
   int BK_;
   int BN_;
-  bool tb_use_bias_;
   vector<Btype> binary_w_, binary_in_, binary_g_;
   vector<Btype>            mask_in_,   mask_g_;
   vector<Dtype> scale_w_,  scale_in_,  scale_g_;
@@ -59,6 +58,9 @@ private:
   vector<Dtype>            sum2_in_,   sum2_g_;
 //  vector<shared_ptr<Blob<Dtype> > > aux_;
   bool full_train_;
+  bool use_bias_;
+  bool w_method_;
+  bool in_method_;
   Dtype min_, max_;
 };
 

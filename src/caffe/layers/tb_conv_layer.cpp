@@ -202,12 +202,14 @@ void TBConvolutionLayer<Dtype>::LayerSetUp(
   // Propagate gradients to the parameters (as directed by backward pass).
   this->param_propagate_down_.resize(this->blobs_.size(), true);
   full_train_ = this->layer_param_.tb_param().full_train();
-  tb_use_bias_ = this->layer_param_.tb_param().use_bias();
+  use_bias_ = this->layer_param_.tb_param().use_bias();
+  w_method_ = this->layer_param_.tb_param().w_binary();
+  in_method_ = this->layer_param_.tb_param().in_binary();
 }
 
 template <typename Dtype>
-void TBConvolutionLayer<Dtype>::Reshape(const vector<Blob<Dtype>*> &bottom,
-                                        const vector<Blob<Dtype>*> &top) {
+void TBConvolutionLayer<Dtype>::Reshape(
+  const vector<Blob<Dtype>*> &bottom, const vector<Blob<Dtype>*> &top) {
   const int first_spatial_axis = channel_axis_ + 1;
   CHECK_EQ(bottom[0]->num_axes(), first_spatial_axis + num_spatial_axes_)
       << "bottom num_axes may not change.";
@@ -315,7 +317,7 @@ void TBConvolutionLayer<Dtype>::forward_cpu_binary_gemm(
   caffe_cpu_ternary_norm<Dtype>(
     1, K_, N_, col_buff,
     binary_in_.data(), mask_in_.data(), delta_in_.data(), scale_in_.data(),
-    bias_in_.data(), sum_in_.data(), sum2_in_.data(), tb_use_bias_);
+    bias_in_.data(), sum_in_.data(), sum2_in_.data(), use_bias_);
   caffe_cpu_bt_gemm<Dtype>(
     false, false, M_, N_, K_,
     binary_w_.data(), scale_w_.data(),
@@ -345,14 +347,14 @@ void TBConvolutionLayer<Dtype>::tb_backward_cpu_gemm(const Dtype *output,
 //    for (int g = 0; g < group_; ++g) {
     caffe_cpu_binary_norm<Dtype>(
       1, M_, K_, weights, binary_w_.data(), scale_w_.data(), bias_w_.data(),
-      sum_w_.data(), tb_use_bias_);
+      sum_w_.data(), use_bias_);
 //    }
   }
   // dI = W' * dO
   caffe_cpu_ternary_norm<Dtype>(
     1, M_, N_, output,
     binary_g_.data(), mask_g_.data(), delta_g_.data(), scale_g_.data(),
-    bias_g_.data(), sum_g_.data(), sum2_g_.data(), tb_use_bias_);
+    bias_g_.data(), sum_g_.data(), sum2_g_.data(), use_bias_);
   caffe_cpu_bt_gemm<Dtype>(
     true, false, K_, N_, M_,
     binary_w_.data(), scale_w_.data(),
@@ -376,11 +378,11 @@ void TBConvolutionLayer<Dtype>::tb_weight_cpu_gemm(const Dtype *input,
 //  for (int g = 0; g < group_; ++g) {
   caffe_cpu_binary_norm<Dtype>(
     0, M_, N_, output, binary_g_.data(), scale_g_.data(), bias_g_.data(),
-    sum_g_.data(), tb_use_bias_);
+    sum_g_.data(), use_bias_);
   caffe_cpu_ternary_norm<Dtype>(
     0, K_, N_, col_buff,
     binary_in_.data(), mask_in_.data(), delta_in_.data(), scale_in_.data(),
-    bias_in_.data(), sum_in_.data(), sum2_in_.data(), tb_use_bias_);
+    bias_in_.data(), sum_in_.data(), sum2_in_.data(), use_bias_);
   caffe_cpu_bt_gemm<Dtype>(
     false, true, M_, K_, N_,
     binary_g_.data(), scale_g_.data(),
@@ -427,7 +429,7 @@ void TBConvolutionLayer<Dtype>::Forward_cpu(
 //  }
   caffe_cpu_binary_norm<Dtype>(
     0, M_, K_, weight, binary_w_.data(), scale_w_.data(),
-    bias_w_.data(), sum_w_.data(), tb_use_bias_);
+    bias_w_.data(), sum_w_.data(), use_bias_);
   for (int i = 0; i < bottom.size(); ++i) {
     const Dtype *bottom_data = bottom[i]->cpu_data();
     Dtype *top_data = top[i]->mutable_cpu_data();

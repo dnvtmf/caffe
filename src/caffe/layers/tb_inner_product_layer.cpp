@@ -59,7 +59,9 @@ void TBInnerProductLayer<Dtype>::LayerSetUp(
   }  // parameter initialization
   this->param_propagate_down_.resize(this->blobs_.size(), true);
   full_train_  = this->layer_param_.tb_param().full_train();
-  tb_use_bias_ = this->layer_param_.tb_param().use_bias();
+  use_bias_ = this->layer_param_.tb_param().use_bias();
+  w_method_ = this->layer_param_.tb_param().w_binary();
+  in_method_ = this->layer_param_.tb_param().in_binary();
 }
 
 template <typename Dtype>
@@ -115,18 +117,58 @@ void TBInnerProductLayer<Dtype>::Forward_cpu(
   const Dtype *weight      = this->blobs_[0]->cpu_data();
   const Dtype *bottom_data = bottom[0]->cpu_data();
   Dtype *top_data          = top[0]->mutable_cpu_data();
-  caffe_cpu_ternary_norm<Dtype>(
-    0, M_, K_, bottom_data, binary_in_.data(), mask_in_.data(),
-    delta_in_.data(), scale_in_.data(), bias_in_.data(),
-    sum_in_.data(), sum2_in_.data(), tb_use_bias_);
-  caffe_cpu_binary_norm<Dtype>(
-    1, K_, N_, weight, binary_w_.data(), scale_w_.data(),
-    bias_w_.data(), sum_w_.data(), tb_use_bias_);
-  caffe_cpu_tb_gemm<Dtype>(
-    false, false, M_, N_, K_,
-    binary_in_.data(), mask_in_.data(), scale_in_.data(), sum2_in_.data(),
-    binary_w_.data(), scale_w_.data(), top_data, tb_use_bias_,
-    bias_in_.data(), sum_in_.data(), bias_w_.data(), sum_w_.data());
+  // binary or ternary the input
+  if (in_method_) {
+    caffe_cpu_binary_norm<Dtype>(
+      0, M_, K_, bottom_data, binary_in_.data(),
+      scale_in_.data(), bias_in_.data(), sum_w_.data(), use_bias_);
+  }
+  else if (!w_method_) {
+    caffe_cpu_ternary_norm<Dtype>(
+      0, M_, K_, bottom_data, binary_in_.data(), mask_in_.data(),
+      delta_in_.data(), scale_in_.data(), bias_in_.data(),
+      sum_in_.data(), sum2_in_.data(), use_bias_);
+  }
+  // binary or ternary the weight
+  if (w_method_) {
+    caffe_cpu_binary_norm<Dtype>(
+      1, K_, N_, weight, binary_w_.data(), scale_w_.data(),
+      bias_w_.data(), sum_w_.data(), use_bias_);
+  }
+  else if (!in_method_) {
+    caffe_cpu_ternary_norm<Dtype>(
+      1, K_, N_, weight, binary_w_.data(), mask_w_.data(),
+      delta_w_.data(), scale_w_.data(), bias_w_.data(),
+      sum_w_.data(), sum2_w_.data(), use_bias_);
+  }
+  // output = I x W
+  if (in_method_ && w_method_) {
+    caffe_cpu_binary_gemm<Dtype>(
+      false, false, M_, N_, K_,
+      binary_in_.data(), scale_in_.data(), binary_w_.data(), scale_w_.data(),
+      top_data, use_bias_,
+      bias_in_.data(), sum_in_.data(), bias_w_.data(), sum_in_.data());
+  }
+  else if (in_method_) {
+    caffe_cpu_bt_gemm<Dtype>(
+      false, false, M_, N_, K_,
+      binary_in_.data(), mask_in_.data(),
+      binary_w_.data(), scale_w_.data(), scale_w_.data(), sum2_w_.data(),
+      top_data, use_bias_,
+      bias_in_.data(), sum_in_.data(), bias_w_.data(), sum_w_.data());
+  }
+  else if (w_method_) {
+    caffe_cpu_tb_gemm<Dtype>(
+      false, false, M_, N_, K_,
+      binary_in_.data(), mask_in_.data(), scale_in_.data(), sum2_in_.data(),
+      binary_w_.data(), scale_w_.data(), top_data, use_bias_,
+      bias_in_.data(), sum_in_.data(), bias_w_.data(), sum_w_.data());
+  }
+  else {
+    caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, M_, N_, K_, (Dtype)1.,
+                          bottom_data, top_data, (Dtype)0., top_data);
+  }
+  // bias
   if (bias_term_) {
     caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, M_, N_, 1, (Dtype)1.,
                           bias_multiplier_.cpu_data(),

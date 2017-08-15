@@ -1,36 +1,38 @@
 from caffe_user import *
 import os
-import time
 
-Net("mnist_MLP")
+# ----- Configuration -----
+name = "MLP"
+num_epoch = 500
+batch_size = 100
+full_train = True
+use_bias = True
+w_binary = True
+in_binary = False
+activation_method = "ReLU"
 filler_xavier = Filler('xavier')
-filler_uniform = filler_xavier  # Filler('uniform', min_=-1, max_=1)
+filler_uniform = Filler('uniform', min_=-0.1, max_=0.1)
 filler_constant = Filler('constant')
-data, label = Data([], phase=TRAIN, source="../mnist_train_lmdb", batch_size=100, backend=Net.LMDB,
+
+# --------- Network ----------
+Net("mnist_" + name)
+data, label = Data([], phase=TRAIN, source="../mnist_train_lmdb", batch_size=batch_size, backend=Net.LMDB,
                    optional_params=[Transform(scale=0.00390625)])
 Data([], phase=TEST, source="../mnist_test_lmdb", batch_size=100, backend=Net.LMDB,
      optional_params=[Transform(scale=0.00390625)])
 out = [data]
 label = [label]
-# fc = XnorNetFC
-fc = TBFC
-# fc = BinFC
-# fc = FC
-full_train = True
-out = BN(out, name='bn0')
 out = FC(out, name='fc1', num_output=128, weight_filler=filler_xavier, bias_term=True, bias_filler=filler_constant)
 out = BN(out, name='bn1')
-out = ReLU(out, name='relu1')
+out = Activation(out, name='act1', method=activation_method)
 out = BN(out, name='bn_relu1')
-out = fc(out, name='fc2', num_output=256, weight_filler=filler_uniform, bias_term=True, bias_filler=filler_constant,
-         full_train=full_train)
-out = BN(out, name='bn2')
-out = ReLU(out, name='relu2')
+out = TBFC(out, name='fc2', num_output=256, weight_filler=filler_uniform, bias_term=True, bias_filler=filler_constant,
+           full_train=full_train, use_bias=use_bias, w_method=w_binary, in_method=in_binary)
+out = Activation(out, name='act2', method=activation_method)
 out = BN(out, name='bn_relu2')
-out = fc(out, name='fc3', num_output=128, weight_filler=filler_uniform, bias_term=True, bias_filler=filler_constant,
-         full_train=full_train)
-out = BN(out, name='bn3')
-out = ReLU(out, name='relu3')
+out = TBFC(out, name='fc3', num_output=128, weight_filler=filler_uniform, bias_term=True, bias_filler=filler_constant,
+           full_train=full_train, use_bias=use_bias, w_method=w_binary, in_method=in_binary)
+out = Activation(out, name='act3', method=activation_method)
 out = FC(out, name='fc4', num_output=10, weight_filler=filler_xavier, bias_term=True, bias_filler=filler_constant)
 accuracy = Accuracy(out + label)
 # loss = HingeLoss(out + label, norm=2)
@@ -44,7 +46,7 @@ solver.train(base_lr=0.01, lr_policy='fixed', max_iter=3000)
 solver.optimizer(type='SGD', momentum=0.9)
 # solver.optimizer(type='Adam')
 solver.display(display=100, average_loss=100)
-solver.snapshot(snapshot=5000, snapshot_prefix='binary')
+solver.snapshot(snapshot=5000, snapshot_prefix=name)
 
-model_dir = os.path.join(os.getenv('HOME'), 'mnist/mlp_model')
+model_dir = os.path.join(os.getenv('HOME'), 'mnist/' + name)
 gen_model(model_dir, solver, [0, 2, 4, 6])
