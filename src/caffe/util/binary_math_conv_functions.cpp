@@ -1,6 +1,6 @@
 #include <algorithm>
-
-#include "caffe/util/binary_math_conv_function.hpp"
+#include "caffe/util/math_functions.hpp"
+#include "caffe/util/binary_math_conv_functions.hpp"
 
 using std::min;
 namespace caffe {

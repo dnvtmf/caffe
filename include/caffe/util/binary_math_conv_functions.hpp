@@ -1,7 +1,7 @@
 #ifndef BINARY_MATH_CONV_FUNCTION_HPP_INCLUDED
 #define BINARY_MATH_CONV_FUNCTION_HPP_INCLUDED
 
-#include "caffe/util/binary_math_function.hpp"
+#include "caffe/util/binary_math_functions.hpp"
 namespace caffe {
 template <typename Dtype>
 void caffe_cpu_binary_conv2D(

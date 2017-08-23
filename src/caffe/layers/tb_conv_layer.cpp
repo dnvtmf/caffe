@@ -5,7 +5,7 @@
 #include "caffe/layers/tb_conv_layer.hpp"
 #include "caffe/util/im2col.hpp"
 #include "caffe/util/math_functions.hpp"
-#include "caffe/util/binary_math_function.hpp"
+#include "caffe/util/binary_math_functions.hpp"
 
 namespace caffe {
 

@@ -6,7 +6,7 @@
 #include "caffe/blob.hpp"
 #include "caffe/layer.hpp"
 #include "caffe/proto/caffe.pb.h"
-#include "caffe/util/binary_math_function.hpp"
+#include "caffe/util/binary_math_functions.hpp"
 
 namespace caffe {
 
