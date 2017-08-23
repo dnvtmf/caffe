@@ -59,7 +59,7 @@ out = Pool(out, name='pool3')
 
 out = BN(out, name='bn7')
 out = TBFC(out, name='fc7', num_output=1024, bias_term=True, weight_filler=filler_xavier, bias_filler=filler_constant,
-           full_train=full_train, use_bias=use_bias, w_binary=w_binary, in_method=in_binary)
+           full_train=full_train, use_bias=use_bias, w_binary=w_binary, in_binary=in_binary)
 out = Activation(out, name='act7', method=activation_method)
 out = FC(out, name='fc8', num_output=10, weight_filler=filler_xavier, bias_term=True, bias_filler=filler_constant)
 accuracy = Accuracy(out + label)

@@ -39,12 +39,12 @@ CAFFE=~/caffe
 $CAFFE/build/tools/caffe train --solver solver.prototxt 2>&1 | tee $LOG
 
 python $CAFFE/tools/extra/parse_log.py $LOG .
-cat $LOG.test
 """
     if log is not None:
         for x in log:
             sh_content += "python $CAFFE/tools/extra/plot_training_log.py.example "
             sh_content += str(x) + " pic" + str(x) + ".png $LOG\n"
+    sh_content += "cat $LOG.test\n"
 
     with open(os.path.join(model_dir, 'model.prototxt'), 'w') as f:
         f.write(get_prototxt())

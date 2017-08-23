@@ -65,6 +65,8 @@ void caffe_set(const int N, const Dtype alpha, Dtype* Y) {
 }
 
 template void caffe_set<int>(const int N, const int alpha, int* Y);
+template void caffe_set<uint32_t>(const int N, const uint32_t alpha, uint32_t* Y);
+template void caffe_set<uint32_t>(const int N, const uint32_t alpha, uint32_t* Y);
 template void caffe_set<float>(const int N, const float alpha, float* Y);
 template void caffe_set<double>(const int N, const double alpha, double* Y);
 

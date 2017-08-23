@@ -46,8 +46,8 @@ void TBInnerProductLayer<Dtype>::LayerSetUp(
     delta_w_  .resize(max(K_, N_));
 //    this->aux_.resize(1);
 //    this->aux_[0].reset(new Blob<Dtype>(weight_shape));
-    max_ = sqrt(12.0 / N_);
-    min_ = -max_;
+//    max_ = sqrt(12.0 / N_);
+//    min_ = -max_;
     // fill the weights
     shared_ptr<Filler<Dtype>> weight_filler(GetFiller<Dtype>(
         params.weight_filler()));
