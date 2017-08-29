@@ -982,6 +982,17 @@ void caffe_cpu_ternary_restore(
   }
 }
 
+template <typename Dtype>
+void caffe_cpu_clip(const int N, Dtype min_value, Dtype max_value, Dtype *X) {
+  for (int i = 0; i < N; ++i) {
+    if (*X < min_value)
+      *X = min_value;
+    else if (*X > max_value)
+      *X = max_value;
+    ++X;
+  }
+}
+
 #define INSTANTIATE_BINARY_MATH(Dtype) \
   \
 template void caffe_cpu_binary_gemm_and<Dtype>( \
@@ -1066,7 +1077,11 @@ template void caffe_cpu_binary_restore<Dtype>( \
 template void caffe_cpu_ternary_restore<Dtype>( \
   const int axis, const int M, const int N, \
   const Btype *code, const Btype *mask, \
-  const Dtype *scale, const Dtype *bias, const bool use_bias, Dtype *out);
+  const Dtype *scale, const Dtype *bias, const bool use_bias, Dtype *out); \
+  \
+template void caffe_cpu_clip<Dtype> ( \
+  const int N, Dtype min_value, Dtype max_value, Dtype *X);
+
 INSTANTIATE_BINARY_MATH(float);
 INSTANTIATE_BINARY_MATH(double);
 }

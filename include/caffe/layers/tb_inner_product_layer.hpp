@@ -60,8 +60,8 @@ private:
   bool use_bias_;
   bool w_method_;
   bool in_method_;
-//  vector<shared_ptr<Blob<Dtype> > > aux_;
-//  Dtype min_, max_;
+  Blob<Dtype> in_r_, w_r_;
+  Dtype reg_;
 };
 
 }  // namespace caffe

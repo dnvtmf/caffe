@@ -44,10 +44,6 @@ void TBInnerProductLayer<Dtype>::LayerSetUp(
     sum_w_    .resize(max(K_, N_));
     sum2_w_   .resize(max(K_, N_));
     delta_w_  .resize(max(K_, N_));
-//    this->aux_.resize(1);
-//    this->aux_[0].reset(new Blob<Dtype>(weight_shape));
-//    max_ = sqrt(12.0 / N_);
-//    min_ = -max_;
     // fill the weights
     shared_ptr<Filler<Dtype>> weight_filler(GetFiller<Dtype>(
         params.weight_filler()));
@@ -59,12 +55,16 @@ void TBInnerProductLayer<Dtype>::LayerSetUp(
       shared_ptr<Filler<Dtype>> bias_filler(GetFiller<Dtype>(params.bias_filler()));
       bias_filler->Fill(this->blobs_[1].get());
     }
-  }  // parameter initialization
+  }
+  // parameter initialization
+  w_r_.Reshape({K_, N_});
   this->param_propagate_down_.resize(this->blobs_.size(), true);
   full_train_  = this->layer_param_.tb_param().full_train();
   use_bias_ = this->layer_param_.tb_param().use_bias();
   w_method_ = this->layer_param_.tb_param().w_binary();
   in_method_ = this->layer_param_.tb_param().in_binary();
+//  reg_ = this->layer_param_.tb_param().reg();
+  reg_ = 1e-6;
 }
 
 template <typename Dtype>
@@ -85,13 +85,13 @@ void TBInnerProductLayer<Dtype>::Reshape(
   top_shape.resize(axis + 1);
   top_shape[axis] = N_;
   top[0]->Reshape(top_shape);
-//  this->aux_[0].reset(new Blob<Dtype>(top_shape));
   // Set up the bias multiplier
   if (bias_term_) {
     vector<int> bias_shape(1, M_);
     bias_multiplier_.Reshape(bias_shape);
     caffe_set(M_, Dtype(1), bias_multiplier_.mutable_cpu_data());
   }
+  in_r_.Reshape({M_, K_});
   BM_ = (M_ - 1) / BINARY_SIZE + 1;
   binary_in_.resize(max(M_ * BK_, K_ * BM_));
   mask_in_  .resize(max(M_ * BK_, K_ * BM_));
@@ -115,6 +115,10 @@ void TBInnerProductLayer<Dtype>::Forward_cpu(
   const Dtype *weight      = this->blobs_[0]->cpu_data();
   const Dtype *bottom_data = bottom[0]->cpu_data();
   Dtype *top_data          = top[0]->mutable_cpu_data();
+
+  Dtype value = sqrt(6. / (K_ + N_));
+  caffe_cpu_clip<Dtype>(K_ * N_, -value, value,
+                        this->blobs_[0]->mutable_cpu_data());
 
   // binary or ternary the input
   if (in_method_) {
@@ -185,13 +189,49 @@ void TBInnerProductLayer<Dtype>::Backward_cpu(
   const Dtype *top_diff    = top[0]->cpu_diff();
   const Dtype *weight      = this->blobs_[0]->cpu_data();
   const Dtype *bottom_data = bottom[0]->cpu_data();
+  if (full_train_) {
+    if (in_method_) {
+      caffe_cpu_binary_restore<Dtype>(
+        0, M_, K_, binary_in_.data(), scale_in_.data(), bias_in_.data(),
+        use_bias_, in_r_.mutable_cpu_data());
+      bottom_data = in_r_.cpu_data();
+    }
+    else if (w_method_) {
+      caffe_cpu_ternary_restore<Dtype>(
+        0, M_, K_, binary_in_.data(), mask_in_.data(), scale_in_.data(),
+        bias_in_.data(), use_bias_, in_r_.mutable_cpu_data());
+      bottom_data = in_r_.cpu_data();
+    }
+    if (w_method_) {
+      caffe_cpu_binary_restore<Dtype>(
+        1, K_, N_, binary_w_.data(), scale_w_.data(), bias_w_.data(),
+        use_bias_, w_r_.mutable_cpu_data());
+      weight = w_r_.cpu_data();
+    }
+    else if (in_method_) {
+      caffe_cpu_ternary_restore<Dtype>(
+        1, K_, N_, binary_w_.data(), mask_w_.data(), scale_w_.data(),
+        bias_w_.data(), use_bias_, w_r_.mutable_cpu_data());
+      weight = w_r_.cpu_data();
+    }
+  }
   if (this->param_propagate_down_[0]) {
     Dtype *weight_diff = this->blobs_[0]->mutable_cpu_diff();
     // dW = In' x dO
     if (full_train_) {
+
       caffe_cpu_gemm<Dtype>(CblasTrans, CblasNoTrans, K_, N_, M_,
                             Dtype(1.), bottom_data, top_diff,
                             Dtype(0.), weight_diff);
+
+      if (in_method_ || w_method_) {
+        const Dtype *w = this->blobs_[0]->cpu_data();
+        const Dtype *rw = w_r_.cpu_data();
+        Dtype *wd = weight_diff;
+        for (int i = 0; i < K_ * N_; ++i) {
+          *wd++ += reg_ * (*w++ - *rw++);
+        }
+      }
     }
     else {
       caffe_cpu_ternary_norm<Dtype>(
@@ -235,6 +275,14 @@ void TBInnerProductLayer<Dtype>::Backward_cpu(
       caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasTrans, M_, K_, N_,
                             Dtype(1.), top_diff, weight,
                             Dtype(0.), in_diff);
+      if (in_method_ && w_method_) {
+        const Dtype *in  = bottom[0]->cpu_data();
+        const Dtype *rin = in_r_.cpu_data();
+        Dtype *ind = in_diff;
+        for (int i = 0; i < M_ * K_; ++i) {
+          *ind++ += reg_ * (*in++ - *rin++);
+        }
+      }
     }
     else {
       caffe_cpu_ternary_norm<Dtype>(

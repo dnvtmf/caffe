@@ -1,5 +1,5 @@
-#ifndef CAFFE_UTIL_BINARY_MATH_FUNCTION_HPP_
-#define CAFFE_UTIL_BINARY_MATH_FUNCTION_HPP_
+#ifndef CAFFE_UTIL_BINARY_MATH_FUNCTIONS_HPP_
+#define CAFFE_UTIL_BINARY_MATH_FUNCTIONS_HPP_
 #include <cstdint>
 #include <vector>
 
@@ -42,22 +42,6 @@ void caffe_cpu_binary_gemm_and(
   const int M, const int N, const int K, const Dtype alpha, const Btype *A,
   const Btype *B, const Dtype *scaleA, const Dtype *scaleB,
   Dtype beta, Dtype *C);
-
-/**
- * \brief Binary and compress matrix to a Btype matrix.
- *        First, \f$ Out = \mathrm{sign}(In) \f$ and get scale along given axis.
- *        Second, compress the sign matrix along given axis.
- *
- * \param axis if is true, the compress along the first dimension, otherwise
- *        along the second dimension.
- * \param M the row number of matrix
- * \param N the column number of matrix
- * \param In the input M-by-N matrix
- * \param Out the binarized and compressed matrix. If axis is true, its shape
- *        is \f$ \lceil \frac{M}{ \mathrm{BINARY_SIZE}} \rceil \f$-by-N; otherwise
- *        its shape is M-by-\f$ \lceil \frac{N}{\mathrm{BINARY_SIZE}} \rceil \f$ ;
- * \param scale the scale with shape N (axis is true) or M (axis is false).
- */
 
 template<typename Dtype>
 void caffe_cpu_binary(const int axis, const int M, const int N,
@@ -147,5 +131,9 @@ void caffe_cpu_ternary_restore(
   const int axis, const int M, const int N,
   const Btype *code, const Btype *mask,
   const Dtype *scale, const Dtype *bias, const bool use_bias, Dtype *out);
+
+template<typename Dtype>
+void caffe_cpu_clip(const int N, Dtype min_value, Dtype max_value, Dtype *X);
+
 }
-#endif // CAFFE_UTIL_BINARY_MATH_FUNCTION_HPP_
+#endif // CAFFE_UTIL_BINARY_MATH_FUNCTIONS_HPP_
