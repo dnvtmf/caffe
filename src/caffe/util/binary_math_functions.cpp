@@ -129,27 +129,6 @@ void caffe_cpu_binary(const int axis, const int M, const int N,
 }
 
 template<typename Dtype>
-void caffe_cpu_binary_approx(const int axis, const int M, const int N,
-                             const Dtype *In, const Dtype *scale, Dtype *Out) {
-  auto p = Out;
-  const Dtype *q = In;
-  if (axis == 0) {
-    for (int i = 0; i < M; ++i) {
-      for (int j = 0; j < N; ++j) {
-        *p++ = *q++ >= Dtype(0) ? scale[i] : -scale[i];
-      }
-    }
-  }
-  else {
-    for (int i = 0; i < M; ++i) {
-      for (int j = 0; j < N; ++j) {
-        *p++ = *q++ >= Dtype(0) ? scale[j] : -scale[j];
-      }
-    }
-  }
-}
-
-template<typename Dtype>
 void caffe_cpu_binary_scale(const int axis, const int M, const int N,
                             const Dtype *In, Dtype *scale) {
   const Dtype *q = In;
@@ -184,7 +163,7 @@ void caffe_cpu_binary_gradient(
   auto p = In;
   auto q = grad;
   if (axis == 0) {
-    double co = 1. / N;
+    Dtype co = 1. / N;
     for (int i = 0; i < M; ++i) {
       for (int j = 0; j < N; ++j) {
         *q++ *= co + Dtype(std::abs(*p++) <= Dtype(1) ? 1 : 0) * scale[i];
@@ -192,7 +171,7 @@ void caffe_cpu_binary_gradient(
     }
   }
   else {
-    double co = 1. / M;
+    Dtype co = 1. / M;
     for (int i = 0; i < M; ++i) {
       for (int j = 0; j < N; ++j) {
         *q++ *= co + Dtype(std::abs(*p++) <= Dtype(1) ? 1 : 0) * scale[j];
@@ -1004,10 +983,6 @@ template void caffe_cpu_binary_gemm_and<Dtype>( \
 template void caffe_cpu_binary<Dtype>( \
   const int axis, const int M, const int N, \
   const Dtype *in, Btype *code, Dtype *scale); \
-  \
-template void caffe_cpu_binary_approx<Dtype>( \
-  const int axis, const int M, const int N, \
-  const Dtype *In, const Dtype *scale, Dtype *Out); \
   \
 template void caffe_cpu_binary_scale<Dtype>( \
   const int axis, const int M, const int N, \

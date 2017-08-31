@@ -129,8 +129,9 @@ def Layer(name, layer_type, data_in=None, data_out=None, optional_params=None):
     return param
 
 
-def FC(data_in, name="fc", num_output=None, bias_term=None, weight_filler=None, bias_filler=None, axis=None,
-       transpose=None, optional_params=None, full_train=False, use_bias=True):
+def FC(data_in, name="fc", fc_type="InnerProduct", num_output=None, bias_term=None, weight_filler=None,
+       bias_filler=None, axis=None,
+       transpose=None, optional_params=None):
     """
     - num_output: [uint32] The number of outputs for the layer
     - bias_term: [bool][default = true] whether to have bias terms
@@ -149,7 +150,7 @@ def FC(data_in, name="fc", num_output=None, bias_term=None, weight_filler=None, 
     global _caffe_net
     assert len(data_in) == 1, "fully connect layer input only and if only have one input"
     data_out = [Blob(name)]
-    param = Layer(name, "InnerProduct", data_in, data_out, optional_params)
+    param = Layer(name, fc_type, data_in, data_out, optional_params)
     fc_param = Parameter('inner_product_param')
     param.add_subparam(fc_param)
     fc_param.add_param_if("num_output", num_output)
@@ -162,49 +163,6 @@ def FC(data_in, name="fc", num_output=None, bias_term=None, weight_filler=None, 
         fc_param.add_subparam(bias_filler)
     fc_param.add_param_if("axis", axis)
     fc_param.add_param_if("transpose", transpose)
-
-    _caffe_net.write_to_proto(param)
-    return data_out
-
-
-def TBFC(data_in, name="tb_fc", num_output=None, bias_term=None, weight_filler=None, bias_filler=None, axis=None,
-         full_train=True, use_bias=True, w_binary=False, in_binary=False, optional_params=None):
-    """
-    - num_output: [uint32] The number of outputs for the layer
-    - bias_term: [bool][default = true] whether to have bias terms
-    - weight_filler: [FillerParameter] The filler for the weight
-    - bias_filler: [FillerParameter] The filler for the bias
-    - axis: [int32][default = 1]
-        The first axis to be lumped into a single inner product computation;
-        all preceding axes are retained in the output.
-        May be negative to index from the end (e.g., -1 for the last axis).
-    - transpose: [bool][default = false]
-        Specify whether to transpose the weight matrix or not.
-        If transpose == true, any operations will be performed on the transpose
-        of the weight matrix. The weight matrix itself is not going to be transposed
-        but rather the transfer flag of operations will be toggled accordingly.
-    """
-    global _caffe_net
-    assert len(data_in) == 1, "fully connect layer input only and if only have one input"
-    data_out = [Blob(name)]
-    param = Layer(name, "TBInnerProduct", data_in, data_out, optional_params)
-    fc_param = Parameter('inner_product_param')
-    param.add_subparam(fc_param)
-    fc_param.add_param_if("num_output", num_output)
-    fc_param.add_param_if("bias_term", bias_term)
-    if weight_filler is not None:
-        weight_filler.set_name('weight_filler')
-        fc_param.add_subparam(weight_filler)
-    if bias_filler is not None:
-        bias_filler.set_name('bias_filler')
-        fc_param.add_subparam(bias_filler)
-    fc_param.add_param_if("axis", axis)
-    tb_param = Parameter('tb_param')
-    tb_param.add_param_if('full_train', full_train)
-    tb_param.add_param_if('use_bias', use_bias)
-    tb_param.add_param_if('w_binary', w_binary)
-    tb_param.add_param_if('in_binary', in_binary)
-    param.add_subparam(tb_param)
     _caffe_net.write_to_proto(param)
     return data_out
 
@@ -548,10 +506,10 @@ def Transform(scale=None, mirror=None, crop_size=None, mean_file=None, mean_valu
     return transform_param
 
 
-def Conv(data_in, name="conv", num_output=None, bias_term=None, pad=None, kernel_size=None, group=None, stride=None,
+def Conv(data_in, name="conv", conv_type="Convolution", num_output=None, bias_term=None, pad=None, kernel_size=None,
+         group=None, stride=None,
          weight_filler=None, bias_filler=None, pad_h=None, pad_w=None, kernel_h=None, kernel_w=None, stride_h=None,
-         stride_w=None, axis=None, force_nd_im2col=None, dilation=None, optional_params=None,
-         full_train=False, use_bias=True):
+         stride_w=None, axis=None, force_nd_im2col=None, dilation=None, optional_params=None):
     """
     message ConvolutionParameter {
         optional uint32 num_output = 1; // The number of outputs for the layer
@@ -608,7 +566,7 @@ def Conv(data_in, name="conv", num_output=None, bias_term=None, pad=None, kernel
     """
     data_out = [Blob(name)]
     assert len(data_in) == 1
-    param = Layer(name, "Convolution", data_in, data_out, optional_params)
+    param = Layer(name, conv_type, data_in, data_out, optional_params)
     convolution_param = Parameter("convolution_param")
     param.add_subparam(convolution_param)
     convolution_param.add_param_if("num_output", num_output)
@@ -632,194 +590,6 @@ def Conv(data_in, name="conv", num_output=None, bias_term=None, pad=None, kernel
     convolution_param.add_param_if("axis", axis)
     convolution_param.add_param_if("force_nd_im2col", force_nd_im2col)
     convolution_param.add_param_if("dilation", dilation)
-    _caffe_net.write_to_proto(param)
-
-    return data_out
-
-
-def TBConv(data_in, name="tb_conv", num_output=None, bias_term=None, pad=None, kernel_size=None, group=None,
-           stride=None, weight_filler=None, bias_filler=None, pad_h=None, pad_w=None, kernel_h=None, kernel_w=None,
-           stride_h=None, stride_w=None, axis=None, force_nd_im2col=None, dilation=None,
-           full_train=True, use_bias=True, w_binary=False, in_binary=False, optional_params=None):
-    """
-    message ConvolutionParameter {
-        optional uint32 num_output = 1; // The number of outputs for the layer
-        optional bool bias_term = 2 [default = true]; // whether to have bias terms
-
-        // Pad, kernel size, and stride are all given as a single value for equal
-        // dimensions in all spatial dimensions, or once per spatial dimension.
-        repeated uint32 pad = 3; // The padding size; defaults to 0
-        repeated uint32 kernel_size = 4; // The kernel size
-        repeated uint32 stride = 6; // The stride; defaults to 1
-        // Factor used to dilate the kernel, (implicitly) zero-filling the resulting
-        // holes. (Kernel dilation is sometimes referred to by its use in the
-        // algorithme a trous from Holschneider et al. 1987.)
-        repeated uint32 dilation = 18; // The dilation; defaults to 1
-
-        // For 2D convolution only, the *_h and *_w versions may also be used to
-        // specify both spatial dimensions.
-        optional uint32 pad_h = 9 [default = 0]; // The padding height (2D only)
-        optional uint32 pad_w = 10 [default = 0]; // The padding width (2D only)
-        optional uint32 kernel_h = 11; // The kernel height (2D only)
-        optional uint32 kernel_w = 12; // The kernel width (2D only)
-        optional uint32 stride_h = 13; // The stride height (2D only)
-        optional uint32 stride_w = 14; // The stride width (2D only)
-
-        optional uint32 group = 5 [default = 1]; // The group size for group conv
-
-        optional FillerParameter weight_filler = 7; // The filler for the weight
-        optional FillerParameter bias_filler = 8; // The filler for the bias
-        enum Engine {
-        DEFAULT = 0;
-        CAFFE = 1;
-        CUDNN = 2;
-        }
-        optional Engine engine = 15 [default = DEFAULT];
-
-        // The axis to interpret as "channels" when performing convolution.
-        // Preceding dimensions are treated as independent inputs;
-        // succeeding dimensions are treated as "spatial".
-        // With (N, C, H, W) inputs, and axis == 1 (the default), we perform
-        // N independent 2D convolutions, sliding C-channel (or (C/g)-channels, for
-        // groups g>1) filters across the spatial axes (H, W) of the input.
-        // With (N, C, D, H, W) inputs, and axis == 1, we perform
-        // N independent 3D convolutions, sliding (C/g)-channels
-        // filters across the spatial axes (D, H, W) of the input.
-        optional int32 axis = 16 [default = 1];
-
-        // Whether to force use of the general ND convolution, even if a specific
-        // implementation for blobs of the appropriate number of spatial dimensions
-        // is available. (Currently, there is only a 2D-specific convolution
-        // implementation; for input blobs with num_axes != 2, this option is
-        // ignored and the ND implementation will be used.)
-        optional bool force_nd_im2col = 17 [default = false];
-    }
-    """
-    data_out = [Blob(name)]
-    assert len(data_in) == 1
-    param = Layer(name, "TBConvolution", data_in, data_out, optional_params)
-    convolution_param = Parameter("convolution_param")
-    param.add_subparam(convolution_param)
-    convolution_param.add_param_if("num_output", num_output)
-    convolution_param.add_param_if("bias_term", bias_term)
-    convolution_param.add_param_if("pad", pad)
-    convolution_param.add_param_if("kernel_size", kernel_size)
-    convolution_param.add_param_if("group", group)
-    convolution_param.add_param_if("stride", stride)
-    if weight_filler is not None:
-        weight_filler.set_name('weight_filler')
-        convolution_param.add_subparam(weight_filler)
-    if bias_filler is not None:
-        bias_filler.set_name('bias_filler')
-        convolution_param.add_subparam(bias_filler)
-    convolution_param.add_param_if("pad_h", pad_h)
-    convolution_param.add_param_if("pad_w", pad_w)
-    convolution_param.add_param_if("kernel_h", kernel_h)
-    convolution_param.add_param_if("kernel_w", kernel_w)
-    convolution_param.add_param_if("stride_h", stride_h)
-    convolution_param.add_param_if("stride_w", stride_w)
-    convolution_param.add_param_if("axis", axis)
-    convolution_param.add_param_if("force_nd_im2col", force_nd_im2col)
-    convolution_param.add_param_if("dilation", dilation)
-    tb_param = Parameter('tb_param')
-    tb_param.add_param_if('full_train', full_train)
-    tb_param.add_param_if('use_bias', use_bias)
-    tb_param.add_param_if('w_binary', w_binary)
-    tb_param.add_param_if('in_binary', in_binary)
-    param.add_subparam(tb_param)
-    _caffe_net.write_to_proto(param)
-
-    return data_out
-
-
-def BinConv(data_in, name="conv", num_output=None, bias_term=None, pad=None, kernel_size=None, group=None, stride=None,
-            weight_filler=None, bias_filler=None, pad_h=None, pad_w=None, kernel_h=None, kernel_w=None, stride_h=None,
-            stride_w=None, axis=None, force_nd_im2col=None, dilation=None, optional_params=None,
-            full_train=False, use_bias=True):
-    """
-    message ConvolutionParameter {
-        optional uint32 num_output = 1; // The number of outputs for the layer
-        optional bool bias_term = 2 [default = true]; // whether to have bias terms
-
-        // Pad, kernel size, and stride are all given as a single value for equal
-        // dimensions in all spatial dimensions, or once per spatial dimension.
-        repeated uint32 pad = 3; // The padding size; defaults to 0
-        repeated uint32 kernel_size = 4; // The kernel size
-        repeated uint32 stride = 6; // The stride; defaults to 1
-        // Factor used to dilate the kernel, (implicitly) zero-filling the resulting
-        // holes. (Kernel dilation is sometimes referred to by its use in the
-        // algorithme a trous from Holschneider et al. 1987.)
-        repeated uint32 dilation = 18; // The dilation; defaults to 1
-
-        // For 2D convolution only, the *_h and *_w versions may also be used to
-        // specify both spatial dimensions.
-        optional uint32 pad_h = 9 [default = 0]; // The padding height (2D only)
-        optional uint32 pad_w = 10 [default = 0]; // The padding width (2D only)
-        optional uint32 kernel_h = 11; // The kernel height (2D only)
-        optional uint32 kernel_w = 12; // The kernel width (2D only)
-        optional uint32 stride_h = 13; // The stride height (2D only)
-        optional uint32 stride_w = 14; // The stride width (2D only)
-
-        optional uint32 group = 5 [default = 1]; // The group size for group conv
-
-        optional FillerParameter weight_filler = 7; // The filler for the weight
-        optional FillerParameter bias_filler = 8; // The filler for the bias
-        enum Engine {
-        DEFAULT = 0;
-        CAFFE = 1;
-        CUDNN = 2;
-        }
-        optional Engine engine = 15 [default = DEFAULT];
-
-        // The axis to interpret as "channels" when performing convolution.
-        // Preceding dimensions are treated as independent inputs;
-        // succeeding dimensions are treated as "spatial".
-        // With (N, C, H, W) inputs, and axis == 1 (the default), we perform
-        // N independent 2D convolutions, sliding C-channel (or (C/g)-channels, for
-        // groups g>1) filters across the spatial axes (H, W) of the input.
-        // With (N, C, D, H, W) inputs, and axis == 1, we perform
-        // N independent 3D convolutions, sliding (C/g)-channels
-        // filters across the spatial axes (D, H, W) of the input.
-        optional int32 axis = 16 [default = 1];
-
-        // Whether to force use of the general ND convolution, even if a specific
-        // implementation for blobs of the appropriate number of spatial dimensions
-        // is available. (Currently, there is only a 2D-specific convolution
-        // implementation; for input blobs with num_axes != 2, this option is
-        // ignored and the ND implementation will be used.)
-        optional bool force_nd_im2col = 17 [default = false];
-    }
-    """
-    data_out = [Blob(name)]
-    assert len(data_in) == 1
-    param = Layer(name, "BinaryConvolution", data_in, data_out, optional_params)
-    convolution_param = Parameter("convolution_param")
-    param.add_subparam(convolution_param)
-    convolution_param.add_param_if("num_output", num_output)
-    convolution_param.add_param_if("bias_term", bias_term)
-    convolution_param.add_param_if("pad", pad)
-    convolution_param.add_param_if("kernel_size", kernel_size)
-    convolution_param.add_param_if("group", group)
-    convolution_param.add_param_if("stride", stride)
-    if weight_filler is not None:
-        weight_filler.set_name('weight_filler')
-        convolution_param.add_subparam(weight_filler)
-    if bias_filler is not None:
-        bias_filler.set_name('bias_filler')
-        convolution_param.add_subparam(bias_filler)
-    convolution_param.add_param_if("pad_h", pad_h)
-    convolution_param.add_param_if("pad_w", pad_w)
-    convolution_param.add_param_if("kernel_h", kernel_h)
-    convolution_param.add_param_if("kernel_w", kernel_w)
-    convolution_param.add_param_if("stride_h", stride_h)
-    convolution_param.add_param_if("stride_w", stride_w)
-    convolution_param.add_param_if("axis", axis)
-    convolution_param.add_param_if("force_nd_im2col", force_nd_im2col)
-    convolution_param.add_param_if("dilation", dilation)
-    tb_param = Parameter('tb_param')
-    tb_param.add_param_if('full_train', full_train)
-    tb_param.add_param_if('use_bias', use_bias)
-    param.add_subparam(tb_param)
     _caffe_net.write_to_proto(param)
 
     return data_out

@@ -48,10 +48,6 @@ void caffe_cpu_binary(const int axis, const int M, const int N,
                       const Dtype *in, Btype *code, Dtype *scale);
 
 template<typename Dtype>
-void caffe_cpu_binary_approx(const int axis, const int M, const int N,
-                             const Dtype *In, const Dtype *scale, Dtype *Out);
-
-template<typename Dtype>
 void caffe_cpu_binary_scale(const int axis, const int M, const int N,
                             const Dtype *In, Dtype *scale);
 
