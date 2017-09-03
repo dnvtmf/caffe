@@ -5,14 +5,14 @@ import os
 name = "cnn"
 num_epoch = 500
 batch_size = 100
-fc_type = "TBInnerProduct"
-conv_type = "TBConvolution"
+fc_type = "XnorNetInnerProduct"
+conv_type = "XnorNetConvolution"
 tb_param = Parameter('tb_param')
 tb_param.add_param_if('full_train', True)
 tb_param.add_param_if('use_bias', True)
 tb_param.add_param_if('w_binary', True)
 tb_param.add_param_if('in_binary', False)
-activation_method = "TanH"
+activation_method = "ReLU"
 filler_xavier = Filler('xavier')
 filler_uniform = Filler('uniform', min_=-0.1, max_=0.1)
 filler_constant = Filler('constant')
@@ -47,10 +47,10 @@ loss = SoftmaxWithLoss(out + label)
 # ---------- solver ----
 solver = Solver().net('./model.prototxt').CPU()
 solver.test(test_iter=100, test_interval=500, test_initialization=False)
-solver.train(base_lr=0.001, lr_policy='fixed', max_iter=3000)  # , weight_decay=1e-4)
-# solver.train(base_lr=0.001, lr_policy='step', gamma=0.1, stepsize=1000, max_iter=3000)
-solver.optimizer(type='SGD', momentum=0.9)
-# solver.optimizer(type='Adam')
+# solver.train(base_lr=0.001, lr_policy='fixed', max_iter=10000)  # , weight_decay=1e-4)
+solver.train(base_lr=0.001, lr_policy='step', gamma=0.1, stepsize=10000, max_iter=30000)
+# solver.optimizer(type='SGD', momentum=0.9)
+solver.optimizer(type='Adam', momentum=0.9, momentum2=0.999)
 solver.display(display=100, average_loss=100)
 solver.snapshot(snapshot=5000, snapshot_prefix=name)
 

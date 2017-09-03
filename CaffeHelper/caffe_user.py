@@ -38,6 +38,10 @@ export MPLBACKEND="agg"
 CAFFE=~/caffe
 $CAFFE/build/tools/caffe train --solver solver.prototxt 2>&1 | tee $LOG
 
+if [ `cat $LOG | wc -l` -le 1 ]
+then
+    exit 1
+fi
 python $CAFFE/tools/extra/parse_log.py $LOG .
 """
     if log is not None:
