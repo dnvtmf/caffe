@@ -137,6 +137,7 @@ void XnorNetConvolutionLayer<Dtype>::Backward_cpu(
 #ifdef CPU_ONLY
 STUB_GPU(XnorNetConvolutionLayer);
 #endif
+
 INSTANTIATE_CLASS(XnorNetConvolutionLayer);
 REGISTER_LAYER_CLASS(XnorNetConvolution);
 }  // namespace caffe

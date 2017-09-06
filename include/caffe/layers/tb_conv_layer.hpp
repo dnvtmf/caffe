@@ -57,43 +57,38 @@ class TBConvolutionLayer : public BaseConvolutionLayer<Dtype> {
   // Helper functions that abstract away the column buffer and gemm arguments.
   // The last argument in forward_cpu_gemm is so that we can skip the im2col if
   // we just called weight_cpu_gemm with the same input.
-  void forward_cpu_binary_gemm(
+  void forward_cpu_gemm(
     const Dtype* input, Dtype* output, bool skip_im2col = false);
-  void tb_backward_cpu_gemm(
-    const Dtype* input, const Dtype* weights, Dtype* output);
-  void tb_weight_cpu_gemm(
-    const Dtype* input, const Dtype* output, Dtype* weights);
+  void backward_cpu_gemm(
+    const Dtype *input, const Dtype* top_diff,
+    Dtype *input_diff, Dtype *weight_diff);
+#ifndef CPU_ONLY
+  void forward_gpu_gemm(
+    const Dtype* input, Dtype* output, bool skip_im2col = false);
+  void backward_gpu_gemm(
+    const Dtype *input, const Dtype* top_diff,
+    Dtype *input_diff, Dtype *weight_diff);
+#endif // CPU_ONLY
   virtual void Forward_cpu(
     const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top);
   virtual void Backward_cpu(
     const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
     const vector<Blob<Dtype>*>& bottom);
-  /*
   virtual void Forward_gpu(const vector<Blob<Dtype>*>& bottom,
-      const vector<Blob<Dtype>*>& top);
+                           const vector<Blob<Dtype>*>& top);
   virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
-      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
-  */
+                            const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
+
   virtual inline bool reverse_dimensions() { return false; }
   virtual void compute_output_shape();
 
  private:
   int M_, N_, K_;
-  int BM_, BN_, BK_;
-  vector<Btype> binary_w_, binary_in_, binary_g_;
-  vector<Btype>            mask_in_,   mask_g_;
-  vector<Dtype> scale_w_,  scale_in_,  scale_g_;
-  vector<Dtype> bias_w_,   bias_in_,   bias_g_;
-  vector<Dtype>            delta_in_,  delta_g_;
-  vector<Dtype> sum_w_,    sum_in_,    sum_g_;
-  vector<Dtype>            sum2_in_,   sum2_g_;
-  bool skip_weight_binary_;
-  vector<shared_ptr<Blob<Dtype>>> aux_;
+  Blob<Dtype> in_, weight_;
+  Blob<Dtype> in_s_, weight_s_;
   bool full_train_;
   bool use_bias_;
-  bool w_method_;
-  bool in_method_;
-  Dtype min_, max_;
+  bool is_w_bin_, is_in_bin_;
 };
 
 }  // namespace caffe

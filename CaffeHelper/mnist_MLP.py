@@ -5,7 +5,7 @@ import os
 name = "MLP"
 num_epoch = 500
 batch_size = 200
-fc_type = "XnorNetInnerProduct"
+fc_type = "TBInnerProduct"
 tb_param = Parameter('tb_param')
 tb_param.add_param_if('full_train', True)
 tb_param.add_param_if('use_bias', True)
@@ -24,10 +24,10 @@ Data([], phase=TEST, source="../mnist_test_lmdb", batch_size=100, backend=Net.LM
      optional_params=[Transform(scale=0.00390625)])
 out = [data]
 label = [label]
-out = FC(out, name='fc1', num_output=4096, weight_filler=filler_xavier, bias_term=True, bias_filler=filler_constant)
+out = FC(out, name='fc1', num_output=256, weight_filler=filler_xavier, bias_term=True, bias_filler=filler_constant)
 out = Activation(out, name='act1', method=activation_method)
 out = BN(out, name='bn1')
-out = FC(out, name='fc2', fc_type=fc_type, num_output=4096, weight_filler=filler_xavier, bias_term=True,
+out = FC(out, name='fc2', fc_type=fc_type, num_output=256, weight_filler=filler_xavier, bias_term=True,
          bias_filler=filler_constant, optional_params=[tb_param])
 out = Activation(out, name='act2', method=activation_method)
 # out = BN(out, name='bn2')

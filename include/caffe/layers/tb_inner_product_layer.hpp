@@ -15,7 +15,7 @@ namespace caffe {
  */
 template <typename Dtype>
 class TBInnerProductLayer : public Layer<Dtype> {
-public:
+ public:
   explicit TBInnerProductLayer(const LayerParameter &param)
     : Layer<Dtype>(param) {}
   virtual void LayerSetUp(const vector<Blob<Dtype>*> &bottom,
@@ -27,17 +27,19 @@ public:
   virtual inline int ExactNumBottomBlobs() const { return 1; }
   virtual inline int ExactNumTopBlobs() const { return 1; }
 
-protected:
-  virtual void Forward_cpu(const vector<Blob<Dtype>*> &bottom,
-                           const vector<Blob<Dtype>*> &top);
-  virtual void Backward_cpu(const vector<Blob<Dtype>*> &top,
-                            const vector<bool> &propagate_down, const vector<Blob<Dtype>*> &bottom);
-  /*
-    virtual void Forward_gpu(const vector<Blob<Dtype>*>& bottom,
-        const vector<Blob<Dtype>*>& top);
-    virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
-        const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
-  */
+ protected:
+  virtual void Forward_cpu(
+    const vector<Blob<Dtype>*> &bottom, const vector<Blob<Dtype>*> &top);
+  virtual void Backward_cpu(
+    const vector<Blob<Dtype>*> &top, const vector<bool> &propagate_down,
+    const vector<Blob<Dtype>*> &bottom);
+
+  virtual void Forward_gpu(
+    const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top);
+  virtual void Backward_gpu(
+    const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
+    const vector<Blob<Dtype>*>& bottom);
+
 
   int M_;
   int K_;
@@ -45,23 +47,10 @@ protected:
   bool bias_term_;
   Blob<Dtype> bias_multiplier_;
 
-private:
-  int BM_;
-  int BK_;
-  int BN_;
-  vector<Btype> binary_w_, binary_in_, binary_g_;
-  vector<Btype> mask_w_,   mask_in_,   mask_g_;
-  vector<Dtype> scale_w_,  scale_in_,  scale_g_;
-  vector<Dtype> bias_w_,   bias_in_,   bias_g_;
-  vector<Dtype> delta_w_,  delta_in_,  delta_g_;
-  vector<Dtype> sum_w_,    sum_in_,    sum_g_;
-  vector<Dtype> sum2_w_,   sum2_in_,   sum2_g_;
-  bool full_train_;
-  bool use_bias_;
-  bool w_method_;
-  bool in_method_;
-  Blob<Dtype> in_r_, w_r_;
-  Dtype reg_;
+ private:
+  Blob<Dtype> in_, weight_;
+  Blob<Dtype> in_s_, weight_s_;
+  bool is_w_bin_, is_in_bin_;
 };
 
 }  // namespace caffe

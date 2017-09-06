@@ -34,7 +34,8 @@ void caffe_cpu_binary_gemm_and(
         }
       }
     }
-  } else if (transposeA && !transposeB) {
+  }
+  else if (transposeA && !transposeB) {
     pA = A;
     for (int k = 0; k < KK; ++k) {
       pC = C;
@@ -47,7 +48,8 @@ void caffe_cpu_binary_gemm_and(
         }
       }
     }
-  } else if (!transposeA && transposeB) {
+  }
+  else if (!transposeA && transposeB) {
     pC = C;
     for (int i = 0; i < M; ++i) {
       pB = B;
@@ -60,7 +62,8 @@ void caffe_cpu_binary_gemm_and(
         }
       }
     }
-  } else {
+  }
+  else {
     pA = A;
     for (int k = 0; k < KK; ++k) {
       pC = C;
@@ -102,7 +105,8 @@ void caffe_cpu_binary(const int axis, const int M, const int N,
     for (int i = 0; i < M; ++i) {
       scale[i] /= N;
     }
-  } else {
+  }
+  else {
     const int BM = (M - 1) / BINARY_SIZE + 1;
     memset(code,  0, sizeof(Btype) * BM * N);
     memset(scale, 0, sizeof(Dtype) * N);
@@ -136,7 +140,8 @@ void caffe_cpu_binary_scale(const int axis, const int M, const int N,
       }
       scale[i] /= (double) N;
     }
-  } else {
+  }
+  else {
     for (int i = 0; i < N; ++i) {
       scale[i] = 0;
     }
@@ -164,7 +169,8 @@ void caffe_cpu_binary_gradient(
         *q++ *= co + ((std::abs(*p++) <= Dtype(1)) ? scale[i] : Dtype(0));
       }
     }
-  } else {
+  }
+  else {
     Dtype co = 1. / M;
     for (int i = 0; i < M; ++i) {
       for (int j = 0; j < N; ++j) {
@@ -174,6 +180,34 @@ void caffe_cpu_binary_gradient(
   }
 }
 
+
+template<typename Dtype>
+void caffe_cpu_ternary_gradient(
+  const int axis, const int M, const int N,
+  const Dtype *in, const Dtype *scale, const Dtype *delta, Dtype *grad) {
+  const Dtype *p = in;
+  Dtype *q = grad;
+  if (axis == 0) {
+    Dtype mul = 1. / N;
+    for (int i = 0; i < M; ++i) {
+      for (int j = 0; j < N; ++j) {
+        Dtype val = std::abs(*p++);
+        *q++ *= mul + Dtype(val <= delta[i] ? 1 : val > 1 ? 0 : scale[i]);
+//        *q++ *= mul + Dtype(val <= delta[i] ? 1 : scale[i]);
+      }
+    }
+  }
+  else {
+    Dtype mul = 1. / M;
+    for (int i = 0; i < M; ++i) {
+      for (int j = 0; j < N; ++j) {
+        Dtype val = std::abs(*p++);
+        *q++ *= mul + Dtype(val <= delta[j] ? 1 : val > 1 ? 0 : scale[j]);
+//        *q++ *= mul + Dtype(val <= delta[j] ? 1 : scale[j]);
+      }
+    }
+  }
+}
 
 template<typename Dtype>
 void caffe_cpu_ternary(
@@ -204,7 +238,8 @@ void caffe_cpu_ternary(
             *it1 |= Btype(1) << k;
             *it2 |= Btype(1) << k;
             scale[i] += *p;
-          } else if (*p < -delta[i]) {
+          }
+          else if (*p < -delta[i]) {
             *it2 |= Btype(1) << k;
             scale[i] -= *p;
           }
@@ -216,9 +251,11 @@ void caffe_cpu_ternary(
       }
     }
     for (int i = 0; i < M; ++i) {
-      scale[i] /= N;
+      if (sum2[i] > 0)
+        scale[i] /= sum2[i];
     }
-  } else {
+  }
+  else {
     const int BM = (M - 1) / BINARY_SIZE + 1;
     memset(code,  0, sizeof(Btype) * BM * N);
     memset(mask,  0, sizeof(Btype) * BM * N);
@@ -243,7 +280,8 @@ void caffe_cpu_ternary(
             *it1 |= Btype(1) << k;
             *it2 |= Btype(1) << k;
             scale[j] += *p;
-          } else if (*p < -delta[j]) {
+          }
+          else if (*p < -delta[j]) {
             *it2 |= Btype(1) << k;
             scale[j] -= *p;
           }
@@ -259,7 +297,8 @@ void caffe_cpu_ternary(
       it1 += N;
     }
     for (int j = 0; j < N; ++j) {
-      scale[j] /= M;
+      if (sum2[j] > 0)
+        scale[j] /= sum2[j];
     }
   }
 }
@@ -303,7 +342,8 @@ void caffe_cpu_binary_norm(
             *it_code |= Btype(1) << k;
             scale[r] += *p - bias[r];
             sum[r]++;
-          } else {
+          }
+          else {
             scale[r] += bias[r] - *p;
             sum[r]--;
           }
@@ -315,7 +355,8 @@ void caffe_cpu_binary_norm(
       scale[r] /= N;
       sum[r] *= scale[r];
     }
-  } else {
+  }
+  else {
     int BM = (M - 1) / BINARY_SIZE + 1;
     memset(code,  0, sizeof(Btype) * BM * N);
     memset(scale, 0, sizeof(Dtype) * N);
@@ -342,7 +383,8 @@ void caffe_cpu_binary_norm(
             *it_code |= Btype(1) << k;
             scale[c] += *p - bias[c];
             sum[c]++;
-          } else {
+          }
+          else {
             scale[c] += bias[c] - *p;
             sum[c]--;
           }
@@ -408,11 +450,13 @@ void caffe_cpu_ternary_norm(
             *mask_it |= Btype(1) << k;
             scale[i] += *p - bias[i];
             sum[i]++;
-          } else if (*p - bias[i] < -delta[i]) {
+          }
+          else if (*p - bias[i] < -delta[i]) {
             *mask_it |= Btype(1) << k;
             scale[i] -= *p - bias[i];
             sum[i]--;
-          } else {
+          }
+          else {
           }
         }
         sum2[i] += bitcount(*mask_it);
@@ -425,7 +469,8 @@ void caffe_cpu_ternary_norm(
       { scale[i] /= sum2[i]; }
       sum[i] *= scale[i];
     }
-  } else {
+  }
+  else {
     const int BM = (M - 1) / BINARY_SIZE + 1;
     memset(code,  0, sizeof(Btype) * BM * N);
     memset(mask,  0, sizeof(Btype) * BM * N);
@@ -463,7 +508,8 @@ void caffe_cpu_ternary_norm(
             *mask_it |= Btype(1) << k;
             scale[j] += *p - bias[j];
             sum[j]++;
-          } else if (*p - bias[j] < -delta[j]) {
+          }
+          else if (*p - bias[j] < -delta[j]) {
             *mask_it |= Btype(1) << k;
             scale[j] -= *p - bias[j];
             sum[j]--;
@@ -520,7 +566,8 @@ void caffe_cpu_bt_gradient(
         }
       }
     }
-  } else {
+  }
+  else {
     Dtype mul = 1. / M;
     if (use_bias) {
       sum = new Dtype[N];
@@ -581,7 +628,8 @@ void caffe_cpu_binary_gemm(
       }
       ptr_c += N;
     }
-  } else if (transA) {
+  }
+  else if (transA) {
     for (int k = 0; k < BK; ++k) {
       ptr_c = C;
       for (int r = 0; r < M; ++r) {
@@ -594,7 +642,8 @@ void caffe_cpu_binary_gemm(
       }
       it_b += N;
     }
-  } else if (transB) {
+  }
+  else if (transB) {
     ptr_c = C;
     for (int r = 0; r < M; ++r) {
       it_b = B;
@@ -607,7 +656,8 @@ void caffe_cpu_binary_gemm(
       }
       it_a += BK;
     }
-  } else {
+  }
+  else {
     ptr_c = C;
     for (int r = 0; r < M; ++r) {
       for (int c = 0; c < N; ++c, ++ptr_c) {
@@ -664,7 +714,8 @@ void caffe_cpu_tb_gemm(
         }
       }
     }
-  } else if (transA && !transB) {
+  }
+  else if (transA && !transB) {
     for (int k = 0; k < BK; ++k) {
       ptr_c = C;
       for (int r = 0; r < M; ++r) {
@@ -678,7 +729,8 @@ void caffe_cpu_tb_gemm(
       }
       b_it += N;
     }
-  } else if (!transA && transB) {
+  }
+  else if (!transA && transB) {
     ptr_c = C;
     for (int r = 0; r < M; ++r) {
       b_it = B;
@@ -693,7 +745,8 @@ void caffe_cpu_tb_gemm(
       a_it += BK;
       a_mask_it += BK;
     }
-  } else {
+  }
+  else {
     ptr_c = C;
     for (int r = 0; r < M; ++r) {
       for (int c = 0; c < N; ++c, ++ptr_c) {
@@ -763,7 +816,8 @@ void caffe_cpu_bt_gemm(
         }
       }
     }
-  } else if (transA && !transB) {
+  }
+  else if (transA && !transB) {
     for (int k = 0; k < bK; ++k) {
       ptr_c = C;
       for (int r = 0; r < M; ++r) {
@@ -778,7 +832,8 @@ void caffe_cpu_bt_gemm(
       b_it += N;
       b_mask_it += N;
     }
-  } else if (!transA && transB) {
+  }
+  else if (!transA && transB) {
     ptr_c = C;
     for (int r = 0; r < M; ++r) {
       b_it = B;
@@ -792,7 +847,8 @@ void caffe_cpu_bt_gemm(
       }
       a_it += bK;
     }
-  } else {
+  }
+  else {
     ptr_c = C;
     for (int r = 0; r < M; ++r) {
       for (int c = 0; c < N; ++c, ++ptr_c) {
@@ -858,7 +914,8 @@ void caffe_cpu_binary_restore(
         }
       }
     }
-  } else {
+  }
+  else {
     // const int BM = (M - 1) / BINARY_SIZE + 1;
     auto it = code;
     Dtype *p = out;
@@ -917,7 +974,8 @@ void caffe_cpu_ternary_restore(
         }
       }
     }
-  } else {
+  }
+  else {
     auto it_code = code;
     auto it_mask = mask;
     auto p = out;
@@ -962,6 +1020,129 @@ void caffe_cpu_clip(const int N, Dtype min_value, Dtype max_value, Dtype *X) {
   }
 }
 
+
+template <typename Dtype>
+void caffe_cpu_binary_approx(const int axis, const int M, const int N,
+                             const Dtype* in,  Dtype* out, Dtype *scale) {
+  const Dtype *p = in;
+  Dtype *q = out;
+  if (axis == 0) {
+    caffe_set<Dtype>(M, Dtype(0), scale);
+    for (int i = 0; i < M; ++i) {
+      for (int j = 0; j < N; ++j) {
+        scale[i] += std::abs(*p++);
+      }
+    }
+    for (int i = 0; i < M; ++i) scale[i] /= N;
+    p = in;
+    for (int i = 0; i < M; ++i) {
+      for (int j = 0; j < N; ++j) {
+        *q++ = (*p++ >= 0) ? scale[i] : -scale[i];
+      }
+    }
+  }
+  else {
+    caffe_set<Dtype>(N, Dtype(0), scale);
+    for (int i = 0; i < M; ++i) {
+      for (int j = 0; j < N; ++j) {
+        scale[j]  += std::abs(*p++);
+      }
+    }
+    for (int j = 0; j < N; ++j) scale[j] /= M;
+    p = in;
+    for (int i = 0; i < M; ++i) {
+      for (int j = 0; j < N; ++j) {
+        *q++ = (*p++ >= 0) ? scale[j] : -scale[j];
+      }
+    }
+  }
+//  Dtype err = 0.;
+//  p = in, q = out;
+//  for (int i = 0; i < M; ++i) {
+//    for (int j = 0; j < N; ++j) {
+//      err += (*p - *q) * (*p - *q);
+//      ++p, ++q;
+//    }
+//  }
+//  err /= M * N;
+//  LOG(INFO) << "binary error: " << err;
+}
+
+template <typename Dtype>
+void caffe_cpu_ternary_approx(
+  const int axis, const int M, const int N,
+  const Dtype* in, Dtype* out, Dtype *scale, Dtype *delta) {
+  const Dtype *p = in;
+  Dtype *q = out;
+  if (axis == 0) {
+    caffe_set<Dtype>(M, Dtype(0), scale);
+    caffe_set<Dtype>(M, Dtype(0), delta);
+    vector<Dtype> sum(M, 0);
+    for (int i = 0; i < M; ++i) {
+      for (int j = 0; j < N; ++j) {
+        delta[i] += std::abs(*p++);
+      }
+    }
+    for (int i = 0; i < M; ++i) delta[i] *= 0.7 / N;
+    p = in, q = out;
+    for (int i = 0; i < M; ++i) {
+      for (int j = 0; j < N; ++j) {
+        if (*p > delta[i])
+          *q = Dtype(1), scale[i] += *p, ++sum[i];
+        else if (*p < -delta[i])
+          *q = Dtype(-1), scale[i] -= *p, ++sum[i];
+        else
+          *q = 0;
+        ++p, ++q;
+      }
+    }
+    for (int i = 0; i < M; ++i) if (sum[i] > 0) scale[i] /= sum[i];
+    q = out;
+    for (int i = 0; i < M; ++i)
+      for (int j = 0; j < N; ++j)
+        *q++ *= scale[i];
+  }
+  else {
+    caffe_set<Dtype>(N, Dtype(0), scale);
+    caffe_set<Dtype>(N, Dtype(0), delta);
+    vector<Dtype> sum(N, 0);
+    for (int i = 0; i < M; ++i) {
+      for (int j = 0; j < N; ++j) {
+        delta[j]  += std::abs(*p++);
+      }
+    }
+    for (int j = 0; j < N; ++j) delta[j] *= 0.7 / M;
+    p = in, q = out;
+    for (int i = 0; i < M; ++i) {
+      for (int j = 0; j < N; ++j) {
+        if (*p > delta[j])
+          *q = Dtype(1), scale[j] += *p, ++sum[j];
+        else if (*p < -delta[j])
+          *q = Dtype(-1), scale[j] -= *p, ++sum[j];
+        else
+          *q = Dtype(0);
+        ++p, ++q;
+      }
+    }
+    for (int j = 0; j < N; ++j) if (sum[j] > 0) scale[j] /= sum[j];
+    q = out;
+    for (int i = 0; i < M; ++i)
+      for (int j = 0; j < N; ++j)
+        *q++ *= scale[j];
+  }
+//  Dtype err = 0.;
+//  p = in, q = out;
+//  for (int i = 0; i < M; ++i) {
+//    for (int j = 0; j < N; ++j) {
+//      err += (*p - *q) * (*p - *q);
+//      ++p, ++q;
+//    }
+//  }
+//  err /= M * N;
+//  LOG(INFO) << "ternary error: " << err;
+//  exit(1);
+}
+
 #define INSTANTIATE_BINARY_MATH(Dtype) \
   \
 template void caffe_cpu_binary_gemm_and<Dtype>( \
@@ -981,6 +1162,10 @@ template void caffe_cpu_binary_scale<Dtype>( \
 template void caffe_cpu_binary_gradient<Dtype>( \
   const int axis, const int M, const int N, \
   const Dtype *In, const Dtype *scale, Dtype *grad); \
+  \
+template void caffe_cpu_ternary_gradient <Dtype>( \
+  const int axis, const int M, const int N, \
+  const Dtype *in, const Dtype *scale, const Dtype *delta, Dtype *grad); \
   \
 template void caffe_cpu_ternary<Dtype>( \
   const int axis, const int M, const int N, const Dtype *in, \
@@ -1041,7 +1226,15 @@ template void caffe_cpu_ternary_restore<Dtype>( \
   const Dtype *scale, const Dtype *bias, const bool use_bias, Dtype *out); \
   \
 template void caffe_cpu_clip<Dtype> ( \
-  const int N, Dtype min_value, Dtype max_value, Dtype *X);
+  const int N, Dtype min_value, Dtype max_value, Dtype *X); \
+  \
+template void caffe_cpu_binary_approx<Dtype>( \
+  const int axis, const int M, const int N, const Dtype* in, \
+  Dtype* out, Dtype *scale); \
+  \
+template void caffe_cpu_ternary_approx<Dtype>( \
+  const int axis, const int M, const int N, const Dtype* in, \
+  Dtype* out, Dtype *scale, Dtype *delta);
 
 INSTANTIATE_BINARY_MATH(float);
 INSTANTIATE_BINARY_MATH(double);
