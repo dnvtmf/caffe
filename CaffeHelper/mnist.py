@@ -5,8 +5,8 @@ import os
 name = "cnn"
 num_epoch = 500
 batch_size = 100
-fc_type = "XnorNetInnerProduct"
-conv_type = "XnorNetConvolution"
+fc_type = "TBInnerProduct"
+conv_type = "TBConvolution"
 tb_param = Parameter('tb_param')
 tb_param.add_param_if('full_train', True)
 tb_param.add_param_if('use_bias', True)

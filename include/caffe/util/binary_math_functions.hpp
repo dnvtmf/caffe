@@ -72,15 +72,11 @@ void caffe_cpu_ternary_norm(
   Btype *code, Btype *mask, Dtype *delta, Dtype *scale,
   Dtype *bias, Dtype *sum,  Dtype *sum2, const bool use_bias);
 
-template<typename Dtype>
-void caffe_cpu_binary_norm_gradient(
-  const int axis, const int M, const int N, const Dtype *in,
-  const Dtype *scale, const Dtype *bias, Dtype *grad);
 
 template<typename Dtype>
-void caffe_cpu_ternary_norm_gradient(
+void caffe_cpu_bt_gradient(
   const int axis, const int M, const int N, const Dtype *in,
-  const Dtype *delta, const Dtype *scale, const Dtype *bias, Dtype *grad);
+  const Dtype *scale, const bool use_bias, Dtype *grad);
 
 template<typename Dtype>
 void caffe_cpu_binary_gemm(
