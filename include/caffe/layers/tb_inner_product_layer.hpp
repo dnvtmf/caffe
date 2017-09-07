@@ -49,7 +49,7 @@ class TBInnerProductLayer : public Layer<Dtype> {
 
  private:
   Blob<Dtype> in_, weight_;
-  Blob<Dtype> in_s_, weight_s_;
+  Blob<Dtype> in_s_, weight_s_, sum_;
   bool is_w_bin_, is_in_bin_;
 };
 

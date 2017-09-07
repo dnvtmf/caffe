@@ -164,7 +164,7 @@ void caffe_gpu_binary_approx(
 template <typename Dtype>
 void caffe_gpu_ternary_approx(
   const int axis, const int M, const int N, const Dtype *in,
-  Dtype* out, Dtype *scale, Dtype *delta);
+  Dtype* out, Dtype *scale, Dtype *delta, Dtype *sum);
 #endif // CPU_ONLY
 }
 #endif // CAFFE_UTIL_BINARY_MATH_FUNCTIONS_HPP_

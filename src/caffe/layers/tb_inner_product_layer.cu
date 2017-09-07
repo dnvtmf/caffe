@@ -23,7 +23,8 @@ void TBInnerProductLayer<Dtype>::Forward_gpu(
   else if (is_in_bin_) {
     caffe_gpu_ternary_approx<Dtype>(
       1, K_, N_, this->blobs_[0]->gpu_data(), weight_.mutable_gpu_data(),
-      weight_s_.mutable_gpu_data(), weight_s_.mutable_gpu_diff());
+      weight_s_.mutable_gpu_data(),
+      weight_s_.mutable_gpu_diff(), sum_.mutable_gpu_data());
   }
   else
     weight = this->blobs_[0]->gpu_data();
@@ -36,7 +37,8 @@ void TBInnerProductLayer<Dtype>::Forward_gpu(
   else if (is_w_bin_) {
     caffe_gpu_ternary_approx<Dtype>(
       0, M_, K_, bottom[0]->gpu_data(), in_.mutable_gpu_data(),
-      in_s_.mutable_gpu_data(), in_s_.mutable_gpu_diff());
+      in_s_.mutable_gpu_data(),
+      in_s_.mutable_gpu_diff(), sum_.mutable_gpu_data());
   }
   else
     bottom_data = bottom[0]->gpu_data();
@@ -103,5 +105,5 @@ void TBInnerProductLayer<Dtype>::Backward_gpu(
   }
 }
 
-INSTANTIATE_LAYER_GPU_FUNCS(InnerProductLayer);
+INSTANTIATE_LAYER_GPU_FUNCS(TBInnerProductLayer);
 }  // namespace caffe

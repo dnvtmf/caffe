@@ -36,13 +36,17 @@ class XnorNetConvolutionLayer : public BaseConvolutionLayer<Dtype> {
   virtual void Forward_cpu(
     const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top);
   virtual void Forward_gpu(
-    const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top);
+    const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
+    CHECK(false) << "no XnorNetConvolutionLayer::Forward_gpu()";
+  }
   virtual void Backward_cpu(
     const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
     const vector<Blob<Dtype>*>& bottom);
   virtual void Backward_gpu(
     const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
-    const vector<Blob<Dtype>*>& bottom);
+    const vector<Blob<Dtype>*>& bottom) {
+    CHECK(false) << "no XnorNetConvolutionLayer::Backward_gpu";
+  }
   virtual inline bool reverse_dimensions() {return false;}
   virtual void compute_output_shape();
  private:
