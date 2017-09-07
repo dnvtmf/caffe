@@ -81,7 +81,7 @@ void TBInnerProductLayer<Dtype>::Reshape(
   }
   in_.Reshape({M_, K_});
   in_s_.Reshape({M_});
-  sum_.Reshape({max{M_, N_});
+  sum_.Reshape({max(M_, N_)});
 }
 
 template <typename Dtype>

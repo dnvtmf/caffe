@@ -134,9 +134,9 @@ void XnorNetConvolutionLayer<Dtype>::Backward_cpu(
       0, M_, K_, weight, w_scale_.data(),  weight_diff);
   }
 }
-#ifdef CPU_ONLY
-STUB_GPU(XnorNetConvolutionLayer);
-#endif
+//#ifdef CPU_ONLY
+//STUB_GPU(XnorNetConvolutionLayer);
+//#endif
 
 INSTANTIATE_CLASS(XnorNetConvolutionLayer);
 REGISTER_LAYER_CLASS(XnorNetConvolution);

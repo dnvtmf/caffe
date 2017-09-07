@@ -194,9 +194,9 @@ void XnorNetInnerProductLayer<Dtype>::Backward_cpu(
   }
 }
 
-#ifdef CPU_ONLY
-STUB_GPU(XnorNetInnerProductLayer);
-#endif
+//#ifdef CPU_ONLY
+//STUB_GPU(XnorNetInnerProductLayer);
+//#endif
 
 INSTANTIATE_CLASS(XnorNetInnerProductLayer);
 REGISTER_LAYER_CLASS(XnorNetInnerProduct);
