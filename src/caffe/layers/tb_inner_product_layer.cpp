@@ -9,11 +9,11 @@ namespace caffe {
 template <typename Dtype>
 void TBInnerProductLayer<Dtype>::LayerSetUp(
     const vector<Blob<Dtype> *> &bottom, const vector<Blob<Dtype> *> &top) {
-  auto &params         = this->layer_param_.inner_product_param();
+  auto &params = this->layer_param_.inner_product_param();
   const int num_output = params.num_output();
-  bias_term_           = params.bias_term();
-  N_                   = num_output;
-  const int axis       = bottom[0]->CanonicalAxisIndex(params.axis());
+  bias_term_ = params.bias_term();
+  N_ = num_output;
+  const int axis = bottom[0]->CanonicalAxisIndex(params.axis());
   // Dimensions starting from "axis" are "flattened" into a single
   // length K_ vector. For example, if bottom[0]'s shape is (N, C, H, W),
   // and axis == 1, N inner products with dimension CHW are performed.
@@ -48,12 +48,13 @@ void TBInnerProductLayer<Dtype>::LayerSetUp(
   // parameter initialization
   this->param_propagate_down_.resize(this->blobs_.size(), true);
   full_train_ = this->layer_param_.tb_param().full_train();
-  use_bias_   = this->layer_param_.tb_param().use_bias();
-  is_w_bin_   = this->layer_param_.tb_param().w_binary();
-  is_in_bin_  = this->layer_param_.tb_param().in_binary();
+  use_bias_ = this->layer_param_.tb_param().use_bias();
+  is_w_bin_ = this->layer_param_.tb_param().w_binary();
+  is_in_bin_ = this->layer_param_.tb_param().in_binary();
+  clip_ = this->layer_param_.tb_param().clip();
+  reg_ = this->layer_param_.tb_param().reg();
   weight_.Reshape({K_, N_});
   weight_s_.Reshape({N_});
-  //  reg_ = this->layer_param_.tb_param().reg();
 }
 
 template <typename Dtype>
@@ -88,10 +89,10 @@ void TBInnerProductLayer<Dtype>::Reshape(
 template <typename Dtype>
 void TBInnerProductLayer<Dtype>::Forward_cpu(
     const vector<Blob<Dtype> *> &bottom, const vector<Blob<Dtype> *> &top) {
-  const Dtype *weight      = weight_.cpu_data();
+  const Dtype *weight = weight_.cpu_data();
   const Dtype *bottom_data = in_.cpu_data();
-  Dtype *top_data          = top[0]->mutable_cpu_data();
-  Dtype value              = sqrt(6. / (K_ + N_));
+  Dtype *top_data = top[0]->mutable_cpu_data();
+  Dtype value = sqrt(6. / (K_ + N_));
   caffe_cpu_clip<Dtype>(
       K_ * N_, -value, value, this->blobs_[0]->mutable_cpu_data());
   // binary or ternary the weight

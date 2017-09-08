@@ -17,9 +17,11 @@ void TBConvolutionLayer<Dtype>::LayerSetUp_more() {
   weight_.Reshape({M_, K_});
   weight_s_.Reshape({M_});
   full_train_ = this->layer_param_.tb_param().full_train();
-  use_bias_   = this->layer_param_.tb_param().use_bias();
-  is_w_bin_   = this->layer_param_.tb_param().w_binary();
-  is_in_bin_  = this->layer_param_.tb_param().in_binary();
+  use_bias_ = this->layer_param_.tb_param().use_bias();
+  is_w_bin_ = this->layer_param_.tb_param().w_binary();
+  is_in_bin_ = this->layer_param_.tb_param().in_binary();
+  clip_ = this->layer_param_.tb_param().clip();
+  reg_ = this->layer_param_.tb_param().reg();
 }
 
 template <typename Dtype>
@@ -33,13 +35,13 @@ void TBConvolutionLayer<Dtype>::Reshape_more() {
 template <typename Dtype>
 void TBConvolutionLayer<Dtype>::compute_output_shape() {
   const int *kernel_shape_data = this->kernel_shape_.cpu_data();
-  const int *stride_data       = this->stride_.cpu_data();
-  const int *pad_data          = this->pad_.cpu_data();
-  const int *dilation_data     = this->dilation_.cpu_data();
+  const int *stride_data = this->stride_.cpu_data();
+  const int *pad_data = this->pad_.cpu_data();
+  const int *dilation_data = this->dilation_.cpu_data();
   this->output_shape_.clear();
   for (int i = 0; i < this->num_spatial_axes_; ++i) {
     // i + 1 to skip channel axis
-    const int input_dim     = this->input_shape(i + 1);
+    const int input_dim = this->input_shape(i + 1);
     const int kernel_extent = dilation_data[i] * (kernel_shape_data[i] - 1) + 1;
     const int output_dim =
         (input_dim + 2 * pad_data[i] - kernel_extent) / stride_data[i] + 1;
@@ -51,7 +53,7 @@ template <typename Dtype>
 void TBConvolutionLayer<Dtype>::forward_cpu_gemm(
     const Dtype *input, Dtype *output, bool skip_im2col) {
   const Dtype *col_buff = input;
-  const Dtype *weights  = (is_in_bin_ || is_w_bin_)
+  const Dtype *weights = (is_in_bin_ || is_w_bin_)
                              ? weight_.cpu_data()
                              : this->blobs_[0]->cpu_data();
   if (!this->is_1x1_) {
@@ -95,7 +97,7 @@ void TBConvolutionLayer<Dtype>::backward_cpu_gemm(
                              ? weight_.cpu_data()
                              : this->blobs_[0]->cpu_data();
   const Dtype *col_buff = input;
-  Dtype *col_buff_diff  = this->col_buffer_.mutable_cpu_diff();
+  Dtype *col_buff_diff = this->col_buffer_.mutable_cpu_diff();
   if (this->is_1x1_) {
     col_buff_diff = input_diff;
   } else {
@@ -153,7 +155,7 @@ void TBConvolutionLayer<Dtype>::Forward_cpu(
   //    bias_w_.data(), sum_w_.data(), use_bias_);
   for (int i = 0; i < bottom.size(); ++i) {
     const Dtype *bottom_data = bottom[i]->cpu_data();
-    Dtype *top_data          = top[i]->mutable_cpu_data();
+    Dtype *top_data = top[i]->mutable_cpu_data();
     for (int n = 0; n < this->num_; ++n) {
       this->forward_cpu_gemm(
           bottom_data + n * this->bottom_dim_, top_data + n * this->top_dim_);
@@ -171,9 +173,9 @@ void TBConvolutionLayer<Dtype>::Backward_cpu(
     const vector<Blob<Dtype> *> &bottom) {
   Dtype *weight_diff = this->blobs_[0]->mutable_cpu_diff();
   for (int i = 0; i < top.size(); ++i) {
-    const Dtype *top_diff    = top[i]->cpu_diff();
+    const Dtype *top_diff = top[i]->cpu_diff();
     const Dtype *bottom_data = bottom[i]->cpu_data();
-    Dtype *bottom_diff       = bottom[i]->mutable_cpu_diff();
+    Dtype *bottom_diff = bottom[i]->mutable_cpu_diff();
     // Bias gradient, if necessary.
     if (this->bias_term_ && this->param_propagate_down_[1]) {
       Dtype *bias_diff = this->blobs_[1]->mutable_cpu_diff();

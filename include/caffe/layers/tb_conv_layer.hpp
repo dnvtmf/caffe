@@ -5,10 +5,10 @@
 
 #include "caffe/blob.hpp"
 #include "caffe/layer.hpp"
-#include "caffe/proto/caffe.pb.h"
-#include "caffe/util/im2col.hpp"
-#include "caffe/util/binary_math_functions.hpp"
 #include "caffe/layers/base_conv_layer.hpp"
+#include "caffe/proto/caffe.pb.h"
+#include "caffe/util/binary_math_functions.hpp"
+#include "caffe/util/im2col.hpp"
 
 namespace caffe {
 
@@ -34,7 +34,8 @@ class TBConvolutionLayer : public BaseConvolutionLayer<Dtype> {
    *  dilation. By default the convolution has dilation 1.
    *  - group (\b optional, default 1). The number of filter groups. Group
    *  convolution is a method for reducing parameterization by selectively
-   *  connecting input and output channels. The input and output channel dimensions must be divisible
+   *  connecting input and output channels. The input and output channel
+   * dimensions must be divisible
    *  by the number of groups. For group @f$ \geq 1 @f$, the
    *  convolutional filters' input and output channels are separated s.t. each
    *  group takes 1 / group of the input channels and makes 1 / group of the
@@ -47,7 +48,7 @@ class TBConvolutionLayer : public BaseConvolutionLayer<Dtype> {
    *    kernels + stream parallelism) engines.
    */
   explicit TBConvolutionLayer(const LayerParameter& param)
-    : BaseConvolutionLayer<Dtype>(param) {}
+      : BaseConvolutionLayer<Dtype>(param) {}
 
   virtual inline const char* type() const { return "TBConvolution"; }
 
@@ -58,26 +59,26 @@ class TBConvolutionLayer : public BaseConvolutionLayer<Dtype> {
   // The last argument in forward_cpu_gemm is so that we can skip the im2col if
   // we just called weight_cpu_gemm with the same input.
   void forward_cpu_gemm(
-    const Dtype* input, Dtype* output, bool skip_im2col = false);
+      const Dtype* input, Dtype* output, bool skip_im2col = false);
   void backward_cpu_gemm(
-    const Dtype *input, const Dtype* top_diff,
-    Dtype *input_diff, Dtype *weight_diff);
+      const Dtype* input, const Dtype* top_diff, Dtype* input_diff,
+      Dtype* weight_diff);
 #ifndef CPU_ONLY
-  void forward_gpu_gemm(
-    const Dtype* input, Dtype* output, bool skip_im2col = false);
+  void forward_gpu_gemm(Dtype* input, Dtype* output, bool skip_im2col = false);
   void backward_gpu_gemm(
-    const Dtype *input, const Dtype* top_diff,
-    Dtype *input_diff, Dtype *weight_diff);
-#endif // CPU_ONLY
+      Dtype* input, const Dtype* top_diff, Dtype* input_diff,
+      Dtype* weight_diff);
+#endif  // CPU_ONLY
   virtual void Forward_cpu(
-    const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top);
+      const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top);
   virtual void Backward_cpu(
-    const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
-    const vector<Blob<Dtype>*>& bottom);
-  virtual void Forward_gpu(const vector<Blob<Dtype>*>& bottom,
-                           const vector<Blob<Dtype>*>& top);
-  virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
-                            const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
+      const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
+      const vector<Blob<Dtype>*>& bottom);
+  virtual void Forward_gpu(
+      const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top);
+  virtual void Backward_gpu(
+      const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
+      const vector<Blob<Dtype>*>& bottom);
 
   virtual inline bool reverse_dimensions() { return false; }
   virtual void compute_output_shape();
@@ -89,6 +90,8 @@ class TBConvolutionLayer : public BaseConvolutionLayer<Dtype> {
   bool full_train_;
   bool use_bias_;
   bool is_w_bin_, is_in_bin_;
+  int clip_;
+  Dtype reg_;
 };
 
 }  // namespace caffe

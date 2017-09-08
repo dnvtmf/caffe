@@ -8,10 +8,12 @@ batch_size = 200
 fc_type = "TBInnerProduct"
 tb_param = Parameter('tb_param')
 tb_param.add_param_if('full_train', True)
-tb_param.add_param_if('use_bias', True)
+tb_param.add_param_if('use_bias', False)
 tb_param.add_param_if('w_binary', True)
-tb_param.add_param_if('in_binary', False)
-activation_method = "TanH"
+tb_param.add_param_if('in_binary', True)
+tb_param.add_param_if('clip', 0)
+tb_param.add_param_if('reg', 0.)
+activation_method = "ReLU"
 filler_xavier = Filler('xavier')
 filler_uniform = Filler('uniform', min_=-0.1, max_=0.1)
 filler_constant = Filler('constant')
@@ -24,10 +26,10 @@ Data([], phase=TEST, source="../mnist_test_lmdb", batch_size=100, backend=Net.LM
      optional_params=[Transform(scale=0.00390625)])
 out = [data]
 label = [label]
-out = FC(out, name='fc1', num_output=256, weight_filler=filler_xavier, bias_term=True, bias_filler=filler_constant)
+out = FC(out, name='fc1', num_output=4096, weight_filler=filler_xavier, bias_term=True, bias_filler=filler_constant)
 out = Activation(out, name='act1', method=activation_method)
 out = BN(out, name='bn1')
-out = FC(out, name='fc2', fc_type=fc_type, num_output=256, weight_filler=filler_xavier, bias_term=True,
+out = FC(out, name='fc2', fc_type=fc_type, num_output=4096, weight_filler=filler_xavier, bias_term=True,
          bias_filler=filler_constant, optional_params=[tb_param])
 out = Activation(out, name='act2', method=activation_method)
 # out = BN(out, name='bn2')

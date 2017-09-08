@@ -1419,5 +1419,8 @@ message TBParameter {
   // If both false, is full precision.
   optional bool w_binary = 3 [default = true];
   optional bool in_binary = 4 [default = true];
+  // 0, no clip; 1, clip weights; 2, clip input; 3 clip weight and input
+  optional int32 clip = 5 [default = 0];
+  optional float reg = 6 [default = 0.];
 }
 

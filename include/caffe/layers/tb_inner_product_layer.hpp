@@ -52,6 +52,8 @@ class TBInnerProductLayer : public Layer<Dtype> {
   bool is_w_bin_, is_in_bin_;
   bool full_train_;
   bool use_bias_;
+  int clip_;
+  Dtype reg_;
 };
 
 }  // namespace caffe

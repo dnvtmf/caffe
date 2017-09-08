@@ -9,9 +9,9 @@ fc_type = "TBInnerProduct"
 conv_type = "TBConvolution"
 tb_param = Parameter('tb_param')
 tb_param.add_param_if('full_train', True)
-tb_param.add_param_if('use_bias', True)
+tb_param.add_param_if('use_bias', False)
 tb_param.add_param_if('w_binary', True)
-tb_param.add_param_if('in_binary', False)
+tb_param.add_param_if('in_binary', True)
 activation_method = "ReLU"
 filler_xavier = Filler('xavier')
 filler_uniform = Filler('uniform', min_=-0.1, max_=0.1)
@@ -61,8 +61,8 @@ out = FC(out, name='fc7', fc_type=fc_type, num_output=1024, bias_term=True, weig
 out = Activation(out, name='act7', method=activation_method)
 out = FC(out, name='fc8', num_output=10, weight_filler=filler_xavier, bias_term=True, bias_filler=filler_constant)
 accuracy = Accuracy(out + label)
-loss = HingeLoss(out + label, norm=2)
-# loss = SoftmaxWithLoss(out + label)
+# loss = HingeLoss(out + label, norm=2)
+loss = SoftmaxWithLoss(out + label)
 
 # ---------- solver ----
 solver = Solver().net('./model.prototxt').GPU()
