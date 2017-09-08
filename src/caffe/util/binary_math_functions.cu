@@ -36,12 +36,12 @@ void caffe_gpu_binary_gradient(
   dim3 threads(32, 16, 1);
   if (axis == 0) {
     const Dtype mul = 1. / N;
-    binary_gradient_kernel_0<Dtype> <<<blocks, threads>>> (
+    binary_gradient_kernel_0<Dtype> <<< blocks, threads>>> (
       M, N, in, scale, grad, mul);
   }
   else {
     const Dtype mul = 1. / M;
-    binary_gradient_kernel_1<Dtype> <<<blocks, threads>>> (
+    binary_gradient_kernel_1<Dtype> <<< blocks, threads>>> (
       M, N, in, scale, grad, mul);
   }
 }
@@ -80,12 +80,12 @@ void caffe_gpu_ternary_gradient(
   dim3 threads(32, 16, 1);
   if (axis == 0) {
     const Dtype mul = 1. / N;
-    ternary_gradient_kernel_0<Dtype> <<<blocks, threads>>> (
+    ternary_gradient_kernel_0<Dtype> <<< blocks, threads>>> (
       M, N, in, scale, delta, grad, mul);
   }
   else {
     const Dtype mul = 1. / M;
-    ternary_gradient_kernel_1<Dtype> <<<blocks, threads>>> (
+    ternary_gradient_kernel_1<Dtype> <<< blocks, threads>>> (
       M, N, in, scale, delta, grad, mul);
   }
 }
@@ -112,134 +112,128 @@ __global__ void clip_kernel<double>(
 }
 template<typename Dtype>
 void caffe_gpu_clip(const int N, Dtype min_value, Dtype max_value, Dtype *X) {
-  clip_kernel<Dtype> <<<CAFFE_GET_BLOCKS(N), CAFFE_CUDA_NUM_THREADS>>>(
+  clip_kernel<Dtype> <<< CAFFE_GET_BLOCKS(N), CAFFE_CUDA_NUM_THREADS>>>(
     N, min_value, max_value, X);
 }
 
-KERNEL_FUNC(
-  asum_kernel_0,
-  asum[i] += fabs(in[i * N + j]),
-  const Dtype *in, Dtype *asum);
-KERNEL_FUNC(
-  asum_kernel_1,
-  asum[j] += fabs(in[i * N + j]),
-  const Dtype *in, Dtype *asum);
+template <typename Dtype>
+__global__ void binary_approx_kernel_0(
+  const int M, const int N,  bool use_bias,
+  const Dtype* in, Dtype* out, Dtype *scale) {
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i >= M) return ;
+  scale[i] = 0;
+  for (int j = 0; j < N; ++j)
+    scale[i] += fabs(in[i * N + j]);
+  scale[i] /= Dtype(N);
+  for (int j = 0; j < N; ++j)
+    out[i * N + j] = in[i * N + j] >= 0 ? scale[i] : -scale[i];
+}
 
-KERNEL_FUNC(
-  set_kernel_0,
-  out[i * N + j] = in[i * N + j] >= 0 ? asum[j] : -asum[j],
-  const Dtype *in, const Dtype *asum, Dtype *out);
-KERNEL_FUNC(
-  set_kernel_1,
-  out[i * N + j] = in[i * N + j] >= 0 ? asum[i] : -asum[i],
-  const Dtype *in, const Dtype *asum, Dtype *out);
+template <typename Dtype>
+__global__ void binary_approx_kernel_1(
+  const int M, const int N,  bool use_bias,
+  const Dtype* in, Dtype* out, Dtype *scale) {
+  const int j = blockIdx.x * blockDim.x + threadIdx.x;
+  if (j >= N) return ;
+  scale[j] = 0;
+  for (int i = 0; i < M; ++i)
+    scale[j] += fabs(in[i * N + j]);
+  scale[j] /= Dtype(M);
+  for (int i = 0; i < M; ++i)
+    out[i * N + j] = in[i * N + j] >= 0 ? scale[j] : -scale[j];
+}
 
 template <typename Dtype>
 void caffe_gpu_binary_approx(
-  const int axis, const int M, const int N, const Dtype* in,
-  Dtype* out, Dtype *scale) {
-  dim3 blocks((M - 1) / 32 + 1, (N - 1) / 16 + 1, 1);
-  dim3 threads(32, 16, 1);
+  const int axis, const int M, const int N,  bool use_bias,
+  const Dtype* in, Dtype* out, Dtype *scale) {
   if (axis == 0) {
-    caffe_gpu_set<Dtype>(M, Dtype(0), scale);
-    asum_kernel_0<Dtype> <<< blocks, threads>>> (M, N, in, scale);
-    caffe_gpu_scal<Dtype>(M, Dtype(1. / N), scale);
-    set_kernel_0<Dtype> <<< blocks, threads>>> (M, N, in, scale, out);
+    binary_approx_kernel_0<Dtype>
+    <<<CAFFE_GET_BLOCKS(M), CAFFE_CUDA_NUM_THREADS>>>
+    (M, N, use_bias, in, out, scale);
   }
   else {
-    caffe_gpu_set<Dtype>(N, Dtype(0), scale);
-    asum_kernel_1<Dtype> <<< blocks, threads>>> (M, N, in, scale);
-    caffe_gpu_scal<Dtype>(N, Dtype(1. / M), scale);
-    set_kernel_1<Dtype> <<< blocks, threads>>>(M, N, in, scale, out);
+    binary_approx_kernel_1<Dtype>
+    <<<CAFFE_GET_BLOCKS(N), CAFFE_CUDA_NUM_THREADS>>>
+    (M, N, use_bias, in, out, scale);
   }
 }
 
-KERNEL_FUNC(
-ternary_kernel_0,  {
-  if (in[i * N + j] > delta[i]) {
-    out[i * N + j] = Dtype(1);
-    scale[i] += in[i * N + j];
-    ++sum[i];
+template <typename Dtype>
+__global__ void ternary_approx_kernel_0(
+  const int M, const int N, bool use_bias,
+  const Dtype * in, Dtype * out, Dtype * scale, Dtype * delta, Dtype * sum) {
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i >= M) return ;
+  scale[i] = 0;
+  delta[i] = 0;
+  sum[i] = 0;
+  for (int j = 0; j < N; ++j)
+    delta[i] += fabs(in[i * N + j]);
+  delta[i] *= 0.7 / N;
+  for (int j = 0; j < N; ++j) {
+    Dtype val = fabs(in[i * N + j]);
+    if (val > delta[i]) {
+      scale[i] += val;
+      ++sum[i];
+    }
   }
-  else if (in[i * N + j] < -delta[i]) {
-    out[i * N + j] = Dtype(-1);
-    scale[i] -= in[i * N + j];
-    ++sum[i];
+  if (sum[i] > 0) scale[i] /= sum[i];
+  for (int j = 0; j < N; ++j) {
+    if (in[i * N + j] > delta[i])
+      out[i * N + j] = scale[i];
+    else if (in[i * N + j] < -delta[i])
+      out[i * N + j] = -scale[i];
+    else
+      out[i * N + j] = 0;
   }
-  else
-    out[i * N + j] = 0;
-},
-const Dtype *in, const Dtype *delta, Dtype *scale,
-Dtype *sum, Dtype *out);
-
-KERNEL_FUNC(
-ternary_kernel_1, {
-  if (in[i * N + j] > delta[j]) {
-    out[i * N + j] = Dtype(1);
-    scale[j] += in[i * N + j];
-    ++sum[j];
-  }
-  else if (in[i * N + j] < -delta[i]) {
-    out[i * N + j] = Dtype(-1);
-    scale[j] -= in[i * N + j];
-    ++sum[j];
-  }
-  else
-    out[i * N + j] = 0;
-},
-const Dtype *in, const Dtype *delta, Dtype *scale,
-Dtype* sum, Dtype *out);
-
-KERNEL_FUNC(
-  mul_eq_kernel_0,
-  out[i * N + j] *= scale[i],
-  const Dtype *scale, Dtype *out);
-
-KERNEL_FUNC(
-  mul_eq_kernel_1,
-  out[i * N + j] *= scale[j],
-  const Dtype *scale, Dtype *out);
+}
 
 template <typename Dtype>
-__global__ void div_eq_kernel(const int N, const Dtype *X, Dtype* Y) {
-  int i = threadIdx.x;
-  if (i < N) {
-    if (X[i] > 0)
-      Y[i] /= X[i];
+__global__ void ternary_approx_kernel_1(
+  const int M, const int N, bool use_bias,
+  const Dtype * in, Dtype * out, Dtype * scale, Dtype * delta, Dtype * sum) {
+  const int j = blockIdx.x * blockDim.x + threadIdx.x;
+  if (j >= N) return ;
+  delta[j] = 0;
+  scale[j] = 0;
+  sum[j] = 0;
+  for (int i = 0; i < M; ++i)
+    delta[j] += fabs(in[i * N + j]);
+  delta[j] *= 0.7 / M;
+  for (int i = 0; i < M; ++i) {
+    Dtype val = fabs(in[i * N + j]);
+    if (val > delta[j]) {
+      scale[j] += val;
+      ++sum[j];
+    }
+  }
+  if (sum[j] > 0) scale[j] /= sum[j];
+  for (int i = 0; i < M; ++i) {
+    if (in[i * N + j] > delta[j])
+      out[i * N + j] = scale[j];
+    else if (in[i * N + j] < -delta[j])
+      out[i * N + j] = -scale[j];
+    else
+      out[i * N + j] = 0;
   }
 }
 template <typename Dtype>
 void caffe_gpu_ternary_approx(
-  const int axis, const int M, const int N, const Dtype *in,
-  Dtype* out, Dtype *scale, Dtype *delta, Dtype *sum) {
-  dim3 blocks((M - 1) / 32 + 1, (N - 1) / 16 + 1, 1);
-  dim3 threads(32, 16, 1);
+  const int axis, const int M, const int N, bool use_bias,
+  const Dtype * in, Dtype * out, Dtype * scale, Dtype * delta, Dtype * sum) {
   if (axis == 0) {
-    caffe_gpu_set<Dtype>(M, Dtype(0), scale);
-    caffe_gpu_set<Dtype>(M, Dtype(0), delta);
-    caffe_gpu_set<Dtype>(M, Dtype(0), sum);
-    asum_kernel_0<Dtype> <<<blocks, threads>>> (M, N, in, delta);
-    caffe_gpu_scal<Dtype>(M, Dtype(0.7 / N), delta);
-    ternary_kernel_0<Dtype> <<<blocks, threads>>>(
-      M, N, in, delta, scale, sum, out);
-    div_eq_kernel<Dtype> <<<CAFFE_GET_BLOCKS(M), CAFFE_CUDA_NUM_THREADS>>>(
-      M, sum, scale);
-    mul_eq_kernel_0<Dtype> <<<blocks, threads>>> (M, N, scale, out);
+    ternary_approx_kernel_0<Dtype>
+    <<<CAFFE_GET_BLOCKS(M), CAFFE_CUDA_NUM_THREADS>>>
+    (M, N, use_bias, in, out, scale, delta, sum);
   }
   else {
-    caffe_gpu_set<Dtype>(N, Dtype(0), scale);
-    caffe_gpu_set<Dtype>(N, Dtype(0), delta);
-    caffe_gpu_set<Dtype>(N, Dtype(0), sum);
-    asum_kernel_1<Dtype> <<<blocks, threads>>> (M, N, in, delta);
-    caffe_gpu_scal<Dtype>(M, Dtype(0.7 / M), delta);
-    ternary_kernel_1<Dtype> <<<blocks, threads>>>(
-      M, N, in, delta, scale, sum, out);
-    div_eq_kernel<Dtype> <<<CAFFE_GET_BLOCKS(N), CAFFE_CUDA_NUM_THREADS>>>(
-      N, sum, scale);
-    mul_eq_kernel_0<Dtype> <<<blocks, threads>>> (M, N, scale, out);
+    ternary_approx_kernel_1<Dtype>
+    <<<CAFFE_GET_BLOCKS(M), CAFFE_CUDA_NUM_THREADS>>>
+    (M, N, use_bias, in, out, scale, delta, sum);
   }
 }
-
 #define INSTANTIATE_BINARY_MATH(Dtype) \
   template void caffe_gpu_binary_gradient<Dtype>( \
       const int axis, const int M, const int N, \
@@ -253,12 +247,12 @@ void caffe_gpu_ternary_approx(
       const int N, Dtype min_value, Dtype max_value, Dtype *X); \
   \
   template void caffe_gpu_binary_approx<Dtype>( \
-      const int axis, const int M, const int N, const Dtype* in,  \
-      Dtype* out, Dtype *scale);  \
+      const int axis, const int M, const int N, bool use_bias,  \
+      const Dtype* in, Dtype* out, Dtype *scale);  \
   \
   template void caffe_gpu_ternary_approx<Dtype>(  \
-      const int axis, const int M, const int N, const Dtype *in,  \
-      Dtype* out, Dtype *scale, Dtype *delta, Dtype *sum);
+      const int axis, const int M, const int N, bool use_bias, \
+      const Dtype *in, Dtype* out, Dtype *scale, Dtype *delta, Dtype *sum);
 
 INSTANTIATE_BINARY_MATH(float);
 INSTANTIATE_BINARY_MATH(double);

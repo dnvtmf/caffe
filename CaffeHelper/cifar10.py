@@ -65,7 +65,7 @@ loss = HingeLoss(out + label, norm=2)
 # loss = SoftmaxWithLoss(out + label)
 
 # ---------- solver ----
-solver = Solver().net('./model.prototxt').CPU()
+solver = Solver().net('./model.prototxt').GPU()
 solver.test(test_iter=100, test_interval=1000, test_initialization=False)
 num_iter = num_epoch * 50000 / batch_size
 solver.train(base_lr=0.001, lr_policy='step', gamma=0.1, stepsize=num_iter / 5, max_iter=num_iter)

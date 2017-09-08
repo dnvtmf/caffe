@@ -40,11 +40,11 @@ loss = HingeLoss(out + label, norm=2)
 # loss = SoftmaxWithLoss(out + label)
 
 # ---------- solver ----
-solver = Solver().net('./model.prototxt').CPU()
+solver = Solver().net('./model.prototxt').GPU()
 solver.test(test_iter=100, test_interval=500, test_initialization=False)
 # solver.train(base_lr=0.01, lr_policy='fixed', max_iter=3000)
 # solver.optimizer(type='SGD', momentum=0.9)
-solver.train(base_lr=0.001, lr_policy='step', gamma=0.1, stepsize=3000, max_iter=9000, weight_decay=1e-6)
+solver.train(base_lr=0.001, lr_policy='step', gamma=0.1, stepsize=3000, max_iter=9000)
 solver.optimizer(type='Adam')
 solver.display(display=100, average_loss=100)
 solver.snapshot(snapshot=5000, snapshot_prefix=name)

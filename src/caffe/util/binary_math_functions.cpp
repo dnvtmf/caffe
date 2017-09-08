@@ -1071,13 +1071,13 @@ void caffe_cpu_binary_approx(const int axis, const int M, const int N,
 template <typename Dtype>
 void caffe_cpu_ternary_approx(
   const int axis, const int M, const int N,
-  const Dtype* in, Dtype* out, Dtype *scale, Dtype *delta) {
+  const Dtype* in, Dtype* out, Dtype *scale, Dtype *delta, Dtype *sum) {
   const Dtype *p = in;
   Dtype *q = out;
   if (axis == 0) {
     caffe_set<Dtype>(M, Dtype(0), scale);
     caffe_set<Dtype>(M, Dtype(0), delta);
-    vector<Dtype> sum(M, 0);
+    caffe_set<Dtype>(M, Dtype(0), sum);
     for (int i = 0; i < M; ++i) {
       for (int j = 0; j < N; ++j) {
         delta[i] += std::abs(*p++);
@@ -1105,7 +1105,7 @@ void caffe_cpu_ternary_approx(
   else {
     caffe_set<Dtype>(N, Dtype(0), scale);
     caffe_set<Dtype>(N, Dtype(0), delta);
-    vector<Dtype> sum(N, 0);
+    caffe_set<Dtype>(N, Dtype(0), sum);
     for (int i = 0; i < M; ++i) {
       for (int j = 0; j < N; ++j) {
         delta[j]  += std::abs(*p++);
@@ -1234,7 +1234,7 @@ template void caffe_cpu_binary_approx<Dtype>( \
   \
 template void caffe_cpu_ternary_approx<Dtype>( \
   const int axis, const int M, const int N, const Dtype* in, \
-  Dtype* out, Dtype *scale, Dtype *delta);
+  Dtype* out, Dtype *scale, Dtype *delta, Dtype *sum);
 
 INSTANTIATE_BINARY_MATH(float);
 INSTANTIATE_BINARY_MATH(double);

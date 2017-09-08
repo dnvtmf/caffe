@@ -45,7 +45,7 @@ accuracy = Accuracy(out + label)
 loss = SoftmaxWithLoss(out + label)
 
 # ---------- solver ----
-solver = Solver().net('./model.prototxt').CPU()
+solver = Solver().net('./model.prototxt').GPU()
 solver.test(test_iter=100, test_interval=500, test_initialization=False)
 # solver.train(base_lr=0.001, lr_policy='fixed', max_iter=10000)  # , weight_decay=1e-4)
 solver.train(base_lr=0.001, lr_policy='step', gamma=0.1, stepsize=10000, max_iter=30000)
