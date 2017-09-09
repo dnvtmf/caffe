@@ -17,8 +17,7 @@ void TBInnerProductLayer<Dtype>::Forward_gpu(
         K_ * N_, -value, value, this->blobs_[0]->mutable_gpu_data());
   }
   if (clip_ & 2) {
-    caffe_gpu_clip<Dtype>(
-        M_ * K_, (Dtype) -1., (Dtype) 1., bottom[0]->mutable_gpu_data());
+    caffe_gpu_clip<Dtype>(M_ * K_, -1., 1., bottom[0]->mutable_gpu_data());
   }
   // binary or ternary the weight
   if (is_w_bin_) {
@@ -41,7 +40,7 @@ void TBInnerProductLayer<Dtype>::Forward_gpu(
     caffe_gpu_ternary_approx<Dtype>(
         0, M_, K_, use_bias_, bottom[0]->mutable_gpu_data(),
         in_.mutable_gpu_data(), in_s_.mutable_gpu_data(),
-        in_s_.mutable_gpu_diff(), sum_.mutable_gpu_data());
+        in_s_.mutable_gpu_diff(), sum_.mutable_gpu_diff());
   } else
     bottom_data = bottom[0]->mutable_gpu_data();
   caffe_gpu_gemm<Dtype>(
@@ -62,21 +61,32 @@ void TBInnerProductLayer<Dtype>::Backward_gpu(
     const vector<Blob<Dtype> *> &bottom) {
   const Dtype *top_diff = top[0]->gpu_diff();
   if (this->param_propagate_down_[0]) {
+    Dtype *weight_diff = this->blobs_[0]->mutable_gpu_diff();
+    const Dtype *weight = this->blobs_[0]->gpu_data();
+    Dtype *delta = weight_.mutable_gpu_diff();
     // Gradient with respect to weight
     const Dtype *bottom_data =
         (is_w_bin_ || is_in_bin_) ? in_.gpu_data() : bottom[0]->gpu_data();
     caffe_gpu_gemm<Dtype>(
         CblasTrans, CblasNoTrans, K_, N_, M_, (Dtype) 1., bottom_data, top_diff,
-        (Dtype) 1., this->blobs_[0]->mutable_gpu_diff());
+        (Dtype) 1., weight_diff);
+    if (have_reg_) {
+      // D = (W' - W)
+      caffe_gpu_sub<Dtype>(K_ * N_, weight_.gpu_data(), weight, delta);
+      // W'_diff += reg_ * D
+      caffe_gpu_axpy<Dtype>(K_ * N_, reg_, delta, weight_diff);
+    }
     if (is_w_bin_) {
       caffe_gpu_binary_gradient<Dtype>(
-          1, K_, N_, use_bias_, this->blobs_[0]->gpu_data(),
-          weight_s_.gpu_data(), this->blobs_[0]->mutable_gpu_diff());
+          1, K_, N_, use_bias_, weight, weight_s_.gpu_data(), weight_diff);
     } else if (is_in_bin_) {
       caffe_gpu_ternary_gradient<Dtype>(
-          1, K_, N_, use_bias_, this->blobs_[0]->gpu_data(),
-          weight_s_.gpu_data(), weight_s_.gpu_diff(),
-          this->blobs_[0]->mutable_gpu_diff());
+          1, K_, N_, use_bias_, weight, weight_s_.gpu_data(),
+          weight_s_.gpu_diff(), weight_diff);
+    }
+    if (have_reg_) {
+      // dW += -reg_ * D
+      caffe_gpu_axpy<Dtype>(K_ * N_, -reg_, delta, weight_diff);
     }
   }
   if (bias_term_ && this->param_propagate_down_[1]) {
@@ -90,17 +100,28 @@ void TBInnerProductLayer<Dtype>::Backward_gpu(
     const Dtype *weight = (is_w_bin_ || is_in_bin_)
                               ? weight_.gpu_data()
                               : this->blobs_[0]->gpu_data();
+    Dtype *in_diff = bottom[0]->mutable_gpu_diff();
+    const Dtype *in = bottom[0]->gpu_data();
+    Dtype *delta = in_.mutable_gpu_diff();
+    // dI' = g * W'^
     caffe_gpu_gemm<Dtype>(
         CblasNoTrans, CblasTrans, M_, K_, N_, (Dtype) 1., top_diff, weight,
-        (Dtype) 0., bottom[0]->mutable_gpu_diff());
+        (Dtype) 0., in_diff);
+    if (have_reg_) {
+      caffe_gpu_sub<Dtype>(M_ * K_, in_.gpu_data(), in, delta);  // D = I' - I
+      caffe_gpu_axpy<Dtype>(M_ * K_, reg_, delta, in_diff);  // dI' += reg_ * D
+    }
     if (is_in_bin_) {
       caffe_gpu_binary_gradient<Dtype>(
-          0, M_, K_, use_bias_, bottom[0]->gpu_data(), in_s_.gpu_data(),
-          bottom[0]->mutable_gpu_diff());
+          0, M_, K_, use_bias_, in, in_s_.gpu_data(), in_diff);
     } else if (is_w_bin_) {
       caffe_gpu_ternary_gradient<Dtype>(
-          0, M_, K_, use_bias_, bottom[0]->gpu_data(), in_s_.gpu_data(),
-          in_s_.gpu_diff(), bottom[0]->mutable_gpu_diff());
+          0, M_, K_, use_bias_, in, in_s_.gpu_data(), in_s_.gpu_diff(),
+          in_diff);
+    }
+    if (have_reg_) {
+      // dI += -reg_ * rD
+      caffe_gpu_axpy<Dtype>(M_ * K_, reg_, delta, in_diff);
     }
   }
 }

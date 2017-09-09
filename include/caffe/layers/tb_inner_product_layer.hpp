@@ -53,6 +53,7 @@ class TBInnerProductLayer : public Layer<Dtype> {
   bool full_train_;
   bool use_bias_;
   int clip_;
+  bool have_reg_;
   Dtype reg_;
 };
 

@@ -91,6 +91,7 @@ class TBConvolutionLayer : public BaseConvolutionLayer<Dtype> {
   bool use_bias_;
   bool is_w_bin_, is_in_bin_;
   int clip_;
+  bool have_reg_;
   Dtype reg_;
 };
 

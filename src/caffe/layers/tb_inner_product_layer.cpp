@@ -53,6 +53,7 @@ void TBInnerProductLayer<Dtype>::LayerSetUp(
   is_in_bin_ = this->layer_param_.tb_param().in_binary();
   clip_ = this->layer_param_.tb_param().clip();
   reg_ = this->layer_param_.tb_param().reg();
+  have_reg_ = (is_w_bin_ || is_in_bin_) && abs(reg_) < 1e-10;
   weight_.Reshape({K_, N_});
   weight_s_.Reshape({N_});
 }

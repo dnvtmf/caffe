@@ -68,19 +68,30 @@ void TBConvolutionLayer<Dtype>::backward_gpu_gemm(
         in_s_.mutable_gpu_data(), in_s_.mutable_gpu_diff(),
         sum_.mutable_gpu_diff());
   }
+  Dtype *delta = in_.mutable_gpu_diff();
   caffe_gpu_gemm<Dtype>(
       CblasTrans, CblasNoTrans, K_, N_, M_, (Dtype) 1., weight, top_diff,
       (Dtype) 0., col_buff_diff);
   caffe_gpu_gemm<Dtype>(
       CblasNoTrans, CblasTrans, M_, K_, N_, (Dtype) 1., top_diff, in,
       (Dtype) 1., weight_diff);
+  if (have_reg_) {
+    // D = I' - I
+    caffe_gpu_sub<Dtype>(K_ * N_, in_.gpu_data(), col_buff, delta);
+    // dI' += reg_ * D
+    caffe_gpu_axpy<Dtype>(K_ * N_, reg_, delta, col_buff_diff);
+  }
   if (is_in_bin_) {
     caffe_gpu_binary_gradient<Dtype>(
         1, K_, N_, use_bias_, col_buff, in_s_.gpu_data(), col_buff_diff);
   } else if (is_w_bin_) {
-    caffe_gpu_ternary_gradient(
+    caffe_gpu_ternary_gradient<Dtype>(
         1, K_, N_, use_bias_, col_buff, in_s_.gpu_data(), in_s_.gpu_diff(),
         col_buff_diff);
+  }
+  if (have_reg_) {
+    // dI += -reg_ * D
+    caffe_gpu_axpy<Dtype>(K_ * N_, -reg_, delta, col_buff_diff);
   }
   if (!this->is_1x1_) {
     this->conv_col2im_gpu(col_buff_diff, input_diff);
@@ -103,7 +114,7 @@ void TBConvolutionLayer<Dtype>::Forward_gpu(
     caffe_gpu_ternary_approx<Dtype>(
         0, M_, K_, use_bias_, this->blobs_[0]->mutable_gpu_data(),
         weight_.mutable_gpu_data(), weight_s_.mutable_gpu_data(),
-        weight_s_.mutable_gpu_diff(), sum_.mutable_cpu_diff());
+        weight_s_.mutable_gpu_diff(), sum_.mutable_gpu_data());
   }
   for (int i = 0; i < bottom.size(); ++i) {
     Dtype *bottom_data = bottom[i]->mutable_gpu_data();
@@ -143,6 +154,14 @@ void TBConvolutionLayer<Dtype>::Backward_gpu(
       }
     }
   }
+  Dtype *delta = weight_.mutable_gpu_diff();
+  if (have_reg_) {
+    // D = W' - W
+    caffe_gpu_sub<Dtype>(
+        M_ * K_, weight_.gpu_data(), this->blobs_[0]->gpu_data(), delta);
+    // dW' += reg_ * D
+    caffe_gpu_axpy<Dtype>(M_ * K_, reg_, delta, weight_diff);
+  }
   if (is_w_bin_) {
     caffe_gpu_binary_gradient<Dtype>(
         0, M_, K_, use_bias_, this->blobs_[0]->gpu_data(), weight_s_.gpu_data(),
@@ -151,6 +170,9 @@ void TBConvolutionLayer<Dtype>::Backward_gpu(
     caffe_gpu_ternary_gradient<Dtype>(
         0, M_, K_, use_bias_, this->blobs_[0]->gpu_data(), weight_s_.gpu_data(),
         weight_s_.gpu_diff(), weight_diff);
+  }
+  if (have_reg_) {
+    caffe_gpu_axpy<Dtype>(M_ * K_, -reg_, delta, weight_diff);
   }
 }
 

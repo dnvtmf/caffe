@@ -12,6 +12,9 @@ tb_param.add_param_if('full_train', True)
 tb_param.add_param_if('use_bias', False)
 tb_param.add_param_if('w_binary', True)
 tb_param.add_param_if('in_binary', True)
+tb_param.add_param_if('clip', 0)
+tb_param.add_param_if('reg', 0.)
+activation_method = "ReLU"
 activation_method = "ReLU"
 filler_xavier = Filler('xavier')
 filler_uniform = Filler('uniform', min_=-0.1, max_=0.1)
