@@ -3,18 +3,17 @@ import os
 
 # ----- Configuration -----
 name = "cnn"
-num_epoch = 500
+num_epoch = 50 * 3
 batch_size = 200
 fc_type = "TBInnerProduct"
 conv_type = "TBConvolution"
 tb_param = Parameter('tb_param')
 tb_param.add_param_if('full_train', True)
-tb_param.add_param_if('use_bias', False)
+tb_param.add_param_if('use_bias', True)
 tb_param.add_param_if('w_binary', True)
-tb_param.add_param_if('in_binary', True)
-tb_param.add_param_if('clip', 0)
+tb_param.add_param_if('in_binary', False)
+tb_param.add_param_if('clip', 3)
 tb_param.add_param_if('reg', 0.)
-activation_method = "ReLU"
 activation_method = "ReLU"
 filler_xavier = Filler('xavier')
 filler_uniform = Filler('uniform', min_=-0.1, max_=0.1)
@@ -71,11 +70,11 @@ loss = SoftmaxWithLoss(out + label)
 solver = Solver().net('./model.prototxt').GPU()
 solver.test(test_iter=100, test_interval=1000, test_initialization=False)
 num_iter = num_epoch * 50000 / batch_size
-solver.train(base_lr=0.001, lr_policy='step', gamma=0.1, stepsize=num_iter / 5, max_iter=num_iter)
+solver.train(base_lr=0.001, lr_policy='step', gamma=0.1, stepsize=num_iter / 3, max_iter=num_iter)
 # solver.optimizer(type='SGD', momentum=0.9)
 solver.optimizer(type='Adam')
 solver.display(display=200, average_loss=100)
-solver.snapshot(snapshot=10000, snapshot_prefix=name)
+solver.snapshot(snapshot=5000, snapshot_prefix=name)
 
 model_dir = os.path.join(os.getenv('HOME'), 'cifar10/' + name)
 gen_model(model_dir, solver, [0, 2, 4, 6])

@@ -172,6 +172,7 @@ void TBConvolutionLayer<Dtype>::Backward_gpu(
         weight_s_.gpu_diff(), weight_diff);
   }
   if (have_reg_) {
+    // dW += -reg_ * D
     caffe_gpu_axpy<Dtype>(M_ * K_, -reg_, delta, weight_diff);
   }
 }

@@ -121,7 +121,7 @@ void TBInnerProductLayer<Dtype>::Backward_gpu(
     }
     if (have_reg_) {
       // dI += -reg_ * rD
-      caffe_gpu_axpy<Dtype>(M_ * K_, reg_, delta, in_diff);
+      caffe_gpu_axpy<Dtype>(M_ * K_, -reg_, delta, in_diff);
     }
   }
 }
