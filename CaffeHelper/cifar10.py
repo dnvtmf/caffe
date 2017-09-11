@@ -3,7 +3,7 @@ import os
 
 # ----- Configuration -----
 name = "cnn"
-num_epoch = 50 * 3
+num_epoch = 30 * 3
 batch_size = 200
 fc_type = "TBInnerProduct"
 conv_type = "TBConvolution"

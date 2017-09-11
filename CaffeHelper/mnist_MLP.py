@@ -8,10 +8,10 @@ batch_size = 200
 fc_type = "TBInnerProduct"
 tb_param = Parameter('tb_param')
 tb_param.add_param_if('full_train', True)
-tb_param.add_param_if('use_bias', False)
+tb_param.add_param_if('use_bias', True)
 tb_param.add_param_if('w_binary', True)
-tb_param.add_param_if('in_binary', True)
-tb_param.add_param_if('clip', 0)
+tb_param.add_param_if('in_binary', False)
+tb_param.add_param_if('clip', 3)
 tb_param.add_param_if('reg', 0.)
 activation_method = "ReLU"
 filler_xavier = Filler('xavier')

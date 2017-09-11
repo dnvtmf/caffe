@@ -19,11 +19,10 @@ __global__ void binary_gradient_kernel_0(
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx >= M * N) return;
   int i = idx / N;
-  int j = idx % N;
   const Dtype mul = (Dtype) 1. / N;
-  grad[i * N + j] *=
-      mul + (gpu_abs(in[i * N + j]) <= Dtype(1) ? scale[i] : Dtype(0));
-  if (use_bias) grad[i * N + j] *= (Dtype) 1. - mul;
+  grad[idx] *=
+      mul + (gpu_abs(in[idx]) <= Dtype(1) ? scale[i] : Dtype(0));
+  if (use_bias) grad[idx] *= (Dtype) 1. - mul;
 }
 
 template <typename Dtype>
@@ -32,12 +31,11 @@ __global__ void binary_gradient_kernel_1(
     const Dtype *scale, Dtype *grad) {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx >= M * N) return;
-  int i = idx / N;
   int j = idx % N;
   const Dtype mul = (Dtype) 1. / M;
-  grad[i * N + j] *=
-      mul + (gpu_abs(in[i * N + j]) <= Dtype(1) ? scale[j] : Dtype(0));
-  if (use_bias) grad[i * N + j] *= (Dtype) 1. - mul;
+  grad[idx] *=
+      mul + (gpu_abs(in[idx]) <= Dtype(1) ? scale[j] : Dtype(0));
+  if (use_bias) grad[idx] *= (Dtype) 1. - mul;
 }
 
 template <typename Dtype>
@@ -62,12 +60,11 @@ __global__ void ternary_gradient_kernel_0(
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx >= M * N) return;
   int i = idx / N;
-  int j = idx % N;
   Dtype mul = 1. / N;
-  Dtype val = gpu_abs(in[i * N + j]);
-  grad[i * N + j] *=
-      mul + Dtype(val <= delta[j] ? 1 : val > Dtype(1) ? 0 : scale[j]);
-  if (use_bias) grad[i * N + j] *= (Dtype) 1. - mul;
+  Dtype val = gpu_abs(in[idx]);
+  grad[idx] *=
+      mul + Dtype(val <= delta[i] ? 1 : val > Dtype(1) ? 0 : scale[i]);
+  if (use_bias) grad[idx] *= (Dtype) 1. - mul;
 }
 
 template <typename Dtype>
@@ -76,13 +73,12 @@ __global__ void ternary_gradient_kernel_1(
     const Dtype *scale, const Dtype *delta, Dtype *grad) {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx >= M * N) return;
-  int i = idx / N;
   int j = idx % N;
   Dtype mul = 1. / M;
-  Dtype val = gpu_abs(in[i * N + j]);
-  grad[i * N + j] *=
+  Dtype val = gpu_abs(in[idx]);
+  grad[idx] *=
       mul + Dtype(val <= delta[j] ? 1 : val > Dtype(1) ? 0 : scale[j]);
-  if (use_bias) grad[i * N + j] *= (Dtype) 1. - mul;
+  if (use_bias) grad[idx] *= (Dtype) 1. - mul;
 }
 
 template <typename Dtype>
@@ -108,18 +104,16 @@ template <>
 __global__ void clip_kernel<float>(
     const int N, const float min_value, const float max_value, float *X) {
   int x = blockIdx.x * blockDim.x + threadIdx.x;
-  if (x < N) {
-    X[x] = fmaxf(fminf(X[x], max_value), min_value);
-  }
+  if (x >= N) return ;
+  X[x] = fmaxf(fminf(X[x], max_value), min_value);
 }
 
 template <>
 __global__ void clip_kernel<double>(
     const int N, const double min_value, const double max_value, double *X) {
   int x = blockIdx.x * blockDim.x + threadIdx.x;
-  if (x < N) {
-    X[x] = fmax(fmin(X[x], max_value), min_value);
-  }
+  if (x >= N) return ;
+  X[x] = fmax(fmin(X[x], max_value), min_value);
 }
 
 template <typename Dtype>
@@ -133,13 +127,14 @@ __global__ void binary_approx_kernel_0(
     const int M, const int N, bool use_bias, Dtype *in, Dtype *out,
     Dtype *scale) {
   const int i = blockIdx.x * blockDim.x + threadIdx.x;
-  if (i >= M) return;
   const int id = threadIdx.y;
   const int j_start = id * N / THREADS_NUM_COL;
   const int j_end = (id + 1) * N / THREADS_NUM_COL;
-  if (j_start == j_end) return;
   volatile __shared__ Dtype temp[THREADS_NUM_COL];
   volatile __shared__ Dtype bias;
+  temp[id] = 0;
+  if (i >= M) return;
+  if (j_start == j_end) return;
   if (use_bias) {
     temp[id] = 0;
     for (int j = j_start; j < j_end; ++j) temp[id] += in[i * N + j];
@@ -173,12 +168,14 @@ __global__ void binary_approx_kernel_1(
     const int M, const int N, bool use_bias, Dtype *in, Dtype *out,
     Dtype *scale) {
   const int j = blockIdx.x * blockDim.x + threadIdx.x;
-  if (j >= N) return;
   const int id = threadIdx.y;
   const int i_start = id * M / THREADS_NUM_COL;
   const int i_end = (id + 1) * M / THREADS_NUM_COL;
   volatile __shared__ Dtype temp[THREADS_NUM_COL];
   volatile __shared__ Dtype bias;
+  temp[id] = 0;
+  if (j >= N) return;
+  if (i_start == i_end) return;
   if (use_bias) {
     temp[id] = 0;
     for (int i = i_start; i < i_end; ++i) temp[id] += in[i * N + j];
@@ -227,14 +224,16 @@ __global__ void ternary_approx_kernel_0(
     const int M, const int N, bool use_bias, Dtype *in, Dtype *out,
     Dtype *scale, Dtype *delta, Dtype *sum) {
   const int i = blockIdx.x * blockDim.x + threadIdx.x;
-  if (i >= M) return;
   const int id = threadIdx.y;
   const int j_start = id * N / THREADS_NUM_COL;
   const int j_end = (id + 1) * N / THREADS_NUM_COL;
-  if (j_start == j_end) return;
   volatile __shared__ Dtype temp[THREADS_NUM_COL];
   volatile __shared__ Dtype temp2[THREADS_NUM_COL];
   volatile __shared__ Dtype bias;
+  temp[id] = 0;
+  temp2[id] = 0;
+  if (i >= M) return;
+  if (j_start == j_end) return;
   if (use_bias) {
     temp[id] = 0;
     for (int j = j_start; j < j_end; ++j) temp[id] += in[i * N + j];
@@ -293,14 +292,16 @@ __global__ void ternary_approx_kernel_1(
     const int M, const int N, bool use_bias, Dtype *in, Dtype *out,
     Dtype *scale, Dtype *delta, Dtype *sum) {
   const int j = blockIdx.x * blockDim.x + threadIdx.x;
-  if (j >= N) return;
   const int id = threadIdx.y;
   const int i_start = id * M / THREADS_NUM_COL;
   const int i_end = (id + 1) * M / THREADS_NUM_COL;
-  if (i_start == i_end) return;
   volatile __shared__ Dtype temp[THREADS_NUM_COL];
   volatile __shared__ Dtype temp2[THREADS_NUM_COL];
   volatile __shared__ Dtype bias;
+  temp[id] = 0;
+  temp2[id] = 0;
+  if (j >= N) return;
+  if (i_start == i_end) return;
   if (use_bias) {
     temp[id] = 0;
     for (int i = i_start; i < i_end; ++i) temp[id] += in[i * N + j];
@@ -310,11 +311,10 @@ __global__ void ternary_approx_kernel_1(
       for (int idx = 0; idx < THREADS_NUM_COL; ++idx) bias += temp[idx];
       bias /= M;
     }
+    __syncthreads();
     for (int i = i_start; i < i_end; ++i) in[i * N + j] -= bias;
   }
 
-  scale[j] = 0;
-  sum[j] = 0;
   temp[id] = 0;
   for (int i = i_start; i < i_end; ++i) temp[id] += gpu_abs(in[i * N + j]);
   __syncthreads();
@@ -329,11 +329,21 @@ __global__ void ternary_approx_kernel_1(
   for (int i = i_start; i < i_end; ++i) {
     Dtype val = gpu_abs(in[i * N + j]);
     if (val > delta[j]) {
-      scale[j] += val;
-      ++sum[j];
+      temp[id] += val;
+      ++temp2[id];
     }
   }
-  if (sum[j] > 0) scale[j] /= (Dtype) sum[j];
+  __syncthreads();
+  if (id == 0) {
+    scale[j] = 0;
+    sum[j] = 0;
+    for (int idx = 0; idx < THREADS_NUM_COL; ++idx) {
+      scale[j] += temp[idx];
+      sum[j] += temp2[idx];
+    }
+    if (sum[j] > 0) scale[j] /= (Dtype) sum[j];
+  }
+  __syncthreads();
   for (int i = i_start; i < i_end; ++i) {
     if (in[i * N + j] > delta[j])
       out[i * N + j] = scale[j];
