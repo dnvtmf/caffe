@@ -11,9 +11,8 @@ namespace caffe {
 template <typename Dtype>
 void TBConvolutionLayer<Dtype>::LayerSetUp_more() {
   // Initialize the vectors
-  M_ = this->conv_out_channels_ / this->group_;
+  M_ = this->conv_out_channels_;
   K_ = this->kernel_dim_;
-  CHECK_EQ(this->group_, 1);
   weight_.Reshape({M_, K_});
   weight_s_.Reshape({M_});
   full_train_ = this->layer_param_.tb_param().full_train();
@@ -28,9 +27,9 @@ void TBConvolutionLayer<Dtype>::LayerSetUp_more() {
 template <typename Dtype>
 void TBConvolutionLayer<Dtype>::Reshape_more() {
   N_ = this->conv_out_spatial_dim_;
-  in_.Reshape({K_, N_});
-  in_s_.Reshape({N_});
-  sum_.Reshape({max(M_, N_)});
+  in_.Reshape({K_ * this->group_, N_});
+  in_s_.Reshape({N_ * this->group_});
+  sum_.Reshape({max(M_, N_ * this->group_)});
 }
 
 template <typename Dtype>

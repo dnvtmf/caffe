@@ -24,16 +24,20 @@ class Parameter:
             self.param_ += [key]
         else:
             self.param_ += [key + ": " + _modify(value)]
+        return self
 
     def add_param_if(self, key, value):
         if value is not None:
             self.param_ += [key + ": " + _modify(value)]
+        return  self
 
     def add_subparam(self, subparam):
         self.param_ += [subparam]
+        return  self
 
     def set_name(self, name):
         self.name_ = name
+        return  self
 
 
 def _modify(data):
@@ -148,7 +152,8 @@ def FC(data_in, name="fc", fc_type="InnerProduct", num_output=None, bias_term=No
         but rather the transfer flag of operations will be toggled accordingly.
     """
     global _caffe_net
-    assert len(data_in) == 1, "fully connect layer input only and if only have one input"
+    assert len(
+        data_in) == 1, "fully connect layer input only and if only have one input"
     data_out = [Blob(name)]
     param = Layer(name, fc_type, data_in, data_out, optional_params)
     fc_param = Parameter('inner_product_param')
@@ -174,14 +179,14 @@ def Accuracy(data_in, name="accuracy", top_k=None, axis=None, ignore_label=None,
       // the top k scoring classes.  By default, only compare to the top scoring
       // class (i.e. argmax).
       optional uint32 top_k = 1 [default = 1];
-    
+
       // The "label" axis of the prediction blob, whose argmax corresponds to the
       // predicted label -- may be negative to index from the end (e.g., -1 for the
       // last axis).  For example, if axis == 1 and the predictions are
       // (N x C x H x W), the label blob is expected to contain N*H*W ground truth
       // labels with integer values in {0, 1, ..., C-1}.
       optional int32 axis = 2 [default = 1];
-    
+
       // If specified, ignore instances with the given label.
       optional int32 ignore_label = 3;
     }
@@ -514,7 +519,7 @@ def Conv(data_in, name="conv", conv_type="Convolution", num_output=None, bias_te
     message ConvolutionParameter {
         optional uint32 num_output = 1; // The number of outputs for the layer
         optional bool bias_term = 2 [default = true]; // whether to have bias terms
-        
+
         // Pad, kernel size, and stride are all given as a single value for equal
         // dimensions in all spatial dimensions, or once per spatial dimension.
         repeated uint32 pad = 3; // The padding size; defaults to 0
@@ -524,7 +529,7 @@ def Conv(data_in, name="conv", conv_type="Convolution", num_output=None, bias_te
         // holes. (Kernel dilation is sometimes referred to by its use in the
         // algorithme a trous from Holschneider et al. 1987.)
         repeated uint32 dilation = 18; // The dilation; defaults to 1
-        
+
         // For 2D convolution only, the *_h and *_w versions may also be used to
         // specify both spatial dimensions.
         optional uint32 pad_h = 9 [default = 0]; // The padding height (2D only)
@@ -533,9 +538,9 @@ def Conv(data_in, name="conv", conv_type="Convolution", num_output=None, bias_te
         optional uint32 kernel_w = 12; // The kernel width (2D only)
         optional uint32 stride_h = 13; // The stride height (2D only)
         optional uint32 stride_w = 14; // The stride width (2D only)
-        
+
         optional uint32 group = 5 [default = 1]; // The group size for group conv
-        
+
         optional FillerParameter weight_filler = 7; // The filler for the weight
         optional FillerParameter bias_filler = 8; // The filler for the bias
         enum Engine {
@@ -544,7 +549,7 @@ def Conv(data_in, name="conv", conv_type="Convolution", num_output=None, bias_te
         CUDNN = 2;
         }
         optional Engine engine = 15 [default = DEFAULT];
-        
+
         // The axis to interpret as "channels" when performing convolution.
         // Preceding dimensions are treated as independent inputs;
         // succeeding dimensions are treated as "spatial".
@@ -555,7 +560,7 @@ def Conv(data_in, name="conv", conv_type="Convolution", num_output=None, bias_te
         // N independent 3D convolutions, sliding (C/g)-channels
         // filters across the spatial axes (D, H, W) of the input.
         optional int32 axis = 16 [default = 1];
-        
+
         // Whether to force use of the general ND convolution, even if a specific
         // implementation for blobs of the appropriate number of spatial dimensions
         // is available. (Currently, there is only a 2D-specific convolution
@@ -568,7 +573,6 @@ def Conv(data_in, name="conv", conv_type="Convolution", num_output=None, bias_te
     assert len(data_in) == 1
     param = Layer(name, conv_type, data_in, data_out, optional_params)
     convolution_param = Parameter("convolution_param")
-    param.add_subparam(convolution_param)
     convolution_param.add_param_if("num_output", num_output)
     convolution_param.add_param_if("bias_term", bias_term)
     convolution_param.add_param_if("pad", pad)
@@ -590,6 +594,7 @@ def Conv(data_in, name="conv", conv_type="Convolution", num_output=None, bias_te
     convolution_param.add_param_if("axis", axis)
     convolution_param.add_param_if("force_nd_im2col", force_nd_im2col)
     convolution_param.add_param_if("dilation", dilation)
+    param.add_subparam(convolution_param)
     _caffe_net.write_to_proto(param)
 
     return data_out
@@ -614,8 +619,25 @@ def DropOut(data_in, name="drop", dropout_ratio=None, optional_params=None):
     assert len(data_in) == 1
     param = Layer(name, "Dropout", data_in, data_out, optional_params)
     dropout_param = Parameter('dropout_param')
-    param.add_subparam(dropout_param)
     dropout_param.add_param_if('dropout_ratio', dropout_ratio)
+    param.add_subparam(dropout_param)
+    _caffe_net.write_to_proto(param)
+    return data_out
+
+
+def LRN(data_in, name="lrn", local_size=None, alpha=None, beta=None, k=None, optional_params=None):
+    """
+
+    """
+    data_out = [Blob(name)]
+    assert len(data_in) == 1
+    param = Layer(name, "LRN", data_in, data_out, optional_params)
+    lrn_param = Parameter('lrn_param')
+    lrn_param.add_param_if('local_size', local_size)
+    lrn_param.add_param_if('alpha', alpha)
+    lrn_param.add_param_if('beta', beta)
+    lrn_param.add_param_if('k', k)
+    param.add_subparam(lrn_param)
     _caffe_net.write_to_proto(param)
     return data_out
 
