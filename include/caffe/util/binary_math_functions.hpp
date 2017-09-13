@@ -133,12 +133,12 @@ void caffe_cpu_ternary_approx(
 template <typename Dtype>
 void caffe_gpu_binary_gradient(
     const int axis, const int M, const int N, bool use_bias, const Dtype *in,
-    const Dtype *scale, Dtype *grad);
+    const Dtype *scale, const Dtype *bias, Dtype *grad);
 
 template <typename Dtype>
 void caffe_gpu_ternary_gradient(
     const int axis, const int M, const int N, bool use_bias, const Dtype *in,
-    const Dtype *scale, const Dtype *delta, Dtype *grad);
+    const Dtype *scale, const Dtype *bias, const Dtype *delta, Dtype *grad);
 
 template <typename Dtype>
 void caffe_gpu_clip(const int N, Dtype min_value, Dtype max_value, Dtype *X);
@@ -146,12 +146,12 @@ void caffe_gpu_clip(const int N, Dtype min_value, Dtype max_value, Dtype *X);
 template <typename Dtype>
 void caffe_gpu_binary_approx(
     const int axis, const int M, const int N, bool use_bias, Dtype *in,
-    Dtype *out, Dtype *scale);
+    Dtype *out, Dtype *scale, Dtype *bias);
 
 template <typename Dtype>
 void caffe_gpu_ternary_approx(
     const int axis, const int M, const int N, bool use_bias, Dtype *in,
-    Dtype *out, Dtype *scale, Dtype *delta, Dtype *sum);
+    Dtype *out, Dtype *scale, Dtype *bias, Dtype *delta);
 #endif  // CPU_ONLY
 }
 #endif  // CAFFE_UTIL_BINARY_MATH_FUNCTIONS_HPP_

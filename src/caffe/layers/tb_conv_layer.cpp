@@ -29,7 +29,7 @@ void TBConvolutionLayer<Dtype>::Reshape_more() {
   N_ = this->conv_out_spatial_dim_;
   in_.Reshape({K_ * this->group_, N_});
   in_s_.Reshape({N_ * this->group_});
-  sum_.Reshape({max(M_, N_ * this->group_)});
+  delta_.Reshape({max(M_, N_ * this->group_)});
 }
 
 template <typename Dtype>
@@ -52,83 +52,87 @@ void TBConvolutionLayer<Dtype>::compute_output_shape() {
 template <typename Dtype>
 void TBConvolutionLayer<Dtype>::forward_cpu_gemm(
     const Dtype *input, Dtype *output, bool skip_im2col) {
+  /*
   const Dtype *col_buff = input;
   const Dtype *weights = (is_in_bin_ || is_w_bin_)
-                             ? weight_.cpu_data()
-                             : this->blobs_[0]->cpu_data();
+                           ? weight_.cpu_data()
+                           : this->blobs_[0]->cpu_data();
   if (!this->is_1x1_) {
-    if (!skip_im2col) {
-      this->conv_im2col_cpu(input, this->col_buffer_.mutable_cpu_data());
-    }
-    col_buff = this->col_buffer_.cpu_data();
+  if (!skip_im2col) {
+    this->conv_im2col_cpu(input, this->col_buffer_.mutable_cpu_data());
+  }
+  col_buff = this->col_buffer_.cpu_data();
   }
   if (is_in_bin_) {
-    caffe_cpu_binary_approx<Dtype>(
-        1, K_, N_, col_buff, in_.mutable_cpu_data(), in_s_.mutable_cpu_data());
-    col_buff = in_.cpu_data();
+  caffe_cpu_binary_approx<Dtype>(
+      1, K_, N_, col_buff, in_.mutable_cpu_data(), in_s_.mutable_cpu_data());
+  col_buff = in_.cpu_data();
   } else if (is_w_bin_) {
-    caffe_cpu_ternary_approx<Dtype>(
-        1, K_, N_, col_buff, in_.mutable_cpu_data(), in_s_.mutable_cpu_data(),
-        in_s_.mutable_cpu_diff(), sum_.mutable_cpu_diff());
-    col_buff = in_.cpu_data();
+  caffe_cpu_ternary_approx<Dtype>(
+      1, K_, N_, col_buff, in_.mutable_cpu_data(), in_s_.mutable_cpu_data(),
+      in_s_.mutable_cpu_diff(), sum_.mutable_cpu_diff());
+  col_buff = in_.cpu_data();
   }
   caffe_cpu_gemm<Dtype>(
-      CblasNoTrans, CblasNoTrans, M_, N_, K_, (Dtype) 1., weights, col_buff,
-      (Dtype) 0., output);
-  /*
-  caffe_cpu_ternary_norm<Dtype>(
-    1, K_, N_, col_buff,
-    binary_in_.data(), mask_in_.data(), delta_in_.data(), scale_in_.data(),
-    bias_in_.data(), sum_in_.data(), sum2_in_.data(), use_bias_);
-  caffe_cpu_bt_gemm<Dtype>(
-    false, false, M_, N_, K_,
-    binary_w_.data(), scale_w_.data(),
-    binary_in_.data(), mask_in_.data(), scale_in_.data(), sum2_in_.data(),
-    output,
-    use_bias_, bias_w_.data(), sum_w_.data(), bias_in_.data(), sum_in_.data());
+    CblasNoTrans, CblasNoTrans, M_, N_, K_, (Dtype) 1., weights, col_buff,
+    (Dtype) 0., output);
   */
+  /*
+   caffe_cpu_ternary_norm<Dtype>(
+   1, K_, N_, col_buff,
+   binary_in_.data(), mask_in_.data(), delta_in_.data(), scale_in_.data(),
+   bias_in_.data(), sum_in_.data(), sum2_in_.data(), use_bias_);
+   caffe_cpu_bt_gemm<Dtype>(
+   false, false, M_, N_, K_,
+   binary_w_.data(), scale_w_.data(),
+   binary_in_.data(), mask_in_.data(), scale_in_.data(), sum2_in_.data(),
+   output,
+   use_bias_, bias_w_.data(), sum_w_.data(), bias_in_.data(), sum_in_.data());
+   */
 }
 
 template <typename Dtype>
 void TBConvolutionLayer<Dtype>::backward_cpu_gemm(
     const Dtype *input, const Dtype *top_diff, Dtype *input_diff,
     Dtype *weight_diff) {
+  /*
   const Dtype *weights = (is_in_bin_ || is_w_bin_)
-                             ? weight_.cpu_data()
-                             : this->blobs_[0]->cpu_data();
+                           ? weight_.cpu_data()
+                           : this->blobs_[0]->cpu_data();
   const Dtype *col_buff = input;
   Dtype *col_buff_diff = this->col_buffer_.mutable_cpu_diff();
   if (this->is_1x1_) {
-    col_buff_diff = input_diff;
+  col_buff_diff = input_diff;
   } else {
-    this->conv_im2col_cpu(input, this->col_buffer_.mutable_cpu_data());
-    col_buff = this->col_buffer_.cpu_data();
+  this->conv_im2col_cpu(input, this->col_buffer_.mutable_cpu_data());
+  col_buff = this->col_buffer_.cpu_data();
   }
   const Dtype *in = (is_in_bin_ || is_w_bin_) ? in_.cpu_data() : col_buff;
   if (is_in_bin_) {
-    caffe_cpu_binary_approx<Dtype>(
-        1, K_, N_, col_buff, in_.mutable_cpu_data(), in_s_.mutable_cpu_data());
+  caffe_cpu_binary_approx<Dtype>(
+      1, K_, N_, col_buff, in_.mutable_cpu_data(), in_s_.mutable_cpu_data());
   } else if (is_w_bin_) {
-    caffe_cpu_ternary_approx<Dtype>(
-        1, K_, N_, col_buff, in_.mutable_cpu_data(), in_s_.mutable_cpu_data(),
-        in_s_.mutable_cpu_diff(), sum_.mutable_cpu_diff());
+  caffe_cpu_ternary_approx<Dtype>(
+      1, K_, N_, col_buff, in_.mutable_cpu_data(), in_s_.mutable_cpu_data(),
+      in_s_.mutable_cpu_diff(), sum_.mutable_cpu_diff());
   }
   caffe_cpu_gemm<Dtype>(
-      CblasTrans, CblasNoTrans, K_, N_, M_, (Dtype) 1., weights, top_diff,
-      (Dtype) 0., col_buff_diff);
+    CblasTrans, CblasNoTrans, K_, N_, M_, (Dtype) 1., weights, top_diff,
+    (Dtype) 0., col_buff_diff);
   caffe_cpu_gemm<Dtype>(
-      CblasNoTrans, CblasTrans, M_, K_, N_, (Dtype) 1., top_diff, in,
-      (Dtype) 1., weight_diff);
+    CblasNoTrans, CblasTrans, M_, K_, N_, (Dtype) 1., top_diff, in,
+    (Dtype) 1., weight_diff);
   if (is_in_bin_) {
-    caffe_cpu_binary_gradient<Dtype>(
-        1, K_, N_, col_buff, in_s_.cpu_data(), col_buff_diff);
+  caffe_cpu_binary_gradient<Dtype>(
+      1, K_, N_, col_buff, in_s_.cpu_data(), col_buff_diff);
   } else if (is_w_bin_) {
-    caffe_cpu_ternary_gradient(
-        1, K_, N_, col_buff, in_s_.cpu_data(), in_s_.cpu_diff(), col_buff_diff);
+  caffe_cpu_ternary_gradient(
+      1, K_, N_, col_buff, in_s_.cpu_data(), in_s_.cpu_diff(), col_buff_diff);
   }
   if (!this->is_1x1_) {
-    this->conv_col2im_cpu(col_buff_diff, input_diff);
+  this->conv_col2im_cpu(col_buff_diff, input_diff);
   }
+  */
 }
 
 template <typename Dtype>
@@ -140,6 +144,7 @@ void TBConvolutionLayer<Dtype>::Forward_cpu(
   //    *p = std::max(std::min(*p, max_), min_);
   //    p++;
   //  }
+  /*
   if (is_w_bin_) {
     caffe_cpu_binary_approx<Dtype>(
         0, M_, K_, this->blobs_[0]->cpu_data(), weight_.mutable_cpu_data(),
@@ -165,12 +170,14 @@ void TBConvolutionLayer<Dtype>::Forward_cpu(
       }
     }
   }
+  */
 }
 
 template <typename Dtype>
 void TBConvolutionLayer<Dtype>::Backward_cpu(
     const vector<Blob<Dtype> *> &top, const vector<bool> &propagate_down,
     const vector<Blob<Dtype> *> &bottom) {
+  /*
   Dtype *weight_diff = this->blobs_[0]->mutable_cpu_diff();
   for (int i = 0; i < top.size(); ++i) {
     const Dtype *top_diff = top[i]->cpu_diff();
@@ -200,6 +207,7 @@ void TBConvolutionLayer<Dtype>::Backward_cpu(
         0, M_, K_, this->blobs_[0]->cpu_data(), weight_s_.cpu_data(),
         weight_s_.cpu_diff(), weight_diff);
   }
+  */
 }
 
 #ifdef CPU_ONLY
