@@ -32,7 +32,8 @@ class Parameter:
         return  self
 
     def add_subparam(self, subparam):
-        self.param_ += [subparam]
+        if subparam.param_ != []:
+            self.param_ += [subparam]
         return  self
 
     def set_name(self, name):
@@ -157,7 +158,6 @@ def FC(data_in, name="fc", fc_type="InnerProduct", num_output=None, bias_term=No
     data_out = [Blob(name)]
     param = Layer(name, fc_type, data_in, data_out, optional_params)
     fc_param = Parameter('inner_product_param')
-    param.add_subparam(fc_param)
     fc_param.add_param_if("num_output", num_output)
     fc_param.add_param_if("bias_term", bias_term)
     if weight_filler is not None:
@@ -168,6 +168,7 @@ def FC(data_in, name="fc", fc_type="InnerProduct", num_output=None, bias_term=No
         fc_param.add_subparam(bias_filler)
     fc_param.add_param_if("axis", axis)
     fc_param.add_param_if("transpose", transpose)
+    param.add_subparam(fc_param)
     _caffe_net.write_to_proto(param)
     return data_out
 
@@ -194,9 +195,11 @@ def Accuracy(data_in, name="accuracy", top_k=None, axis=None, ignore_label=None,
     data_out = [Blob('accuracy')]
     assert len(data_in) == 2, "data input: label and score"
     param = Layer(name, "Accuracy", data_in, data_out, optional_params)
-    param.add_param_if("top_k", top_k)
-    param.add_param_if("axis", axis)
-    param.add_param_if("ignore_label", ignore_label)
+    accuracy_param = Parameter('accuracy_param')
+    accuracy_param.add_param_if("top_k", top_k)
+    accuracy_param.add_param_if("axis", axis)
+    accuracy_param.add_param_if("ignore_label", ignore_label)
+    param.add_subparam(accuracy_param)
     param.add_subparam(TEST)
     _caffe_net.write_to_proto(param)
     return data_out
@@ -267,10 +270,9 @@ def Pool(data_in, name="pool", method=0, pad=None, pad_h=None, pad_w=None, kerne
     assert len(data_in) == 1
     param = Layer(name, "Pooling", data_in, data_out, optional_params)
     pooling_param = Parameter("pooling_param")
-    param.add_subparam(pooling_param)
     pool_method = ["MAX", 'AVE', 'STOCHASTIC']
     pooling_param.add_param("pool: %s" % pool_method[method])
-    pooling_param.add_param("kernel_size", kernel_size)
+    pooling_param.add_param_if("kernel_size", kernel_size)
     pooling_param.add_param_if("pad", pad)
     pooling_param.add_param_if("pad_h", pad_h)
     pooling_param.add_param_if("pad_w", pad_w)
@@ -280,6 +282,7 @@ def Pool(data_in, name="pool", method=0, pad=None, pad_h=None, pad_w=None, kerne
     pooling_param.add_param_if("stride_h", stride_h)
     pooling_param.add_param_if("stride_w", stride_w)
     pooling_param.add_param_if("global_pooling", global_pooling)
+    param.add_subparam(pooling_param)
     _caffe_net.write_to_proto(param)
     return data_out
 
@@ -349,10 +352,10 @@ def BatchNorm(data_in, name="bn", use_global_stats=None, moving_average_fraction
     assert len(data_in) == 1
     param = Layer(name, "BatchNorm", data_in, data_out, optional_params)
     bn_param = Parameter("batch_norm_param")
-    param.add_subparam(bn_param)
     bn_param.add_param_if("use_global_stats", use_global_stats)
     bn_param.add_param_if("moving_average_fraction", moving_average_fraction)
     bn_param.add_param_if("eps", eps)
+    param.add_subparam(bn_param)
     _caffe_net.write_to_proto(param)
     return data_out
 
@@ -400,7 +403,6 @@ def Scale(data_in, name="scale", axis=None, num_axes=None, filler=None, bias_ter
     assert len(data_in) == 1
     param = Layer(name, "Scale", data_in, data_out, optional_params)
     scale_param = Parameter('scale_param')
-    param.add_subparam(scale_param)
     scale_param.add_param_if('axis', axis)
     scale_param.add_param_if('num_axes', num_axes)
     if filler is not None:
@@ -410,6 +412,7 @@ def Scale(data_in, name="scale", axis=None, num_axes=None, filler=None, bias_ter
     if bias_filler is not None:
         bias_filler.set_name('bias_filler')
         scale_param.add_subparam(bias_filler)
+    param.add_subparam(scale_param)
     _caffe_net.write_to_proto(param)
     return data_out
 
@@ -457,7 +460,6 @@ def Data(data_in, name="data", phase=None, source=None, scale=None, mean_file=No
     if phase is not None:
         param.add_subparam(phase)
     data_param = Parameter("data_param")
-    param.add_subparam(data_param)
     data_param.add_param_if("source", source)
     data_param.add_param_if("scale", scale)
     data_param.add_param_if("mean_file", mean_file)
@@ -470,6 +472,7 @@ def Data(data_in, name="data", phase=None, source=None, scale=None, mean_file=No
         data_param.add_param("backend: %s" % DB[backend])
     data_param.add_param_if("force_encoded_color", force_encoded_color)
     data_param.add_param_if("prefetch", prefetch)
+    param.add_subparam(data_param)
     _caffe_net.write_to_proto(param)
     return data_out
 
@@ -638,6 +641,22 @@ def LRN(data_in, name="lrn", local_size=None, alpha=None, beta=None, k=None, opt
     lrn_param.add_param_if('beta', beta)
     lrn_param.add_param_if('k', k)
     param.add_subparam(lrn_param)
+    _caffe_net.write_to_proto(param)
+    return data_out
+
+
+def Eltwise(data_in, name="eltwise", eltwise_op=None, optional_params=None):
+    """
+
+    """
+    data_out = [Blob(name)]
+    assert len(data_in) == 2
+    param = Layer(name, "Eltwise", data_in, data_out, optional_params)
+    eltwise_ops = ["PROD", "SUM", "MAX"]
+    if eltwise_op is not None:
+        eltwise_param = Parameter('eltwise_param')
+        eltwise_param.add_param("operation: %s" % eltwise_ops[eltwise_op])
+        param.add_subparam(eltwise_param)
     _caffe_net.write_to_proto(param)
     return data_out
 

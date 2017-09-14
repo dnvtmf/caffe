@@ -13,7 +13,7 @@ void TBInnerProductLayer<Dtype>::Forward_gpu(
   w_delta_ = delta_.mutable_gpu_data();
   in_scale_ = in_s_.mutable_gpu_data();
   in_bias_ = in_s_.mutable_gpu_diff();
-  in_delta_ = in_s_.mutable_gpu_diff();
+  in_delta_ = delta_.mutable_gpu_diff();
 
   Dtype *weight = weight_.mutable_gpu_data();
   Dtype *bottom_data = in_.mutable_gpu_data();

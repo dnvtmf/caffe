@@ -4,8 +4,7 @@ import os
 # ----- Configuration -----
 name = "cnn_tb"
 num_epoch = 500
-batch_size = 50 
-gpu_id = 1
+batch_size = 50
 fc_type = "TBInnerProduct"
 conv_type = "TBConvolution"
 tb_param = Parameter('tb_param')
@@ -19,6 +18,19 @@ activation_method = "ReLU"
 filler_xavier = Filler('xavier')
 filler_uniform = Filler('uniform', min_=-0.1, max_=0.1)
 filler_constant = Filler('constant')
+
+# ---------- solver ----
+solver = Solver().net('./model.prototxt').GPU()
+solver.test(test_iter=100, test_interval=1000, test_initialization=False)
+num_iter = num_epoch * 50000 / batch_size
+lr_start = 0.003
+lr_end = 0.000002
+lr_decay = (lr_end / lr_start)**(1. / num_iter)
+solver.train(base_lr=lr_start, lr_policy='exp',
+             gamma=lr_decay, max_iter=num_iter, weight_decay=0)
+solver.optimizer(type='Adam')
+solver.display(display=200)
+solver.snapshot(snapshot=5000, snapshot_prefix=name)
 
 # --------- Network ----------
 # 2x(128C3)-MP2-2x(256C3)-MP2-2x(512C3)-MP2-2x(1024FC)-SVM
@@ -75,21 +87,10 @@ out = FC(out, name='fc8', fc_type=fc_type, num_output=1024, bias_term=True, weig
 out = BN(out, name='bn_act8')
 out = Activation(out, name='act8', method=activation_method)
 
-out = FC(out, name='fc9', num_output=10, weight_filler=filler_xavier, bias_term=True, bias_filler=filler_constant)
+out = FC(out, name='fc9', num_output=10, weight_filler=filler_xavier,
+         bias_term=True, bias_filler=filler_constant)
 accuracy = Accuracy(out + label)
 loss = HingeLoss(out + label, norm=2)
-
-# ---------- solver ----
-solver = Solver().net('./model.prototxt').GPU(gpu_id)
-solver.test(test_iter=100, test_interval=1000, test_initialization=False)
-num_iter = num_epoch * 50000 / batch_size
-lr_start=0.003
-lr_fin=0.000002
-lr_decay=(lr_fin/lr_start)**(1. / num_iter)
-solver.train(base_lr=lr_start, lr_policy='exp', gamma=lr_decay, max_iter=num_iter, weight_decay=0.004)
-solver.optimizer(type='Adam')
-solver.display(display=200)
-solver.snapshot(snapshot=5000, snapshot_prefix=name)
 
 model_dir = os.path.join(os.getenv('HOME'), 'cifar10/' + name)
 gen_model(model_dir, solver, [0, 2, 4, 6])
