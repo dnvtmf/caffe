@@ -871,7 +871,7 @@ void caffe_cpu_binary_restore(
     for (int i = 0; i < M; ++i) {
       for (int j = 0; j < N; ++it) {
         for (int k = 0; k < BINARY_SIZE && j < N; ++j, ++k, ++p) {
-          if (*it & (1 << k))
+          if (*it & (Btype(1) << k))
             *p = scale[i];
           else
             *p = -scale[i];
@@ -893,7 +893,7 @@ void caffe_cpu_binary_restore(
     for (int i = 0; i < M;) {
       for (int k = 0; k < BINARY_SIZE && i < M; ++i, ++k) {
         for (int j = 0; j < N; ++j, ++p, ++it) {
-          if (*it & (1 << k))
+          if (*it & (Btype(1) << k))
             *p = scale[j];
           else
             *p = -scale[j];
@@ -926,12 +926,13 @@ void caffe_cpu_ternary_restore(
     for (int i = 0; i < M; ++i) {
       for (int j = 0; j < N;) {
         for (int k = 0; k < BINARY_SIZE && j < N; ++j, ++k, ++p) {
-          if (*it_mask & (1 << k)) {
-            if (*it_code & (1 << k))
+          if (*it_mask & (Btype(1) << k)) {
+            if (*it_code & (Btype(1) << k))
               *p = scale[i];
             else
               *p = -scale[i];
-          }
+          } else
+            *p = 0;
         }
         ++it_code;
         ++it_mask;
@@ -952,12 +953,13 @@ void caffe_cpu_ternary_restore(
     for (int i = 0; i < M;) {
       for (int k = 0; k < BINARY_SIZE && i < M; ++i, ++k) {
         for (int j = 0; j < N; ++j, ++p) {
-          if (*it_mask & (1 << k)) {
-            if (*it_code & (1 << k))
+          if (*it_mask & (Btype(1) << k)) {
+            if (*it_code & (Btype(1) << k))
               *p = scale[j];
             else
               *p = -scale[j];
-          }
+          } else
+            *p = 0;
           ++it_code;
           ++it_mask;
         }
@@ -1065,8 +1067,7 @@ void caffe_cpu_ternary_approx(
         ++p, ++q;
       }
     }
-    for (int i = 0; i < M; ++i)
-      if (sum[i] > 0) scale[i] /= sum[i];
+    for (int i = 0; i < M; ++i) scale[i] /= sum[i];
     q = out;
     for (int i = 0; i < M; ++i)
       for (int j = 0; j < N; ++j) *q++ *= scale[i];
@@ -1092,8 +1093,7 @@ void caffe_cpu_ternary_approx(
         ++p, ++q;
       }
     }
-    for (int j = 0; j < N; ++j)
-      if (sum[j] > 0) scale[j] /= sum[j];
+    for (int j = 0; j < N; ++j)  scale[j] /= sum[j];
     q = out;
     for (int i = 0; i < M; ++i)
       for (int j = 0; j < N; ++j) *q++ *= scale[j];
