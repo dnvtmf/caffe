@@ -5,8 +5,9 @@
 
 namespace caffe {
 #ifndef CPU_ONLY
-#define THREADS_NUM_ROW 16
-#define THREADS_NUM_COL 32
+#define THREADS_NUM_ROW 1
+#define THREADS_NUM_COL 512
+#define WARP_SIZE 32
 const dim3 dim_threads(THREADS_NUM_ROW, THREADS_NUM_COL, 1);
 
 inline __device__ float gpu_abs(float x) { return fabsf(x); }
@@ -126,13 +127,11 @@ template <typename Dtype>
 __global__ void binary_approx_kernel_0(
     const int M, const int N, bool use_bias, Dtype *in, Dtype *out,
     Dtype *scale, Dtype *bias) {
-  const int i = blockIdx.x * blockDim.x + threadIdx.x;
-  const int id = threadIdx.y;
-  const int j_start = id * N / THREADS_NUM_COL;
-  const int j_end = (id + 1) * N / THREADS_NUM_COL;
-  volatile __shared__ Dtype temp[THREADS_NUM_COL];
-  temp[id] = 0;
-  if (i >= M) return;
+  const int i = blockIdx.x;
+  const int id = threadIdx.x;
+  const int j_start = id * N / CAFFE_CUDA_NUM_THREADS;
+  const int j_end = (id + 1) * N / CAFFE_CUDA_NUM_THREADS;
+  volatile __shared__ Dtype temp[CAFFE_CUDA_NUM_THREADS - WARP_SIZE];
   if (use_bias) {
     temp[id] = 0;
     for (int j = j_start; j < j_end; ++j) temp[id] += in[i * N + j];
@@ -145,19 +144,28 @@ __global__ void binary_approx_kernel_0(
     __syncthreads();
     for (int j = j_start; j < j_end; ++j) in[i * N + j] -= bias[i];
   }
-  temp[id] = 0;
-  for (int j = j_start; j < j_end; ++j) temp[id] += gpu_abs(in[i * N + j]);
+  Dtype val = 0;
+  for (int j = j_start; j < j_end; ++j) val += gpu_abs(in[i * N + j]);
+  if (id >= WARP_SIZE) temp[id - WARP_SIZE] = val;
   __syncthreads();
+  if (id < WARP_SIZE) {
+#pragma unroll
+    for (int k = id; k < (CAFFE_CUDA_NUM_THREADS - WARP_SIZE); k += WARP_SIZE)
+      val += temp[k];
+    temp[id] = val;
+  }
   if (id == 0) {
-    scale[i] = 0;
-    for (int idx = 0; idx < THREADS_NUM_COL; ++idx) scale[i] += temp[idx];
-    scale[i] /= Dtype(N);
+    for (int k = 1; k < WARP_SIZE; ++k) val += temp[k];
+    scale[i] = val / Dtype(N);
   }
   __syncthreads();
   for (int j = j_start; j < j_end; ++j)
     out[i * N + j] = in[i * N + j] >= (Dtype) 0 ? scale[i] : -scale[i];
   if (use_bias) {
-    for (int j = j_start; j < j_end; ++j) in[i * N + j] += bias[i];
+    for (int j = j_start; j < j_end; ++j) {
+      in[i * N + j] += bias[i];
+      out[i * N + j] += bias[i];
+    }
   }
 }
 
@@ -196,7 +204,10 @@ __global__ void binary_approx_kernel_1(
   for (int i = i_start; i < i_end; ++i)
     out[i * N + j] = in[i * N + j] >= (Dtype) 0 ? scale[j] : -scale[j];
   if (use_bias) {
-    for (int i = i_start; i < i_end; ++i) in[i * N + j] += bias[j];
+    for (int i = i_start; i < i_end; ++i) {
+      in[i * N + j] += bias[j];
+      out[i * N + j] += bias[j];
+    }
   }
 }
 
@@ -205,9 +216,8 @@ void caffe_gpu_binary_approx(
     const int axis, const int M, const int N, bool use_bias, Dtype *in,
     Dtype *out, Dtype *scale, Dtype *bias) {
   if (axis == 0) {
-    dim3 dim_blocks((M - 1) / THREADS_NUM_ROW + 1, 1, 1);
     binary_approx_kernel_0<Dtype>
-        <<<dim_blocks, dim_threads>>>(M, N, use_bias, in, out, scale, bias);
+        <<<M, CAFFE_CUDA_NUM_THREADS>>>(M, N, use_bias, in, out, scale, bias);
   } else {
     dim3 dim_blocks((N - 1) / THREADS_NUM_ROW + 1, 1, 1);
     binary_approx_kernel_1<Dtype>
@@ -278,7 +288,10 @@ __global__ void ternary_approx_kernel_0(
       out[i * N + j] = 0;
   }
   if (use_bias) {
-    for (int j = j_start; j < j_end; ++j) in[i * N + j] += bias[i];
+    for (int j = j_start; j < j_end; ++j) {
+      out[i * N + j] += bias[i];
+      in[i * N + j] += bias[i];
+    }
   }
 }
 
@@ -346,7 +359,10 @@ __global__ void ternary_approx_kernel_1(
       out[i * N + j] = 0;
   }
   if (use_bias) {
-    for (int i = i_start; i < i_end; ++i) in[i * N + j] += bias[j];
+    for (int i = i_start; i < i_end; ++i) {
+      out[i * N + j] += bias[j];
+      in[i * N + j] += bias[j];
+    }
   }
 }
 
