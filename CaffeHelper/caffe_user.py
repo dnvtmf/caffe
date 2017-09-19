@@ -1,6 +1,7 @@
 from caffe_layer import *
 from caffe_solver import *
-import os, time
+import os
+import time
 
 
 def BN(data_in, name="BatchNorm"):
@@ -31,19 +32,15 @@ def gen_model(model_dir, solver, log=None):
     if not os.path.exists(model_dir):
         os.mkdir(model_dir)
 
-    sh_content = """#!/usr/bin/env sh
-set -e
-LOG=my.log
-export MPLBACKEND="agg"
-CAFFE=~/caffe
-$CAFFE/build/tools/caffe train --solver solver.prototxt 2>&1 | tee $LOG
-
-if [ `cat $LOG | wc -l` -le 1 ]
-then
-    exit 1
-fi
-python $CAFFE/tools/extra/parse_log.py $LOG .
-"""
+    sh_content = ""
+    sh_content += "#!/usr/bin/env sh\n"
+    sh_content += "set -e\n"
+    sh_content += "LOG=my.log\n"
+    sh_content += 'export MPLBACKEND="agg"\n'
+    sh_content += "CAFFE=~/caffe\n"
+    sh_content += "$CAFFE/build/tools/caffe train --solver solver.prototxt 2>&1 | tee $LOG\n"
+    sh_content += "\n"
+    sh_content += "python $CAFFE/tools/extra/parse_log.py $LOG .\n"
     if log is not None:
         for x in log:
             sh_content += "python $CAFFE/tools/extra/plot_training_log.py.example "

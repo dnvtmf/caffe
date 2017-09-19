@@ -99,7 +99,9 @@ class Solver:
         self.add(weight_decay=weight_decay)
         self.add(regularization_type=regularization_type)
         self.add(stepsize=stepsize)
-        self.add(stepvalue=stepvalue)
+        if stepvalue is not None:
+            for sv in stepvalue:
+                self.add(stepvalue=sv)
         self.add(clip_gradients=clip_gradients)
         return self
 

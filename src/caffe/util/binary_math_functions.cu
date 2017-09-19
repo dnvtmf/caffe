@@ -293,10 +293,8 @@ __global__ void ternary_approx_kernel_0(
   val2 = 0;
   for (int j = j_start; j < j_end; ++j) {
     const Dtype v = gpu_abs(in[i * N + j]);
-    if (v > delta[i]) {
-      val += v;
-      val2++;
-    }
+    val += Dtype(v > delta[i]) * v;
+    val2 += Dtype(v > delta[i]);
   }
   if (id >= WARP_SIZE) temp[id - WARP_SIZE] = val, temp2[id - WARP_SIZE] = val2;
   __syncthreads();
@@ -313,12 +311,8 @@ __global__ void ternary_approx_kernel_0(
   __syncthreads();
   // out
   for (int j = j_start; j < j_end; ++j) {
-    if (in[i * N + j] > delta[i])
-      out[i * N + j] = scale[i];
-    else if (in[i * N + j] < -delta[i])
-      out[i * N + j] = -scale[i];
-    else
-      out[i * N + j] = 0;
+    out[i * N + j] = Dtype(in[i * N + j] > delta[i]) * scale[i] +
+                     Dtype(in[i * N + j] < -delta[i]) * -scale[i];
   }
   if (use_bias) {
     for (int j = j_start; j < j_end; ++j) {
@@ -378,10 +372,8 @@ __global__ void ternary_approx_kernel_1(
   val2 = 0;
   for (int i = i_start; i < i_end; ++i) {
     const Dtype v = gpu_abs(in[i * N + j]);
-    if (v > delta[j]) {
-      val += v;
-      val2++;
-    }
+    val += Dtype(v > delta[j]) * v;
+    val2 += Dtype(v > delta[j]);
   }
   if (id >= WARP_SIZE) temp[id - WARP_SIZE] = val, temp2[id - WARP_SIZE] = val2;
   __syncthreads();
@@ -398,12 +390,8 @@ __global__ void ternary_approx_kernel_1(
   __syncthreads();
   // out
   for (int i = i_start; i < i_end; ++i) {
-    if (in[i * N + j] > delta[j])
-      out[i * N + j] = scale[j];
-    else if (in[i * N + j] < -delta[j])
-      out[i * N + j] = -scale[j];
-    else
-      out[i * N + j] = 0;
+    out[i * N + j] = Dtype(in[i * N + j] > delta[j]) * scale[j] +
+                     Dtype(in[i * N + j] < -delta[j]) * -scale[j];
   }
   if (use_bias) {
     for (int i = i_start; i < i_end; ++i) {

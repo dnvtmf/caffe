@@ -53,13 +53,13 @@ void caffe_cpu_binary_scale(
 
 template <typename Dtype>
 void caffe_cpu_binary_gradient(
-    const int axis, const int M, const int N, const Dtype *In,
-    const Dtype *scale, Dtype *grad);
+    const int axis, const int M, const int N, bool use_bias, const Dtype *in,
+    const Dtype *scale, const Dtype *bias, Dtype *grad);
 
 template <typename Dtype>
 void caffe_cpu_ternary_gradient(
-    const int axis, const int M, const int N, const Dtype *in,
-    const Dtype *scale, const Dtype *delta, Dtype *grad);
+    const int axis, const int M, const int N, bool use_bias, const Dtype *in,
+    const Dtype *scale, const Dtype *bias, const Dtype *delta, Dtype *grad);
 
 template <typename Dtype>
 void caffe_cpu_ternary(
@@ -76,11 +76,6 @@ void caffe_cpu_ternary_norm(
     const int axis, const int M, const int N, const Dtype *in, Btype *code,
     Btype *mask, Dtype *delta, Dtype *scale, Dtype *bias, Dtype *sum,
     Dtype *sum2, const bool use_bias);
-
-template <typename Dtype>
-void caffe_cpu_bt_gradient(
-    const int axis, const int M, const int N, const Dtype *in,
-    const Dtype *scale, const bool use_bias, Dtype *grad);
 
 template <typename Dtype>
 void caffe_cpu_binary_gemm(

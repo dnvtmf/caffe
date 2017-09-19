@@ -7,15 +7,14 @@
 namespace caffe {
 
 template <typename Dtype>
-void XnorNetInnerProductLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>&
-    bottom,
-    const vector<Blob<Dtype>*>& top) {
+void XnorNetInnerProductLayer<Dtype>::LayerSetUp(
+    const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
   const int num_output = this->layer_param_.inner_product_param().num_output();
   bias_term_ = this->layer_param_.inner_product_param().bias_term();
   transpose_ = this->layer_param_.inner_product_param().transpose();
   N_ = num_output;
   const int axis = bottom[0]->CanonicalAxisIndex(
-                     this->layer_param_.inner_product_param().axis());
+      this->layer_param_.inner_product_param().axis());
   // Dimensions starting from "axis" are "flattened" into a single
   // length K_ vector. For example, if bottom[0]'s shape is (N, C, H, W),
   // and axis == 1, N inner products with dimension CHW are performed.
@@ -28,12 +27,10 @@ void XnorNetInnerProductLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>&
   // Check if we need to set up the weights
   if (this->blobs_.size() > 0) {
     LOG(INFO) << "Skipping parameter initialization";
-  }
-  else {
+  } else {
     if (bias_term_) {
       this->blobs_.resize(2);
-    }
-    else {
+    } else {
       this->blobs_.resize(1);
     }
     // Initialize the weights
@@ -41,8 +38,7 @@ void XnorNetInnerProductLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>&
     if (transpose_) {
       weight_shape[0] = K_;
       weight_shape[1] = N_;
-    }
-    else {
+    } else {
       weight_shape[0] = N_;
       weight_shape[1] = K_;
     }
@@ -56,7 +52,7 @@ void XnorNetInnerProductLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>&
       vector<int> bias_shape(1, N_);
       this->blobs_[1].reset(new Blob<Dtype>(bias_shape));
       shared_ptr<Filler<Dtype>> bias_filler(GetFiller<Dtype>(
-                                              this->layer_param_.inner_product_param().bias_filler()));
+          this->layer_param_.inner_product_param().bias_filler()));
       bias_filler->Fill(this->blobs_[1].get());
     }
   }  // parameter initialization
@@ -64,12 +60,11 @@ void XnorNetInnerProductLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>&
 }
 
 template <typename Dtype>
-void XnorNetInnerProductLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>&
-    bottom,
-    const vector<Blob<Dtype>*>& top) {
+void XnorNetInnerProductLayer<Dtype>::Reshape(
+    const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
   // Figure out the dimensions
   const int axis = bottom[0]->CanonicalAxisIndex(
-                     this->layer_param_.inner_product_param().axis());
+      this->layer_param_.inner_product_param().axis());
   const int new_K = bottom[0]->count(axis);
   CHECK_EQ(K_, new_K)
       << "Input size incompatible with inner product parameters.";
@@ -96,106 +91,101 @@ void XnorNetInnerProductLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>&
 
 template <typename Dtype>
 void XnorNetInnerProductLayer<Dtype>::Forward_cpu(
-  const vector<Blob<Dtype>*>&bottom, const vector<Blob<Dtype>*>& top) {
+    const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
   const Dtype* bottom_data = bottom[0]->cpu_data();
   Dtype* top_data = top[0]->mutable_cpu_data();
   const Dtype* weight = this->blobs_[0]->cpu_data();
-  caffe_cpu_binary<Dtype>(0, M_, K_, bottom_data, binary_input_.data(),
-                          binary_input_scale_.data());
+  caffe_cpu_binary<Dtype>(
+      0, M_, K_, bottom_data, binary_input_.data(), binary_input_scale_.data());
   if (transpose_) {
-    caffe_cpu_binary<Dtype>(1, K_, N_, weight, binary_weight_.data(),
-                            binary_weight_scale_.data());
-  }
-  else {
-    caffe_cpu_binary<Dtype>(0, N_, K_, weight, binary_weight_.data(),
-                            binary_weight_scale_.data());
+    caffe_cpu_binary<Dtype>(
+        1, K_, N_, weight, binary_weight_.data(), binary_weight_scale_.data());
+  } else {
+    caffe_cpu_binary<Dtype>(
+        0, N_, K_, weight, binary_weight_.data(), binary_weight_scale_.data());
   }
   caffe_cpu_binary_gemm<Dtype>(
-    false, !transpose_, M_, N_, K_,
-    binary_input_.data(), binary_input_scale_.data(),
-    binary_weight_.data(), binary_weight_scale_.data(),
-    top_data, false, nullptr, nullptr, nullptr, nullptr);
+      false, !transpose_, M_, N_, K_, binary_input_.data(),
+      binary_input_scale_.data(), binary_weight_.data(),
+      binary_weight_scale_.data(), top_data, false, nullptr, nullptr, nullptr,
+      nullptr);
   /*
   caffe_cpu_gemm<Dtype>(CblasNoTrans, transpose_ ? CblasNoTrans : CblasTrans,
       M_, N_, K_, (Dtype)1.,
       bottom_data, weight, (Dtype)0., top_data);
   */
   if (bias_term_) {
-    caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, M_, N_, 1, (Dtype)1.,
-                          bias_multiplier_.cpu_data(),
-                          this->blobs_[1]->cpu_data(), (Dtype)1., top_data);
+    caffe_cpu_gemm<Dtype>(
+        CblasNoTrans, CblasNoTrans, M_, N_, 1, (Dtype) 1.,
+        bias_multiplier_.cpu_data(), this->blobs_[1]->cpu_data(), (Dtype) 1.,
+        top_data);
   }
 }
 
 template <typename Dtype>
 void XnorNetInnerProductLayer<Dtype>::Backward_cpu(
-  const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
-  const vector<Blob<Dtype>*>& bottom) {
+    const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
+    const vector<Blob<Dtype>*>& bottom) {
   caffe_cpu_binary_restore<Dtype>(
-    0, M_, K_, binary_input_.data(), binary_input_scale_.data(), nullptr, false,
-    input_temp_.data());
+      0, M_, K_, binary_input_.data(), binary_input_scale_.data(), nullptr,
+      false, input_temp_.data());
   if (transpose_) {
     caffe_cpu_binary_restore<Dtype>(
-      1, K_, N_, binary_weight_.data(), binary_weight_scale_.data(), nullptr,
-      false, weight_temp_.data());
-  }
-  else {
+        1, K_, N_, binary_weight_.data(), binary_weight_scale_.data(), nullptr,
+        false, weight_temp_.data());
+  } else {
     caffe_cpu_binary_restore<Dtype>(
-      0, N_, K_, binary_weight_.data(), binary_weight_scale_.data(), nullptr,
-      false, weight_temp_.data());
+        0, N_, K_, binary_weight_.data(), binary_weight_scale_.data(), nullptr,
+        false, weight_temp_.data());
   }
   if (this->param_propagate_down_[0]) {
     const Dtype* top_diff = top[0]->cpu_diff();
     // Gradient with respect to weight gW = In' x gOut
     if (transpose_) {
-      caffe_cpu_gemm<Dtype>(CblasTrans, CblasNoTrans,
-                            K_, N_, M_,
-                            (Dtype)1., input_temp_.data(), top_diff,
-                            (Dtype)1., this->blobs_[0]->mutable_cpu_diff());
+      caffe_cpu_gemm<Dtype>(
+          CblasTrans, CblasNoTrans, K_, N_, M_, (Dtype) 1., input_temp_.data(),
+          top_diff, (Dtype) 1., this->blobs_[0]->mutable_cpu_diff());
       caffe_cpu_binary_gradient<Dtype>(
-        1, K_, N_, this->blobs_[0]->cpu_data(), binary_weight_scale_.data(),
-        this->blobs_[0]->mutable_cpu_diff());
-    }
-    else {
-      caffe_cpu_gemm<Dtype>(CblasTrans, CblasNoTrans,
-                            N_, K_, M_,
-                            (Dtype)1., top_diff, input_temp_.data(),
-                            (Dtype)1., this->blobs_[0]->mutable_cpu_diff());
+          1, K_, N_, false, this->blobs_[0]->cpu_data(),
+          binary_weight_scale_.data(), nullptr,
+          this->blobs_[0]->mutable_cpu_diff());
+    } else {
+      caffe_cpu_gemm<Dtype>(
+          CblasTrans, CblasNoTrans, N_, K_, M_, (Dtype) 1., top_diff,
+          input_temp_.data(), (Dtype) 1., this->blobs_[0]->mutable_cpu_diff());
       caffe_cpu_binary_gradient<Dtype>(
-        0, N_, K_, this->blobs_[0]->cpu_data(), binary_weight_scale_.data(),
-        this->blobs_[0]->mutable_cpu_diff());
+          0, N_, K_, false, this->blobs_[0]->cpu_data(),
+          binary_weight_scale_.data(), nullptr,
+          this->blobs_[0]->mutable_cpu_diff());
     }
   }
   if (bias_term_ && this->param_propagate_down_[1]) {
     const Dtype* top_diff = top[0]->cpu_diff();
     // Gradient with respect to bias
-    caffe_cpu_gemv<Dtype>(CblasTrans, M_, N_, (Dtype)1., top_diff,
-                          bias_multiplier_.cpu_data(), (Dtype)1.,
-                          this->blobs_[1]->mutable_cpu_diff());
+    caffe_cpu_gemv<Dtype>(
+        CblasTrans, M_, N_, (Dtype) 1., top_diff, bias_multiplier_.cpu_data(),
+        (Dtype) 1., this->blobs_[1]->mutable_cpu_diff());
   }
   if (propagate_down[0]) {
     const Dtype* top_diff = top[0]->cpu_diff();
     // Gradient with respect to bottom data
     if (transpose_) {
-      caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasTrans,
-                            M_, K_, N_,
-                            (Dtype)1., top_diff, weight_temp_.data(),
-                            (Dtype)0., bottom[0]->mutable_cpu_diff());
-    }
-    else {
-      caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans,
-                            M_, K_, N_,
-                            (Dtype)1., top_diff, weight_temp_.data(),
-                            (Dtype)0., bottom[0]->mutable_cpu_diff());
+      caffe_cpu_gemm<Dtype>(
+          CblasNoTrans, CblasTrans, M_, K_, N_, (Dtype) 1., top_diff,
+          weight_temp_.data(), (Dtype) 0., bottom[0]->mutable_cpu_diff());
+    } else {
+      caffe_cpu_gemm<Dtype>(
+          CblasNoTrans, CblasNoTrans, M_, K_, N_, (Dtype) 1., top_diff,
+          weight_temp_.data(), (Dtype) 0., bottom[0]->mutable_cpu_diff());
     }
     caffe_cpu_binary_gradient<Dtype>(
-      0, M_, K_, bottom[0]->cpu_data(), binary_input_scale_.data(),
-      bottom[0]->mutable_cpu_diff());
+        0, M_, K_, false, bottom[0]->cpu_data(), binary_input_scale_.data(),
+        nullptr, bottom[0]->mutable_cpu_diff());
   }
 }
 
 //#ifdef CPU_ONLY
-//STUB_GPU(XnorNetInnerProductLayer);
+// STUB_GPU(XnorNetInnerProductLayer);
 //#endif
 
 INSTANTIATE_CLASS(XnorNetInnerProductLayer);
