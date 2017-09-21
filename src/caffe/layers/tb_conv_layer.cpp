@@ -22,6 +22,10 @@ void TBConvolutionLayer<Dtype>::LayerSetUp_more() {
   clip_ = this->layer_param_.tb_param().clip();
   reg_ = this->layer_param_.tb_param().reg();
   have_reg_ = (is_w_bin_ || is_in_bin_) && abs(reg_) < 1e-10;
+  LOG(INFO) << "\033[30;47m conv weight: " << (is_w_bin_ ? "binary" : "ternary")
+            << "; input: " << (is_in_bin_ ? "binary" : "ternary")
+            << "; bias: " << (use_bias_ ? "YES" : "NO") << "; clip: " << clip_
+            << "; reg: " << reg_ << "\033[0m";
 }
 
 template <typename Dtype>

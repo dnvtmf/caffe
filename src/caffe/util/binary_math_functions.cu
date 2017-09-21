@@ -8,6 +8,8 @@ namespace caffe {
 
 inline __device__ float gpu_abs(float x) { return fabsf(x); }
 inline __device__ double gpu_abs(double x) { return fabs(x); }
+inline __device__ float sign(float val, float s) { return copysignf(val, s); }
+inline __device__ double sign(double val, double s) { return copysign(val, s); }
 
 template <typename Dtype>
 __global__ void binary_gradient_kernel_0(
@@ -165,8 +167,7 @@ __global__ void binary_approx_kernel_0(
   __syncthreads();
   // out
   for (int j = id; j < N; j += blockDim.x)
-    out[i * N + j] = Dtype(in[i * N + j] >= (Dtype) 0) * scale[i] +
-                     Dtype(in[i * N + j] < (Dtype) 0) * -scale[i];
+    out[i * N + j] = sign(scale[i], in[i * N + j]);
   // add bias
   if (use_bias) {
     for (int j = id; j < N; j += blockDim.x) {
@@ -218,9 +219,7 @@ __global__ void binary_approx_kernel_1(
   }
   __syncthreads();
   for (int i = id; i < M; i += blockDim.x)
-    out[i * N + j] = Dtype(in[i * N + j] >= (Dtype) 0) * scale[j] +
-                     Dtype(in[i * N + j] < (Dtype) 0) * -scale[j];
-  // out[i * N + j] = in[i * N + j] >= (Dtype) 0 ? scale[j] : -scale[j];
+    out[i * N + j] = sign(scale[j], in[i * N + j]);
   if (use_bias) {
     for (int i = id; i < M; i += blockDim.x) {
       in[i * N + j] += bias[j];
