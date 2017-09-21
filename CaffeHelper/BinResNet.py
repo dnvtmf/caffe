@@ -2,18 +2,25 @@ from caffe_user import *
 import os
 
 # ----- Configuration -----
-name = "full"
+name = "tb"
 batch_size = 128
 resnet_nums = [3, 4, 6, 3]  # resnet-50
-fc_type = "InnerProduct"
-conv_type = "Convolution"
+fc_type = "TBInnerProduct"
+conv_type = "TBConvolution"
+tb_param = Parameter('tb_param')
+tb_param.add_param_if('full_train', True)
+tb_param.add_param_if('use_bias', False)
+tb_param.add_param_if('w_binary', True)
+tb_param.add_param_if('in_binary', False)
+tb_param.add_param_if('clip', 0)
+tb_param.add_param_if('reg', 0)
 activation_method = "ReLU"
 filler_xavier = Filler('xavier')
 filler_constant = Filler('constant', value=0.)
 
-
 other_param = [Parameter('param').add_param('lr_mult', 1).add_param('decay_mult', 1),
-               Parameter('param').add_param('lr_mult', 2).add_param('decay_mult', 0)]
+               Parameter('param').add_param('lr_mult', 2).add_param('decay_mult', 0),
+               tb_param]
 
 # ---------- solver ----
 solver = Solver().net('./model.prototxt').GPU()
@@ -42,24 +49,22 @@ out = Pool(out, name='resnet1_pool', method=Net.MaxPool, kernel_size=3, stride=2
 
 
 def neck_block(out_, num_output, first=False, stride=1):
+    out_ = BN(out_, name='bn')
     x = out_
     out_ = Conv(out_, name='conv1', conv_type=conv_type, num_output=num_output, kernel_size=1, stride=stride, pad=0,
                 weight_filler=filler_xavier, bias_term=False, optional_params=other_param)
     out_ = BN(out_, name='conv1_bn')
-    out_ = Activation(out_, name='conv1_relu', method=activation_method)
     out_ = Conv(out_, name='conv2', conv_type=conv_type, num_output=num_output, kernel_size=3, stride=1, pad=1,
                 weight_filler=filler_xavier, bias_term=False, optional_params=other_param)
     out_ = BN(out_, name='conv2_bn')
-    out_ = Activation(out_, name='conv2_relu', method=activation_method)
     out_ = Conv(out_, name='conv3', conv_type=conv_type, num_output=num_output * 4, kernel_size=1, stride=1, pad=0,
                 weight_filler=filler_xavier, bias_term=False, optional_params=other_param)
-    out_ = BN(out_, name='conv3_bn')
+    # out_ = BN(out_, name='conv3_bn')
     if first:
         x = Conv(x, name='conv_shortcut', conv_type=conv_type, num_output=num_output * 4, kernel_size=1, stride=stride,
                  pad=0, bias_term=False, weight_filler=filler_xavier, optional_params=other_param)
-        x = BN(x, name='conv_shortcut_bn')
+        # x = BN(x, name='conv_shortcut_bn')
     out_ = Eltwise(out_ + x, name='add')
-    out_ = Activation(out_, name='relu', method=activation_method)
     return out_
 
 

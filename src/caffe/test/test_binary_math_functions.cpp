@@ -125,7 +125,7 @@ class BinaryMathFunctionsTest : public ::testing::Test {
     EXPECT_LT(diff, eps) << "gradient check error " << axis << ' ' << use_bias;
   }
 };
-const int M = 100, N = 111;
+const int M = 1000, N = 1111;
 TYPED_TEST_CASE(BinaryMathFunctionsTest, TestDtypes);
 
 TYPED_TEST(BinaryMathFunctionsTest, Binary) {

@@ -73,17 +73,15 @@ void TBConvolutionLayer<Dtype>::backward_gpu_gemm(
     for (int g = 0; g < this->group_; ++g) {
       const int offset = this->col_offset_ * g;
       caffe_gpu_binary_approx<Dtype>(
-          1, K_, N_, use_bias_, col_buff + offset,
-          in_.mutable_gpu_data() + offset, in_scale_ + N_ * g,
-          in_bias_ + N_ * g);
+          1, K_, N_, use_bias_, col_buff + offset, in + offset,
+          in_scale_ + N_ * g, in_bias_ + N_ * g);
     }
   } else if (is_w_bin_) {
     for (int g = 0; g < this->group_; ++g) {
       const int offset = this->col_offset_ * g;
       caffe_gpu_ternary_approx<Dtype>(
-          1, K_, N_, use_bias_, col_buff + offset,
-          in_.mutable_gpu_data() + offset, in_scale_ + N_ * g,
-          in_bias_ + N_ * g, in_delta_ + N_ * g);
+          1, K_, N_, use_bias_, col_buff + offset, in + offset,
+          in_scale_ + N_ * g, in_bias_ + N_ * g, in_delta_ + N_ * g);
     }
   }
   for (int g = 0; g < this->group_; ++g) {

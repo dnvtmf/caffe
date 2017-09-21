@@ -2,16 +2,16 @@ from caffe_user import *
 import os
 
 # ----- Configuration -----
-name = "resnet"
+name = "resnet_XnorNet"
 batch_size = 128
 resnet_n = 3
-fc_type = "InnerProduct"
-conv_type = "Convolution"
+fc_type = "TBInnerProduct"
+conv_type = "TBConvolution"
 tb_param = Parameter('tb_param')
 tb_param.add_param_if('full_train', True)
 tb_param.add_param_if('use_bias', False)
-tb_param.add_param_if('w_binary', False)
-tb_param.add_param_if('in_binary', False)
+tb_param.add_param_if('w_binary', True)
+tb_param.add_param_if('in_binary', True)
 tb_param.add_param_if('clip', 0)
 tb_param.add_param_if('reg', 0.)
 activation_method = "ReLU"
@@ -20,7 +20,7 @@ filler_constant = Filler('constant')
 
 # ---------- solver ----
 solver = Solver().net('./model.prototxt').GPU()
-solver.test(test_iter=100, test_interval=1000, test_initialization=False)
+solver.test(test_iter=100, test_interval=1000, test_initialization=True)
 solver.train(base_lr=0.1, lr_policy='multistep', stepvalue=[32000, 48000], gamma=0.1, max_iter=64000, weight_decay=1e-4)
 solver.optimizer(type='SGD', momentum=0.9)
 solver.display(display=200)
@@ -34,29 +34,31 @@ Data([], phase=TEST, source="../cifar10_test_lmdb", batch_size=100, backend=Net.
      optional_params=[Transform(mean_file="../mean.binaryproto")])
 out = [data]
 label = [label]
+
 out = Conv(out, name='conv1', num_output=16, kernel_size=3, stride=1, pad=1, weight_filler=filler_xavier)
-out = BN(out, name='bn_act1')
-out = Activation(out, name='act1', method=activation_method)
 
 
-def block(out_, num_output, first=False, stride=1):
-    x = out_
+# out = BN(out, name='bn_act1')
+# out = Activation(out, name='act1', method=activation_method)
+
+
+def block(out_, num_output, stride=1):
     out_ = BN(out_, name='bn1')
+    x = out_
     out_ = Conv(out_, name='conv1', conv_type=conv_type, num_output=num_output, kernel_size=3, stride=stride, pad=1,
                 weight_filler=filler_xavier, optional_params=[tb_param])
     out_ = BN(out_, name='conv1_bn')
-    out_ = Activation(out_, name='conv1_relu', method=activation_method)
-    out_ = BN(out_, name='bn2')
+    #    out_ = Activation(out_, name='conv1_relu', method=activation_method)
+    #    out_ = BN(out_, name='bn2')
     out_ = Conv(out_, name='conv2', conv_type=conv_type, num_output=num_output, kernel_size=3, stride=1, pad=1,
                 weight_filler=filler_xavier, optional_params=[tb_param])
-    out_ = BN(out_, name='conv2_bn')
-    if first:
-        x = BN(x, name='bn_shortcut')
+    #    out_ = BN(out_, name='conv2_bn')
+    if stride != 1:
         x = Conv(x, name='conv_shortcut', conv_type=conv_type, num_output=num_output, kernel_size=1, stride=stride,
-                 pad=0, weight_filler=filler_xavier)
-        x = BN(x, name='conv_shortcut_bn')
+                 pad=0, weight_filler=filler_xavier, optional_params=[tb_param])
+    # x = BN(x, name='conv_shortcut_bn')
     out_ = Eltwise(out_ + x, name='add')
-    out_ = Activation(out_, name='relu', method=activation_method)
+    #    out_ = Activation(out_, name='relu', method=activation_method)
     return out_
 
 
@@ -64,7 +66,7 @@ def stack(out_, num_output, number, add_stride=0):
     for i in xrange(number):
         with NameScope('branch' + str(i + 1)):
             if i == 0:
-                out_ = block(out_, num_output, True, 1 + add_stride)
+                out_ = block(out_, num_output, 1 + add_stride)
             else:
                 out_ = block(out_, num_output)
     return out_

@@ -125,14 +125,12 @@ __global__ void binary_approx_kernel_0(
     Dtype *scale, Dtype *bias) {
   const int i = blockIdx.x;
   const int id = threadIdx.x;
-  const int j_start = id * N / CAFFE_CUDA_NUM_THREADS;
-  const int j_end = (id + 1) * N / CAFFE_CUDA_NUM_THREADS;
   volatile __shared__ Dtype temp[CAFFE_CUDA_NUM_THREADS - WARP_SIZE];
   Dtype val;
   if (use_bias) {
     // bias[i] = \frac{1}{N} \sum_{j=0}^{N-1}{in[i * N + j}
     val = 0;
-    for (int j = j_start; j < j_end; ++j) val += in[i * N + j];
+    for (int j = id; j < N; j += blockDim.x) val += in[i * N + j];
     if (id >= WARP_SIZE) temp[id - WARP_SIZE] = val;
     __syncthreads();
     if (id < WARP_SIZE) {
@@ -147,11 +145,11 @@ __global__ void binary_approx_kernel_0(
     }
     __syncthreads();
     // in[i * N + j] -= bias[i];
-    for (int j = j_start; j < j_end; ++j) in[i * N + j] -= bias[i];
+    for (int j = id; j < N; j += blockDim.x) in[i * N + j] -= bias[i];
   }
   // scale[i] = \frac{1}{N} \sum_{j=0}^{N-1}{|in[i * N + j|}
   val = 0;
-  for (int j = j_start; j < j_end; ++j) val += gpu_abs(in[i * N + j]);
+  for (int j = id; j < N; j += blockDim.x) val += gpu_abs(in[i * N + j]);
   if (id >= WARP_SIZE) temp[id - WARP_SIZE] = val;
   __syncthreads();
   if (id < WARP_SIZE) {
@@ -166,11 +164,12 @@ __global__ void binary_approx_kernel_0(
   }
   __syncthreads();
   // out
-  for (int j = j_start; j < j_end; ++j)
-    out[i * N + j] = in[i * N + j] >= (Dtype) 0 ? scale[i] : -scale[i];
+  for (int j = id; j < N; j += blockDim.x)
+    out[i * N + j] = Dtype(in[i * N + j] >= (Dtype) 0) * scale[i] +
+                     Dtype(in[i * N + j] < (Dtype) 0) * -scale[i];
   // add bias
   if (use_bias) {
-    for (int j = j_start; j < j_end; ++j) {
+    for (int j = id; j < N; j += blockDim.x) {
       in[i * N + j] += bias[i];
       out[i * N + j] += bias[i];
     }
@@ -183,13 +182,11 @@ __global__ void binary_approx_kernel_1(
     Dtype *scale, Dtype *bias) {
   const int j = blockIdx.x;
   const int id = threadIdx.x;
-  const int i_start = id * M / CAFFE_CUDA_NUM_THREADS;
-  const int i_end = (id + 1) * M / CAFFE_CUDA_NUM_THREADS;
   volatile __shared__ Dtype temp[CAFFE_CUDA_NUM_THREADS - WARP_SIZE];
   Dtype val;
   if (use_bias) {
     val = 0;
-    for (int i = i_start; i < i_end; ++i) val += in[i * N + j];
+    for (int i = id; i < M; i += blockDim.x) val += in[i * N + j];
     if (id >= WARP_SIZE) temp[id - WARP_SIZE] = val;
     __syncthreads();
     if (id < WARP_SIZE) {
@@ -203,10 +200,10 @@ __global__ void binary_approx_kernel_1(
       bias[j] = val / Dtype(M);
     }
     __syncthreads();
-    for (int i = i_start; i < i_end; ++i) in[i * N + j] -= bias[j];
+    for (int i = id; i < M; i += blockDim.x) in[i * N + j] -= bias[j];
   }
   val = 0;
-  for (int i = i_start; i < i_end; ++i) val += gpu_abs(in[i * N + j]);
+  for (int i = id; i < M; i += blockDim.x) val += gpu_abs(in[i * N + j]);
   if (id >= WARP_SIZE) temp[id - WARP_SIZE] = val;
   __syncthreads();
   if (id < WARP_SIZE) {
@@ -220,10 +217,12 @@ __global__ void binary_approx_kernel_1(
     scale[j] = val / Dtype(M);
   }
   __syncthreads();
-  for (int i = i_start; i < i_end; ++i)
-    out[i * N + j] = in[i * N + j] >= (Dtype) 0 ? scale[j] : -scale[j];
+  for (int i = id; i < M; i += blockDim.x)
+    out[i * N + j] = Dtype(in[i * N + j] >= (Dtype) 0) * scale[j] +
+                     Dtype(in[i * N + j] < (Dtype) 0) * -scale[j];
+  // out[i * N + j] = in[i * N + j] >= (Dtype) 0 ? scale[j] : -scale[j];
   if (use_bias) {
-    for (int i = i_start; i < i_end; ++i) {
+    for (int i = id; i < M; i += blockDim.x) {
       in[i * N + j] += bias[j];
       out[i * N + j] += bias[j];
     }
@@ -249,14 +248,12 @@ __global__ void ternary_approx_kernel_0(
     Dtype *scale, Dtype *bias, Dtype *delta) {
   const int i = blockIdx.x;
   const int id = threadIdx.x;
-  const int j_start = id * N / CAFFE_CUDA_NUM_THREADS;
-  const int j_end = (id + 1) * N / CAFFE_CUDA_NUM_THREADS;
   volatile __shared__ Dtype temp[CAFFE_CUDA_NUM_THREADS - WARP_SIZE];
   volatile __shared__ Dtype temp2[CAFFE_CUDA_NUM_THREADS - WARP_SIZE];
   Dtype val, val2;
   if (use_bias) {
     val = 0;
-    for (int j = j_start; j < j_end; ++j) val += in[i * N + j];
+    for (int j = id; j < N; j += blockDim.x) val += in[i * N + j];
     if (id >= WARP_SIZE) temp[id - WARP_SIZE] = val;
     __syncthreads();
     if (id < WARP_SIZE) {
@@ -270,11 +267,11 @@ __global__ void ternary_approx_kernel_0(
       bias[i] = val / Dtype(N);
     }
     __syncthreads();
-    for (int j = j_start; j < j_end; ++j) in[i * N + j] -= bias[i];
+    for (int j = id; j < N; j += blockDim.x) in[i * N + j] -= bias[i];
   }
   // delta[i]
   val = 0;
-  for (int j = j_start; j < j_end; ++j) val += gpu_abs(in[i * N + j]);
+  for (int j = id; j < N; j += blockDim.x) val += gpu_abs(in[i * N + j]);
   if (id >= WARP_SIZE) temp[id - WARP_SIZE] = val;
   __syncthreads();
   if (id < WARP_SIZE) {
@@ -291,7 +288,7 @@ __global__ void ternary_approx_kernel_0(
   // scale
   val = 0;
   val2 = 0;
-  for (int j = j_start; j < j_end; ++j) {
+  for (int j = id; j < N; j += blockDim.x) {
     const Dtype v = gpu_abs(in[i * N + j]);
     val += Dtype(v > delta[i]) * v;
     val2 += Dtype(v > delta[i]);
@@ -310,12 +307,12 @@ __global__ void ternary_approx_kernel_0(
   }
   __syncthreads();
   // out
-  for (int j = j_start; j < j_end; ++j) {
+  for (int j = id; j < N; j += blockDim.x) {
     out[i * N + j] = Dtype(in[i * N + j] > delta[i]) * scale[i] +
                      Dtype(in[i * N + j] < -delta[i]) * -scale[i];
   }
   if (use_bias) {
-    for (int j = j_start; j < j_end; ++j) {
+    for (int j = id; j < N; j += blockDim.x) {
       out[i * N + j] += bias[i];
       in[i * N + j] += bias[i];
     }
@@ -328,14 +325,12 @@ __global__ void ternary_approx_kernel_1(
     Dtype *scale, Dtype *bias, Dtype *delta) {
   const int j = blockIdx.x;
   const int id = threadIdx.x;
-  const int i_start = id * M / CAFFE_CUDA_NUM_THREADS;
-  const int i_end = (id + 1) * M / CAFFE_CUDA_NUM_THREADS;
   volatile __shared__ Dtype temp[CAFFE_CUDA_NUM_THREADS - WARP_SIZE];
   volatile __shared__ Dtype temp2[CAFFE_CUDA_NUM_THREADS - WARP_SIZE];
   Dtype val, val2;
   if (use_bias) {
     val = 0;
-    for (int i = i_start; i < i_end; ++i) val += in[i * N + j];
+    for (int i = id; i < M; i += blockDim.x) val += in[i * N + j];
     if (id >= WARP_SIZE) temp[id - WARP_SIZE] = val;
     __syncthreads();
     if (id < WARP_SIZE) {
@@ -349,11 +344,11 @@ __global__ void ternary_approx_kernel_1(
       bias[j] = val / Dtype(M);
     }
     __syncthreads();
-    for (int i = i_start; i < i_end; ++i) in[i * N + j] -= bias[j];
+    for (int i = id; i < M; i += blockDim.x) in[i * N + j] -= bias[j];
   }
   // delta
   val = 0;
-  for (int i = i_start; i < i_end; ++i) val += gpu_abs(in[i * N + j]);
+  for (int i = id; i < M; i += blockDim.x) val += gpu_abs(in[i * N + j]);
   if (id >= WARP_SIZE) temp[id - WARP_SIZE] = val;
   __syncthreads();
   if (id < WARP_SIZE) {
@@ -370,7 +365,7 @@ __global__ void ternary_approx_kernel_1(
   // scale
   val = 0;
   val2 = 0;
-  for (int i = i_start; i < i_end; ++i) {
+  for (int i = id; i < M; i += blockDim.x) {
     const Dtype v = gpu_abs(in[i * N + j]);
     val += Dtype(v > delta[j]) * v;
     val2 += Dtype(v > delta[j]);
@@ -389,12 +384,12 @@ __global__ void ternary_approx_kernel_1(
   }
   __syncthreads();
   // out
-  for (int i = i_start; i < i_end; ++i) {
+  for (int i = id; i < M; i += blockDim.x) {
     out[i * N + j] = Dtype(in[i * N + j] > delta[j]) * scale[j] +
                      Dtype(in[i * N + j] < -delta[j]) * -scale[j];
   }
   if (use_bias) {
-    for (int i = i_start; i < i_end; ++i) {
+    for (int i = id; i < M; i += blockDim.x) {
       out[i * N + j] += bias[j];
       in[i * N + j] += bias[j];
     }

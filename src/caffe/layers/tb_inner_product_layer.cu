@@ -29,23 +29,23 @@ void TBInnerProductLayer<Dtype>::Forward_gpu(
   // binary or ternary the weight
   if (is_w_bin_) {
     caffe_gpu_binary_approx<Dtype>(
-        1, K_, N_, use_bias_, this->blobs_[0]->mutable_gpu_data(),
-        weight_.mutable_gpu_data(), w_scale_, w_bias_);
+        1, K_, N_, use_bias_, this->blobs_[0]->mutable_gpu_data(), weight,
+        w_scale_, w_bias_);
   } else if (is_in_bin_) {
     caffe_gpu_ternary_approx<Dtype>(
-        1, K_, N_, use_bias_, this->blobs_[0]->mutable_gpu_data(),
-        weight_.mutable_gpu_data(), w_scale_, w_bias_, w_delta_);
+        1, K_, N_, use_bias_, this->blobs_[0]->mutable_gpu_data(), weight,
+        w_scale_, w_bias_, w_delta_);
   } else
     weight = this->blobs_[0]->mutable_gpu_data();
   // ternary or binary the input
   if (is_in_bin_) {
     caffe_gpu_binary_approx<Dtype>(
-        0, M_, K_, use_bias_, bottom[0]->mutable_gpu_data(),
-        in_.mutable_gpu_data(), in_scale_, in_bias_);
+        0, M_, K_, use_bias_, bottom[0]->mutable_gpu_data(), bottom_data,
+        in_scale_, in_bias_);
   } else if (is_w_bin_) {
     caffe_gpu_ternary_approx<Dtype>(
-        0, M_, K_, use_bias_, bottom[0]->mutable_gpu_data(),
-        in_.mutable_gpu_data(), in_scale_, in_bias_, in_delta_);
+        0, M_, K_, use_bias_, bottom[0]->mutable_gpu_data(), bottom_data,
+        in_scale_, in_bias_, in_delta_);
   } else
     bottom_data = bottom[0]->mutable_gpu_data();
   caffe_gpu_gemm<Dtype>(
