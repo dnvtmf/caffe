@@ -8,16 +8,17 @@ namespace caffe {
 template <typename Dtype>
 void TBInnerProductLayer<Dtype>::Forward_gpu(
     const vector<Blob<Dtype> *> &bottom, const vector<Blob<Dtype> *> &top) {
-  w_scale_ = weight_s_.mutable_gpu_data();
-  w_bias_ = weight_s_.mutable_gpu_diff();
-  w_delta_ = delta_.mutable_gpu_data();
+  w_scale_  = weight_s_.mutable_gpu_data();
+  w_bias_   = weight_s_.mutable_gpu_diff();
+  w_delta_  = delta_.mutable_gpu_data();
   in_scale_ = in_s_.mutable_gpu_data();
-  in_bias_ = in_s_.mutable_gpu_diff();
+  in_bias_  = in_s_.mutable_gpu_diff();
   in_delta_ = delta_.mutable_gpu_diff();
 
-  Dtype *weight = weight_.mutable_gpu_data();
+  Dtype *weight      = weight_.mutable_gpu_data();
   Dtype *bottom_data = in_.mutable_gpu_data();
-  Dtype *top_data = top[0]->mutable_gpu_data();
+  Dtype *top_data    = top[0]->mutable_gpu_data();
+
   if (clip_ & 1) {
     Dtype value = sqrt(6. / (K_ + N_));
     caffe_gpu_clip<Dtype>(
@@ -26,6 +27,7 @@ void TBInnerProductLayer<Dtype>::Forward_gpu(
   if (clip_ & 2) {
     caffe_gpu_clip<Dtype>(M_ * K_, -1., 1., bottom[0]->mutable_gpu_data());
   }
+
   // binary or ternary the weight
   if (is_w_bin_) {
     caffe_gpu_binary_approx<Dtype>(
@@ -37,6 +39,7 @@ void TBInnerProductLayer<Dtype>::Forward_gpu(
         w_scale_, w_bias_, w_delta_);
   } else
     weight = this->blobs_[0]->mutable_gpu_data();
+
   // ternary or binary the input
   if (is_in_bin_) {
     caffe_gpu_binary_approx<Dtype>(
@@ -48,9 +51,11 @@ void TBInnerProductLayer<Dtype>::Forward_gpu(
         in_scale_, in_bias_, in_delta_);
   } else
     bottom_data = bottom[0]->mutable_gpu_data();
+
   caffe_gpu_gemm<Dtype>(
       CblasNoTrans, CblasNoTrans, M_, N_, K_, (Dtype) 1., bottom_data, weight,
       (Dtype) 0., top_data);
+
   // bias
   if (bias_term_) {
     caffe_gpu_gemm<Dtype>(
@@ -66,9 +71,9 @@ void TBInnerProductLayer<Dtype>::Backward_gpu(
     const vector<Blob<Dtype> *> &bottom) {
   const Dtype *top_diff = top[0]->gpu_diff();
   if (this->param_propagate_down_[0]) {
-    Dtype *weight_diff = this->blobs_[0]->mutable_gpu_diff();
-    const Dtype *weight = this->blobs_[0]->gpu_data();
-    Dtype *delta = weight_.mutable_gpu_diff();
+    Dtype *      weight_diff = this->blobs_[0]->mutable_gpu_diff();
+    const Dtype *weight      = this->blobs_[0]->gpu_data();
+    Dtype *      delta       = weight_.mutable_gpu_diff();
     // Gradient with respect to weight
     const Dtype *bottom_data =
         (is_w_bin_ || is_in_bin_) ? in_.gpu_data() : bottom[0]->gpu_data();
@@ -105,9 +110,9 @@ void TBInnerProductLayer<Dtype>::Backward_gpu(
     const Dtype *weight = (is_w_bin_ || is_in_bin_)
                               ? weight_.gpu_data()
                               : this->blobs_[0]->gpu_data();
-    Dtype *in_diff = bottom[0]->mutable_gpu_diff();
-    const Dtype *in = bottom[0]->gpu_data();
-    Dtype *delta = in_.mutable_gpu_diff();
+    Dtype *      in_diff = bottom[0]->mutable_gpu_diff();
+    const Dtype *in      = bottom[0]->gpu_data();
+    Dtype *      delta   = in_.mutable_gpu_diff();
     // dI' = g * W'^
     caffe_gpu_gemm<Dtype>(
         CblasNoTrans, CblasTrans, M_, K_, N_, (Dtype) 1., top_diff, weight,

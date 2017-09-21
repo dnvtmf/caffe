@@ -102,7 +102,7 @@ void caffe_cpu_binary(
       }
     }
     for (int i = 0; i < M; ++i) {
-      scale[i] /= N;
+      scale[i] /= Dtype(N);
     }
   } else {
     const int BM = (M - 1) / BINARY_SIZE + 1;
@@ -121,7 +121,7 @@ void caffe_cpu_binary(
       q += N;
     }
     for (int j = 0; j < N; ++j) {
-      scale[j] /= M;
+      scale[j] /= Dtype(M);
     }
   }
 }
@@ -260,7 +260,7 @@ void caffe_cpu_ternary(
       }
     }
     for (int i = 0; i < M; ++i) {
-      if (sum2[i] > 0) scale[i] /= sum2[i];
+      scale[i] /= sum2[i];
     }
   } else {
     const int BM = (M - 1) / BINARY_SIZE + 1;
@@ -303,7 +303,7 @@ void caffe_cpu_ternary(
       it1 += N;
     }
     for (int j = 0; j < N; ++j) {
-      if (sum2[j] > 0) scale[j] /= sum2[j];
+      scale[j] /= sum2[j];
     }
   }
 }
@@ -465,9 +465,7 @@ void caffe_cpu_ternary_norm(
       }
     }
     for (int i = 0; i < M; ++i) {
-      if (sum2[i] > 0.) {
-        scale[i] /= sum2[i];
-      }
+      scale[i] /= sum2[i];
       sum[i] *= scale[i];
     }
   } else {
@@ -525,9 +523,7 @@ void caffe_cpu_ternary_norm(
       code_it += N;
     }
     for (int j = 0; j < N; ++j) {
-      if (sum2[j] > 0.) {
-        scale[j] /= sum2[j];
-      }
+      scale[j] /= sum2[j];
       sum[j] *= scale[j];
     }
   }

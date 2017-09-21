@@ -17,21 +17,24 @@ class BinaryMathFunctionsTest : public ::testing::Test {
 
  protected:
   BinaryMathFunctionsTest() {
-    if (sizeof(Dtype) == sizeof(float))
-      eps = 1e-3;
-    else
+    if (sizeof(Dtype) == sizeof(double))
       eps = 1e-6;
+    else
+      eps = 1e-5;
   }
   Dtype Error(int N, const Dtype *a, const Dtype *b) {
     Dtype sum = 0;
-    //    printf("\033[031m \n");
     for (int i = 0; i < N; ++i) {
-      //      if (abs(b[i] - a[i]) > eps)
-      //        printf("%d: %.6g ", i, abs(b[i] - a[i]));
-      sum += abs(b[i] - a[i]) / max(Dtype(eps), a[i]);
+      sum += abs(b[i] - a[i]);
     }
-    //    printf("\033[0m\n");
     sum /= N;
+    if (sum >= eps) {
+      printf("\033[031m \n");
+      for (int i = 0; i < N; ++i) {
+        if (abs(a[i] - b[i]) >= eps) printf("(%d: %g) ", i, abs(a[i] - b[i]));
+      }
+      printf("\033[0m\n");
+    }
     return sum;
   }
 
