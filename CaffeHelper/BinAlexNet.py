@@ -25,7 +25,7 @@ train_size = 1200000
 solver.train(base_lr=0.01, lr_policy='step', gamma=0.01, stepsize=4 * train_size / batch_size,
              max_iter=16 * train_size / batch_size, weight_decay=0.0001)
 solver.optimizer(type='Adam', momentum=0.9)
-solver.display(display=20)
+solver.display(display=20, average_loss=20)
 solver.snapshot(snapshot=10000, snapshot_prefix=name)
 
 # --------- Network ----------

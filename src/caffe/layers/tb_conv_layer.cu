@@ -9,8 +9,7 @@
 
 namespace caffe {
 template <typename Dtype>
-void TBConvolutionLayer<Dtype>::forward_gpu_gemm(
-    Dtype *input, Dtype *output, bool skip_im2col) {
+void TBConvolutionLayer<Dtype>::forward_gpu_gemm(Dtype *input, Dtype *output) {
   Dtype *col_buff = input;
   Dtype *weights  = (is_in_bin_ || is_w_bin_)
                        ? weight_.mutable_gpu_data()
@@ -144,7 +143,7 @@ void TBConvolutionLayer<Dtype>::Forward_gpu(
     caffe_gpu_binary_approx<Dtype>(
         0, M_, K_, use_bias_, this->blobs_[0]->mutable_gpu_data(),
         weight_.mutable_gpu_data(), w_scale_, w_bias_);
-  } else if(is_in_bin_) {
+  } else if (is_in_bin_) {
     caffe_gpu_ternary_approx<Dtype>(
         0, M_, K_, use_bias_, this->blobs_[0]->mutable_gpu_data(),
         weight_.mutable_gpu_data(), w_scale_, w_bias_, w_delta_);
@@ -161,6 +160,23 @@ void TBConvolutionLayer<Dtype>::Forward_gpu(
         this->forward_gpu_bias(top_data + n * this->top_dim_, bias);
       }
     }
+    if (shuffle_) {
+      int block_offset = this->weight_offset_ / this->group_;
+      for (int n = 0; n < this->num_; ++n) {
+        Dtype *temp = shuffle_aux_.mutable_gpu_data();
+        for (int j = 0; j < this->group_; ++j) {
+          for (int k = j + 1; k < this->group_; ++k) {
+            Dtype *A, *B;
+            A = B = top_data + n * this->top_dim_;
+            A += (j * this->group_ + k) * block_offset;
+            B += (k * this->group_ + j) * block_offset;
+            caffe_gpu_memcpy(sizeof(Dtype) * block_offset, A, temp);
+            caffe_gpu_memcpy(sizeof(Dtype) * block_offset, B, A);
+            caffe_gpu_memcpy(sizeof(Dtype) * block_offset, temp, B);
+          }
+        }
+      }
+    }
   }
 }
 
@@ -168,11 +184,32 @@ template <typename Dtype>
 void TBConvolutionLayer<Dtype>::Backward_gpu(
     const vector<Blob<Dtype> *> &top, const vector<bool> &propagate_down,
     const vector<Blob<Dtype> *> &bottom) {
+  // shuffle channel
+  if (shuffle_) {
+    int block_offset = this->weight_offset_ / this->group_;
+    Dtype *temp      = shuffle_aux_.mutable_gpu_data();
+    for (int i = 0; i < top.size(); ++i) {
+      for (int n = 0; n < this->num_; ++n) {
+        for (int j = 0; j < this->group_; ++j) {
+          for (int k = j + 1; k < this->group_; ++k) {
+            Dtype *A, *B;
+            A = B = top[i]->mutable_gpu_diff() + n * this->top_dim_;
+            A += (j * this->group_ + k) * block_offset;
+            B += (k * this->group_ + j) * block_offset;
+            caffe_gpu_memcpy(sizeof(Dtype) * block_offset, A, temp);
+            caffe_gpu_memcpy(sizeof(Dtype) * block_offset, B, A);
+            caffe_gpu_memcpy(sizeof(Dtype) * block_offset, temp, B);
+          }
+        }
+      }
+    }
+  }
   Dtype *weight_diff = this->blobs_[0]->mutable_gpu_diff();
   for (int i = 0; i < top.size(); ++i) {
-    const Dtype *top_diff    = top[i]->gpu_diff();
-    Dtype *      bottom_data = bottom[i]->mutable_gpu_data();
-    Dtype *      bottom_diff = bottom[i]->mutable_gpu_diff();
+    const Dtype *top_diff = top[i]->gpu_diff();
+    Dtype *bottom_data    = bottom[i]->mutable_gpu_data();
+    Dtype *bottom_diff    = bottom[i]->mutable_gpu_diff();
+
     // Bias gradient, if necessary.
     if (this->bias_term_ && this->param_propagate_down_[1]) {
       Dtype *bias_diff = this->blobs_[1]->mutable_gpu_diff();

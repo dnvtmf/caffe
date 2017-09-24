@@ -23,7 +23,7 @@ solver = Solver().net('./model.prototxt').GPU()
 solver.test(test_iter=100, test_interval=1000, test_initialization=True)
 solver.train(base_lr=0.1, lr_policy='multistep', stepvalue=[32000, 48000], gamma=0.1, max_iter=64000, weight_decay=1e-4)
 solver.optimizer(type='SGD', momentum=0.9)
-solver.display(display=200)
+solver.display(display=200, average_loss=200)
 solver.snapshot(snapshot=10000, snapshot_prefix=name)
 
 # --------- Network ----------

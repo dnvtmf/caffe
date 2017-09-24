@@ -25,11 +25,11 @@ solver.test(test_iter=100, test_interval=1000, test_initialization=False)
 num_iter = num_epoch * 50000 / batch_size
 lr_start = 0.003
 lr_end = 0.000002
-lr_decay = (lr_end / lr_start)**(1. / num_iter)
+lr_decay = (lr_end / lr_start) ** (1. / num_iter)
 solver.train(base_lr=lr_start, lr_policy='exp',
              gamma=lr_decay, max_iter=num_iter, weight_decay=0)
 solver.optimizer(type='Adam')
-solver.display(display=200)
+solver.display(display=200, average_loss=200)
 solver.snapshot(snapshot=5000, snapshot_prefix=name)
 
 # --------- Network ----------

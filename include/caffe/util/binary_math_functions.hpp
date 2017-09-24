@@ -116,13 +116,13 @@ void caffe_cpu_clip(const int N, Dtype min_value, Dtype max_value, Dtype *X);
 
 template <typename Dtype>
 void caffe_cpu_binary_approx(
-    const int axis, const int M, const int N, const Dtype *in, Dtype *out,
-    Dtype *scale);
+    const int axis, const int M, const int N, const bool use_bias, Dtype *in,
+    Dtype *out, Dtype *scale, Dtype *bias);
 
 template <typename Dtype>
 void caffe_cpu_ternary_approx(
-    const int axis, const int M, const int N, const Dtype *in, Dtype *out,
-    Dtype *scale, Dtype *delta, Dtype *sum);
+    const int axis, const int M, const int N, const bool use_bias, Dtype *in,
+    Dtype *out, Dtype *scale, Dtype *bias, Dtype *delta);
 
 #ifndef CPU_ONLY
 template <typename Dtype>
@@ -147,6 +147,7 @@ template <typename Dtype>
 void caffe_gpu_ternary_approx(
     const int axis, const int M, const int N, bool use_bias, Dtype *in,
     Dtype *out, Dtype *scale, Dtype *bias, Dtype *delta);
+
 #endif  // CPU_ONLY
 }
 #endif  // CAFFE_UTIL_BINARY_MATH_FUNCTIONS_HPP_

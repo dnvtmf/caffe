@@ -16,45 +16,44 @@ template <typename Dtype>
 class XnorNetConvolutionLayer : public BaseConvolutionLayer<Dtype> {
  public:
   explicit XnorNetConvolutionLayer(const LayerParameter& param)
-    : BaseConvolutionLayer<Dtype>(param) {}
+      : BaseConvolutionLayer<Dtype>(param) {}
 
-  virtual inline const char* type() const {return "XnorNetConvolution";}
+  virtual inline const char* type() const { return "XnorNetConvolution"; }
 
  protected:
   virtual void LayerSetUp_more();
   virtual void Reshape_more();
-  void forward_cpu_gemm(const Dtype* input, const Dtype* weights, Dtype* output,
-                        bool skip_im2col = false);
-  void backward_cpu_gemm(
-    const Dtype *input, const Dtype *weight, const Dtype* top_diff,
-    Dtype *input_diff, Dtype *weight_diff);
-  void backward_cpu_gemm(
-    const Dtype* input, const Dtype* weights, Dtype* output);
-  void weight_cpu_gemm(
-    const Dtype* input, const Dtype* output, Dtype* weights);
 
+  void forward_cpu_gemm(Dtype* input, Dtype* output);
+  void backward_cpu_gemm(
+      Dtype* input, const Dtype* top_diff, Dtype* input_diff,
+      Dtype* weight_diff);
+#ifndef CPU_ONLY
+  void forward_gpu_gemm(Dtype* input, Dtype* output);
+  void backward_gpu_gemm(
+      Dtype* input, const Dtype* top_diff, Dtype* input_diff,
+      Dtype* weight_diff);
+#endif  // CPU_ONLY
   virtual void Forward_cpu(
-    const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top);
+      const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top);
   virtual void Forward_gpu(
-    const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
-    CHECK(false) << "no XnorNetConvolutionLayer::Forward_gpu()";
-  }
+      const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top);
   virtual void Backward_cpu(
-    const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
-    const vector<Blob<Dtype>*>& bottom);
+      const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
+      const vector<Blob<Dtype>*>& bottom);
   virtual void Backward_gpu(
-    const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
-    const vector<Blob<Dtype>*>& bottom) {
-    CHECK(false) << "no XnorNetConvolutionLayer::Backward_gpu";
-  }
-  virtual inline bool reverse_dimensions() {return false;}
+      const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
+      const vector<Blob<Dtype>*>& bottom);
+  virtual inline bool reverse_dimensions() { return false; }
   virtual void compute_output_shape();
+
  private:
-  int M_, K_, N_;
-  int BM_, BK_, BN_;
-  vector<Btype> w_code_, in_code_;
-  vector<Dtype> w2_, in2_;
-  vector<Dtype> w_scale_, in_scale_;
+  Blob<Dtype> in_, weight_;
+  Blob<Dtype> in_s_, weight_s_;
+  Blob<Dtype> sum_multiplier_;
+  Dtype *w_scale_, *w_bias_;
+  Dtype *in_scale_, *in_bias_;
+  int M_, N_, K_;
 };
 
 }  // namespace caffe

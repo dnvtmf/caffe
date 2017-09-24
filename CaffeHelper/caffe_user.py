@@ -4,10 +4,12 @@ import os
 import time
 
 
-def BN(data_in, name="BatchNorm"):
+def BN(data_in, name="BatchNorm", use_global_stats=None, moving_average_fraction=None, eps=None, axis=None,
+       num_axes=None, filler=None, bias_term=None, bias_filler=None):
     with NameScope(name):
-        bn = BatchNorm(data_in)
-        scale = Scale(bn, bias_term=True)
+        bn = BatchNorm(data_in, use_global_stats=use_global_stats, moving_average_fraction=moving_average_fraction,
+                       eps=eps)
+        scale = Scale(bn, axis=axis, num_axes=num_axes, filler=filler, bias_term=bias_term, bias_filler=bias_filler)
     return scale
 
 

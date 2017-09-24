@@ -58,13 +58,12 @@ class TBConvolutionLayer : public BaseConvolutionLayer<Dtype> {
   // Helper functions that abstract away the column buffer and gemm arguments.
   // The last argument in forward_cpu_gemm is so that we can skip the im2col if
   // we just called weight_cpu_gemm with the same input.
-  void forward_cpu_gemm(
-      const Dtype* input, Dtype* output, bool skip_im2col = false);
+  void forward_cpu_gemm(Dtype* input, Dtype* output);
   void backward_cpu_gemm(
-      const Dtype* input, const Dtype* top_diff, Dtype* input_diff,
+      Dtype* input, const Dtype* top_diff, Dtype* input_diff,
       Dtype* weight_diff);
 #ifndef CPU_ONLY
-  void forward_gpu_gemm(Dtype* input, Dtype* output, bool skip_im2col = false);
+  void forward_gpu_gemm(Dtype* input, Dtype* output);
   void backward_gpu_gemm(
       Dtype* input, const Dtype* top_diff, Dtype* input_diff,
       Dtype* weight_diff);
@@ -81,19 +80,23 @@ class TBConvolutionLayer : public BaseConvolutionLayer<Dtype> {
       const vector<Blob<Dtype>*>& bottom);
 
   virtual inline bool reverse_dimensions() { return false; }
-  virtual void compute_output_shape();
+  virtual void        compute_output_shape();
 
  private:
-  int M_, N_, K_;
   Blob<Dtype> in_, weight_;
   Blob<Dtype> in_s_, weight_s_, delta_;
+  Blob<Dtype> shuffle_aux_;
+
   Dtype *w_scale_, *w_bias_, *w_delta_;
   Dtype *in_scale_, *in_bias_, *in_delta_;
-  bool full_train_;
-  bool use_bias_;
-  bool is_w_bin_, is_in_bin_;
-  int clip_;
-  bool have_reg_;
+
+  int   M_, N_, K_;
+  bool  full_train_;
+  bool  use_bias_;
+  bool  is_w_bin_, is_in_bin_;
+  bool  have_reg_;
+  bool  shuffle_;
+  int   clip_;
   Dtype reg_;
 };
 

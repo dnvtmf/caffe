@@ -1422,5 +1422,7 @@ message TBParameter {
   // 0, no clip; 1, clip weights; 2, clip input; 3 clip weight and input
   optional int32 clip = 5 [default = 0];
   optional float reg = 6 [default = 0.];
+  // open shuffleNet
+  optional bool shuffle = 7 [default = false];
 }
 

@@ -18,44 +18,41 @@ class XnorNetInnerProductLayer : public Layer<Dtype> {
  public:
   explicit XnorNetInnerProductLayer(const LayerParameter& param)
       : Layer<Dtype>(param) {}
-  virtual void LayerSetUp(const vector<Blob<Dtype>*>& bottom,
-      const vector<Blob<Dtype>*>& top);
-  virtual void Reshape(const vector<Blob<Dtype>*>& bottom,
-      const vector<Blob<Dtype>*>& top);
+  virtual void LayerSetUp(
+      const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top);
+  virtual void Reshape(
+      const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top);
 
   virtual inline const char* type() const { return "XnorNetInnerProduct"; }
   virtual inline int ExactNumBottomBlobs() const { return 1; }
   virtual inline int ExactNumTopBlobs() const { return 1; }
 
  protected:
-  virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
-      const vector<Blob<Dtype>*>& top);
-  virtual void Backward_cpu(const vector<Blob<Dtype>*>& top,
-      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
-  virtual void Forward_gpu(const vector<Blob<Dtype>*>& bottom,
-      const vector<Blob<Dtype>*>& top) {
-    CHECK(false) << "no xnor_net Forward_gpu";
-  }
-  virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
-      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
-    CHECK(false) << "no xnor_net Backward_gpu";
-  }
+  virtual void Forward_cpu(
+      const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top);
+  virtual void Backward_cpu(
+      const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
+      const vector<Blob<Dtype>*>& bottom);
+  virtual void Forward_gpu(
+      const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top);
+  virtual void Backward_gpu(
+      const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
+      const vector<Blob<Dtype>*>& bottom);
 
   int M_;
   int K_;
   int N_;
   bool bias_term_;
-  Blob<Dtype> bias_multiplier_;
   bool transpose_;  ///< if true, assume transposed weights
 
+  Blob<Dtype> bias_multiplier_;
+
  private:
-  int binary_K_;
-  vector<Btype> binary_weight_;
-  vector<Dtype> binary_weight_scale_;
-  vector<Btype> binary_input_;
-  vector<Dtype> binary_input_scale_;
-  vector<Dtype> input_temp_;
-  vector<Dtype> weight_temp_;
+  Blob<Dtype> in_, weight_;
+  Blob<Dtype> in_s_, weight_s_;
+  Blob<Dtype> sum_multiplier_;
+  Dtype *w_scale_, *w_bias_;
+  Dtype *in_scale_, *in_bias_;
 };
 
 }  // namespace caffe

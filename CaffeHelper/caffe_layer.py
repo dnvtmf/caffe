@@ -29,16 +29,16 @@ class Parameter:
     def add_param_if(self, key, value):
         if value is not None:
             self.param_ += [key + ": " + _modify(value)]
-        return  self
+        return self
 
     def add_subparam(self, subparam):
         if subparam.param_ != []:
             self.param_ += [subparam]
-        return  self
+        return self
 
     def set_name(self, name):
         self.name_ = name
-        return  self
+        return self
 
 
 def _modify(data):
