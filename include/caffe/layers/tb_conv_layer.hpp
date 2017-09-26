@@ -80,23 +80,24 @@ class TBConvolutionLayer : public BaseConvolutionLayer<Dtype> {
       const vector<Blob<Dtype>*>& bottom);
 
   virtual inline bool reverse_dimensions() { return false; }
-  virtual void        compute_output_shape();
+  virtual void compute_output_shape();
 
  private:
   Blob<Dtype> in_, weight_;
   Blob<Dtype> in_s_, weight_s_, delta_;
   Blob<Dtype> shuffle_aux_;
+  Blob<Dtype> sum_multiplier_;
 
   Dtype *w_scale_, *w_bias_, *w_delta_;
   Dtype *in_scale_, *in_bias_, *in_delta_;
 
-  int   M_, N_, K_;
-  bool  full_train_;
-  bool  use_bias_;
-  bool  is_w_bin_, is_in_bin_;
-  bool  have_reg_;
-  bool  shuffle_;
-  int   clip_;
+  int M_, N_, K_;
+  bool full_train_;
+  bool use_bias_;
+  bool is_w_bin_, is_in_bin_;
+  bool have_reg_;
+  bool shuffle_;
+  int clip_;
   Dtype reg_;
 };
 

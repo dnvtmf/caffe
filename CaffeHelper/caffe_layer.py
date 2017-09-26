@@ -134,7 +134,8 @@ def Layer(name, layer_type, data_in=None, data_out=None, optional_params=None):
     return param
 
 
-def FC(data_in, name="fc", fc_type="InnerProduct", num_output=None, bias_term=None, weight_filler=None,
+def FC(data_in, name="fc", fc_type="InnerProduct", num_output=None,
+       bias_term=None, weight_filler=None,
        bias_filler=None, axis=None,
        transpose=None, optional_params=None):
     """
@@ -173,7 +174,8 @@ def FC(data_in, name="fc", fc_type="InnerProduct", num_output=None, bias_term=No
     return data_out
 
 
-def Accuracy(data_in, name="accuracy", top_k=None, axis=None, ignore_label=None, optional_params=None):
+def Accuracy(data_in, name="accuracy", top_k=None, axis=None, ignore_label=None,
+             optional_params=None):
     """
     message AccuracyParameter {
       // When computing accuracy, count as correct by comparing the true label to
@@ -234,8 +236,10 @@ def HingeLoss(data_in, name="loss", norm=1, optional_params=None):
     return data_out
 
 
-def Pool(data_in, name="pool", method=0, pad=None, pad_h=None, pad_w=None, kernel_size=2, kernel_h=None,
-         kernel_w=None, stride=2, stride_h=None, stride_w=None, global_pooling=None, optional_params=None):
+def Pool(data_in, name="pool", method=0, pad=None, pad_h=None, pad_w=None,
+         kernel_size=2, kernel_h=None,
+         kernel_w=None, stride=2, stride_h=None, stride_w=None,
+         global_pooling=None, optional_params=None):
     """
     message PoolingParameter {
       enum pool_method {
@@ -287,7 +291,8 @@ def Pool(data_in, name="pool", method=0, pad=None, pad_h=None, pad_w=None, kerne
     return data_out
 
 
-def Filler(filler_type=None, value=None, min_=None, max_=None, mean=None, std=None, sparse=None,
+def Filler(filler_type=None, value=None, min_=None, max_=None, mean=None,
+           std=None, sparse=None,
            variance_norm=None):
     """
     message FillerParameter {
@@ -324,7 +329,8 @@ def Filler(filler_type=None, value=None, min_=None, max_=None, mean=None, std=No
     return param
 
 
-def BatchNorm(data_in, name="bn", use_global_stats=None, moving_average_fraction=None, eps=None, optional_params=None):
+def BatchNorm(data_in, name="bn", use_global_stats=None,
+              moving_average_fraction=None, eps=None, optional_params=None):
     """
     message BatchNormParameter {
         // If false, normalization is performed over the current mini-batch
@@ -360,7 +366,8 @@ def BatchNorm(data_in, name="bn", use_global_stats=None, moving_average_fraction
     return data_out
 
 
-def Scale(data_in, name="scale", axis=None, num_axes=None, filler=None, bias_term=None, bias_filler=None,
+def Scale(data_in, name="scale", axis=None, num_axes=None, filler=None,
+          bias_term=None, bias_filler=None,
           optional_params=None):
     """
     :param name:
@@ -377,12 +384,13 @@ def Scale(data_in, name="scale", axis=None, num_axes=None, filler=None, bias_ter
             (axis == 1 == -3)          3;     3x40;     3x40x60
             (axis == 2 == -2)                   40;       40x60
             (axis == 3 == -1)                                60
-        Furthermore, bottom[1] may have the empty shape (regardless of the value of "axis") -- a scalar multiplier.
+        Furthermore, bottom[1] may have the empty shape (regardless of the value
+         of "axis") -- a scalar multiplier.
 
     :param num_axes: int32 [default = 1];
         (num_axes is ignored unless just one bottom is given and the scale is
-        a learned parameter of the layer.  Otherwise, num_axes is determined by the
-        number of axes by the second bottom.)
+        a learned parameter of the layer.  Otherwise, num_axes is determined by
+        the number of axes by the second bottom.)
         The number of axes of the input (bottom[0]) covered by the scale
         parameter, or -1 to cover all axes of bottom[0] starting from `axis`.
         Set num_axes := 0, to multiply with a zero-axis Blob: a scalar.
@@ -417,13 +425,15 @@ def Scale(data_in, name="scale", axis=None, num_axes=None, filler=None, bias_ter
     return data_out
 
 
-def Data(data_in, name="data", phase=None, source=None, scale=None, mean_file=None, batch_size=None, mirror=None,
-         rand_skip=None, backend=None, force_encoded_color=None, prefetch=None, optional_params=None):
+def Data(data_in, name="data", phase=None, source=None, scale=None,
+         mean_file=None, batch_size=None, mirror=None, rand_skip=None,
+         backend=None, force_encoded_color=None, prefetch=None,
+         optional_params=None):
     """
     message DataParameter {
         enum DB {
-        LEVELDB = 0;
-        LMDB = 1;
+            LEVELDB = 0;
+            LMDB = 1;
         }
         // Specify the data source.
         optional string source = 1;
@@ -477,31 +487,28 @@ def Data(data_in, name="data", phase=None, source=None, scale=None, mean_file=No
     return data_out
 
 
-def Transform(scale=None, mirror=None, crop_size=None, mean_file=None, mean_value=None, force_color=None,
-              force_gray=None):
+def Transform(scale=None, mirror=None, crop_size=None, mean_file=None,
+              mean_value=None, force_color=None, force_gray=None):
     """
-    // Message that stores parameters used to apply transformation
-    // to the data layer's data
-    message TransformationParameter {
-      // For data pre-processing, we can do simple scaling and subtracting the
-      // data mean, if provided. Note that the mean subtraction is always carried
-      // out before scaling.
-      optional float scale = 1 [default = 1];
-      // Specify if we want to randomly mirror data.
-      optional bool mirror = 2 [default = false];
-      // Specify if we would like to randomly crop an image.
-      optional uint32 crop_size = 3 [default = 0];
-      // mean_file and mean_value cannot be specified at the same time
-      optional string mean_file = 4;
-      // if specified can be repeated once (would subtract it from all the channels)
-      // or can be repeated the same number of times as channels
-      // (would subtract them from the corresponding channel)
-      repeated float mean_value = 5;
-      // Force the decoded image to have 3 color channels.
-      optional bool force_color = 6 [default = false];
-      // Force the decoded image to have 1 color channels.
-      optional bool force_gray = 7 [default = false];
-    }
+    parameters used to apply transformation to the data layer's data
+    :param scale optional float scale = 1 [default = 1];
+        For data pre-processing, we can do simple scaling and subtracting the
+        data mean, if provided. Note that the mean subtraction is always carried
+        out before scaling.
+    :param mirror optional bool mirror = 2 [default = false];
+        Specify if we want to randomly mirror data.
+    :param crop_size optional uint32 crop_size = 3 [default = 0];
+        Specify if we would like to randomly crop an image.
+    :param mean_file optional string mean_file = 4;
+        mean_file and mean_value cannot be specified at the same time
+    :param mean_value repeated float mean_value = 5;
+        if specified can be repeated once (would subtract it from all the
+        channels) or can be repeated the same number of times as channels
+        (would subtract them from the corresponding channel)
+    :param force_color optional bool force_color = 6 [default = false];
+        Force the decoded image to have 3 color channels.
+    :param force_gray optional bool force_gray = 7 [default = false];
+        Force the decoded image to have 1 color channels.
     """
     transform_param = Parameter("transform_param")
     transform_param.add_param_if("scale", scale)
@@ -514,10 +521,13 @@ def Transform(scale=None, mirror=None, crop_size=None, mean_file=None, mean_valu
     return transform_param
 
 
-def Conv(data_in, name="conv", conv_type="Convolution", num_output=None, bias_term=None, pad=None, kernel_size=None,
-         group=None, stride=None,
-         weight_filler=None, bias_filler=None, pad_h=None, pad_w=None, kernel_h=None, kernel_w=None, stride_h=None,
-         stride_w=None, axis=None, force_nd_im2col=None, dilation=None, optional_params=None):
+def Conv(data_in, name="conv", conv_type="Convolution", num_output=None,
+         bias_term=None, pad=None, kernel_size=None,
+         group=None, stride=None, weight_filler=None, bias_filler=None,
+         pad_h=None, pad_w=None, kernel_h=None,
+         kernel_w=None, stride_h=None, stride_w=None, axis=None,
+         force_nd_im2col=None, dilation=None,
+         optional_params=None):
     """
     message ConvolutionParameter {
         optional uint32 num_output = 1; // The number of outputs for the layer
@@ -628,7 +638,8 @@ def DropOut(data_in, name="drop", dropout_ratio=None, optional_params=None):
     return data_out
 
 
-def LRN(data_in, name="lrn", local_size=None, alpha=None, beta=None, k=None, optional_params=None):
+def LRN(data_in, name="lrn", local_size=None, alpha=None, beta=None, k=None,
+        optional_params=None):
     """
 
     """

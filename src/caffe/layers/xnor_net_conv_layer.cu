@@ -20,6 +20,14 @@ void XnorNetConvolutionLayer<Dtype>::forward_gpu_gemm(
 
   for (int g = 0; g < this->group_; ++g) {
     const int offset = this->col_offset_ * g;
+    /*
+    caffe_gpu_gemv<Dtype>(
+         CblasTrans, K_, N_, -1. / K_, col_buff + offset,
+         sum_multiplier_.gpu_data(), 0., in_bias_ + N_ * g);
+     caffe_gpu_gemm<Dtype>(
+         CblasNoTrans, CblasNoTrans, K_, N_, 1, 1., sum_multiplier_.gpu_data(),
+         in_bias_ + N_ * g, 1., col_buff + offset);
+    */
     caffe_gpu_binary_approx<Dtype>(
         1, K_, N_, false, col_buff + offset, in_.mutable_gpu_data() + offset,
         in_scale_ + N_ * g, in_bias_ + N_ * g);
@@ -41,10 +49,9 @@ void XnorNetConvolutionLayer<Dtype>::backward_gpu_gemm(
   Dtype *weight        = weight_.mutable_gpu_data();
   Dtype *in            = in_.mutable_gpu_data();
   Dtype *col_buff      = input;
-  Dtype *col_buff_diff = this->col_buffer_.mutable_gpu_diff();
-  if (this->is_1x1_) {
-    col_buff_diff = input_diff;
-  } else {
+  Dtype *col_buff_diff = input_diff;
+  if (!this->is_1x1_) {
+    col_buff_diff = this->col_buffer_.mutable_gpu_diff();
     this->conv_im2col_gpu(input, this->col_buffer_.mutable_gpu_data());
     col_buff = this->col_buffer_.mutable_gpu_data();
   }
@@ -80,6 +87,21 @@ void XnorNetConvolutionLayer<Dtype>::backward_gpu_gemm(
 }
 
 template <typename Dtype>
+__global__ void mean_center_kernel(
+    const int c_out, const int c_in, const int wh, Dtype *in) {
+  const int i = blockIdx.x * blockDim.x + threadIdx.x;
+  const int x = i / wh;
+  const int y = i % wh;
+  if (x >= c_out) return;
+  Dtype mean  = 0;
+  Dtype *p_in = in + x * c_in * wh + y;
+  for (int i = 0; i < c_in; ++i, p_in += wh) mean += *p_in;
+  mean /= c_in;
+  p_in = in + x * c_in * wh + y;
+  for (int i = 0; i < c_in; ++i, p_in += wh) *p_in -= mean;
+}
+
+template <typename Dtype>
 void XnorNetConvolutionLayer<Dtype>::Forward_gpu(
     const vector<Blob<Dtype> *> &bottom, const vector<Blob<Dtype> *> &top) {
   w_scale_  = weight_s_.mutable_gpu_data();
@@ -89,14 +111,12 @@ void XnorNetConvolutionLayer<Dtype>::Forward_gpu(
 
   Dtype *weight_data = this->blobs_[0]->mutable_gpu_data();
   // meen center
-  caffe_gpu_gemm<Dtype>(
-      CblasNoTrans, CblasNoTrans, M_, 1, K_, Dtype(1),
-      sum_multiplier_.gpu_data(), weight_data, Dtype(0), w_bias_);
-  caffe_gpu_scal<Dtype>(M_, -1. / K_, w_bias_);
-  caffe_gpu_gemm<Dtype>(
-      CblasNoTrans, CblasNoTrans, M_, K_, 1, Dtype(1), w_bias_,
-      sum_multiplier_.gpu_data(), Dtype(1), weight_data);
-  // clamp params
+  const int c_out = this->conv_out_channels_;
+  const int c_in  = this->conv_in_channels_;
+  const int wh    = K_ / c_in;
+  mean_center_kernel<Dtype>
+      <<<CAFFE_GET_BLOCKS(c_out * wh), CAFFE_CUDA_NUM_THREADS>>>(
+          c_out, c_in, wh, weight_data);
   caffe_gpu_clip<Dtype>(M_ * K_, -1, 1, weight_data);
 
   caffe_gpu_binary_approx<Dtype>(

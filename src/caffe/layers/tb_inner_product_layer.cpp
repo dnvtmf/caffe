@@ -9,7 +9,7 @@ namespace caffe {
 template <typename Dtype>
 void TBInnerProductLayer<Dtype>::LayerSetUp(
     const vector<Blob<Dtype> *> &bottom, const vector<Blob<Dtype> *> &top) {
-  auto &    params     = this->layer_param_.inner_product_param();
+  auto &params         = this->layer_param_.inner_product_param();
   const int num_output = params.num_output();
   bias_term_           = params.bias_term();
   N_                   = num_output;
@@ -56,6 +56,12 @@ void TBInnerProductLayer<Dtype>::LayerSetUp(
   have_reg_   = (is_w_bin_ || is_in_bin_) && abs(reg_) < 1e-10;
   weight_.Reshape({K_, N_});
   weight_s_.Reshape({N_});
+  sum_multiplier_.Reshape({K_});
+  caffe_set(K_, Dtype(1.), sum_multiplier_.mutable_cpu_data());
+  LOG(INFO) << "\033[30;47m fc weight: " << (is_w_bin_ ? "binary" : "ternary")
+            << "; input: " << (is_in_bin_ ? "binary" : "ternary")
+            << "; bias: " << (use_bias_ ? "YES" : "NO") << "; clip: " << clip_
+            << "; reg: " << reg_ << "\033[0m";
 }
 
 template <typename Dtype>
@@ -108,7 +114,6 @@ void TBInnerProductLayer<Dtype>::Forward_cpu(
   if (clip_ & 2) {
     caffe_cpu_clip<Dtype>(M_ * K_, -1, 1., input);
   }
-
   // binary or ternary the weight
   if (is_w_bin_) {
     caffe_cpu_binary_approx<Dtype>(

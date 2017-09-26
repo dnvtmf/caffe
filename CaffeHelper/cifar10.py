@@ -35,54 +35,69 @@ solver.snapshot(snapshot=5000, snapshot_prefix=name)
 # --------- Network ----------
 # 2x(128C3)-MP2-2x(256C3)-MP2-2x(512C3)-MP2-2x(1024FC)-SVM
 Net("cifar10_" + name)
-data, label = Data([], phase=TRAIN, source="../cifar10_train_lmdb", batch_size=batch_size, backend=Net.LMDB,
+data, label = Data([], phase=TRAIN, source="../cifar10_train_lmdb",
+                   batch_size=batch_size, backend=Net.LMDB,
                    optional_params=[Transform(mean_file="../mean.binaryproto")])
-Data([], phase=TEST, source="../cifar10_test_lmdb", batch_size=100, backend=Net.LMDB,
+Data([], phase=TEST, source="../cifar10_test_lmdb", batch_size=100,
+     backend=Net.LMDB,
      optional_params=[Transform(mean_file="../mean.binaryproto")])
 out = [data]
 label = [label]
-out = Conv(out, name='conv1', num_output=128, bias_term=True, kernel_size=3, stride=1, pad=1,
+out = Conv(out, name='conv1', num_output=128, bias_term=True, kernel_size=3,
+           stride=1, pad=1,
            weight_filler=filler_xavier, bias_filler=filler_constant)
 out = BN(out, name='bn_act1')
 out = Activation(out, name='act1', method=activation_method)
 out = BN(out, name='bn1')
-out = Conv(out, name='conv2', conv_type=conv_type, num_output=128, bias_term=True, kernel_size=3, stride=1, pad=1,
-           weight_filler=filler_xavier, bias_filler=filler_constant, optional_params=[tb_param])
+out = Conv(out, name='conv2', conv_type=conv_type, num_output=128,
+           bias_term=True, kernel_size=3, stride=1, pad=1,
+           weight_filler=filler_xavier, bias_filler=filler_constant,
+           optional_params=[tb_param])
 out = BN(out, name='bn_act2')
 out = Activation(out, name='act2', method=activation_method)
 out = Pool(out, name='pool1')
 
 out = BN(out, name='bn3')
-out = Conv(out, name='conv3', conv_type=conv_type, num_output=256, bias_term=True, kernel_size=3, stride=1, pad=1,
-           weight_filler=filler_xavier, bias_filler=filler_constant, optional_params=[tb_param])
+out = Conv(out, name='conv3', conv_type=conv_type, num_output=256,
+           bias_term=True, kernel_size=3, stride=1, pad=1,
+           weight_filler=filler_xavier, bias_filler=filler_constant,
+           optional_params=[tb_param])
 out = BN(out, name='bn_act3')
 out = Activation(out, name='act3', method=activation_method)
 out = BN(out, name='bn4')
-out = Conv(out, name='conv4', conv_type=conv_type, num_output=256, bias_term=True, kernel_size=3, stride=1, pad=1,
-           weight_filler=filler_xavier, bias_filler=filler_constant, optional_params=[tb_param])
+out = Conv(out, name='conv4', conv_type=conv_type, num_output=256,
+           bias_term=True, kernel_size=3, stride=1, pad=1,
+           weight_filler=filler_xavier, bias_filler=filler_constant,
+           optional_params=[tb_param])
 out = BN(out, name='bn_act4')
 out = Activation(out, name='act4', method=activation_method)
 out = Pool(out, name='pool2')
 
 out = BN(out, name='bn5')
-out = Conv(out, name='conv5', conv_type=conv_type, num_output=512, bias_term=True, kernel_size=3, stride=1, pad=1,
-           weight_filler=filler_xavier, bias_filler=filler_constant, optional_params=[tb_param])
+out = Conv(out, name='conv5', conv_type=conv_type, num_output=512,
+           bias_term=True, kernel_size=3, stride=1, pad=1,
+           weight_filler=filler_xavier, bias_filler=filler_constant,
+           optional_params=[tb_param])
 out = BN(out, name='bn_act5')
 out = Activation(out, name='act5', method=activation_method)
 out = BN(out, name='bn6')
-out = Conv(out, name='conv6', conv_type=conv_type, num_output=512, bias_term=True, kernel_size=3, stride=1, pad=1,
-           weight_filler=filler_xavier, bias_filler=filler_constant, optional_params=[tb_param])
+out = Conv(out, name='conv6', conv_type=conv_type, num_output=512,
+           bias_term=True, kernel_size=3, stride=1, pad=1,
+           weight_filler=filler_xavier, bias_filler=filler_constant,
+           optional_params=[tb_param])
 out = BN(out, name='bn_act6')
 out = Activation(out, name='act6', method=activation_method)
 out = Pool(out, name='pool3')
 
 out = BN(out, name='bn7')
-out = FC(out, name='fc7', fc_type=fc_type, num_output=1024, bias_term=True, weight_filler=filler_xavier,
+out = FC(out, name='fc7', fc_type=fc_type, num_output=1024, bias_term=True,
+         weight_filler=filler_xavier,
          bias_filler=filler_constant, optional_params=[tb_param])
 out = BN(out, name='bn_act7')
 out = Activation(out, name='act7', method=activation_method)
 out = BN(out, name='bn8')
-out = FC(out, name='fc8', fc_type=fc_type, num_output=1024, bias_term=True, weight_filler=filler_xavier,
+out = FC(out, name='fc8', fc_type=fc_type, num_output=1024, bias_term=True,
+         weight_filler=filler_xavier,
          bias_filler=filler_constant, optional_params=[tb_param])
 out = BN(out, name='bn_act8')
 out = Activation(out, name='act8', method=activation_method)

@@ -15,6 +15,8 @@ void TBConvolutionLayer<Dtype>::LayerSetUp_more() {
   K_ = this->kernel_dim_;
   weight_.Reshape({M_, K_});
   weight_s_.Reshape({M_});
+  sum_multiplier_.Reshape({K_});
+  caffe_set(K_, Dtype(1), sum_multiplier_.mutable_cpu_data());
   full_train_ = this->layer_param_.tb_param().full_train();
   use_bias_   = this->layer_param_.tb_param().use_bias();
   is_w_bin_   = this->layer_param_.tb_param().w_binary();
@@ -208,9 +210,9 @@ void TBConvolutionLayer<Dtype>::Backward_cpu(
     const vector<Blob<Dtype> *> &bottom) {
   Dtype *weight_diff = this->blobs_[0]->mutable_cpu_diff();
   for (int i = 0; i < top.size(); ++i) {
-    const Dtype *top_diff    = top[i]->cpu_diff();
-    Dtype *      bottom_data = bottom[i]->mutable_cpu_data();
-    Dtype *      bottom_diff = bottom[i]->mutable_cpu_diff();
+    const Dtype *top_diff = top[i]->cpu_diff();
+    Dtype *bottom_data    = bottom[i]->mutable_cpu_data();
+    Dtype *bottom_diff    = bottom[i]->mutable_cpu_diff();
     // Bias gradient, if necessary.
     if (this->bias_term_ && this->param_propagate_down_[1]) {
       Dtype *bias_diff = this->blobs_[1]->mutable_cpu_diff();

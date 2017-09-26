@@ -20,10 +20,9 @@ void XnorNetInnerProductLayer<Dtype>::Forward_gpu(
   Dtype *weight_data = this->blobs_[0]->mutable_gpu_data();
 
   // mean cetner params
-  caffe_gpu_gemm<Dtype>(
-      CblasNoTrans, CblasNoTrans, 1, N_, K_, Dtype(1),
-      sum_multiplier_.gpu_data(), weight_data, Dtype(0), w_bias_);
-  caffe_gpu_scal<Dtype>(N_, -1. / K_, w_bias_);
+  caffe_gpu_gemv<Dtype>(
+      CblasTrans, K_, N_, Dtype(-1. / K_), weight_data,
+      sum_multiplier_.gpu_data(), Dtype(0), w_bias_);
   caffe_gpu_gemm<Dtype>(
       CblasNoTrans, CblasNoTrans, K_, N_, 1, Dtype(1),
       sum_multiplier_.gpu_data(), w_bias_, Dtype(1), weight_data);
