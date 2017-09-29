@@ -5,7 +5,6 @@ import os
 name = "tb"
 batch_size = 128
 resnet_nums = [3, 4, 6, 3]  # resnet-50
-fc_type = "TBInnerProduct"
 conv_type = "TBConvolution"
 tb_param = Parameter('tb_param')
 tb_param.add_param_if('full_train', True)

@@ -23,13 +23,8 @@ void TBConvolutionLayer<Dtype>::LayerSetUp_more() {
   is_in_bin_  = this->layer_param_.tb_param().in_binary();
   clip_       = this->layer_param_.tb_param().clip();
   reg_        = this->layer_param_.tb_param().reg();
-  shuffle_    = this->layer_param_.tb_param().shuffle() && (this->group_ > 1);
   have_reg_   = (is_w_bin_ || is_in_bin_) && abs(reg_) < 1e-10;
 
-  if (shuffle_) {
-    CHECK(M_ / this->group_ % this->group_ == 0)
-        << "channel must be the times of group^2";
-  }
   LOG(INFO) << "\033[30;47m conv weight: " << (is_w_bin_ ? "binary" : "ternary")
             << "; input: " << (is_in_bin_ ? "binary" : "ternary")
             << "; bias: " << (use_bias_ ? "YES" : "NO") << "; clip: " << clip_
@@ -42,9 +37,6 @@ void TBConvolutionLayer<Dtype>::Reshape_more() {
   in_.Reshape({K_ * this->group_, N_});
   in_s_.Reshape({N_ * this->group_});
   delta_.Reshape({max(M_, N_ * this->group_)});
-  if (shuffle_) {
-    shuffle_aux_.Reshape({this->output_offset_ / this->group_});
-  }
 }
 
 template <typename Dtype>

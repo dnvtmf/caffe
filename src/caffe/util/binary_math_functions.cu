@@ -131,24 +131,6 @@ __global__ void binary_approx_kernel_0(
   volatile __shared__ Dtype temp[CAFFE_CUDA_NUM_THREADS - WARP_SIZE];
   Dtype val;
   if (use_bias) {
-    /*
-    // bias[i] = \frac{1}{N} \sum_{j=0}^{N-1}{in[i * N + j}
-    val = 0;
-    for (int j = id; j < N; j += blockDim.x) val += in[i * N + j];
-    if (id >= WARP_SIZE) temp[id - WARP_SIZE] = val;
-    __syncthreads();
-    if (id < WARP_SIZE) {
-#pragma unroll
-      for (int k = id; k < (CAFFE_CUDA_NUM_THREADS - WARP_SIZE); k += WARP_SIZE)
-        val += temp[k];
-      temp[id] = val;
-    }
-    if (id == 0) {
-      for (int k = 1; k < WARP_SIZE; ++k) val += temp[k];
-      bias[i]    = val / Dtype(N);
-    }
-    __syncthreads();
-    */
     // in[i * N + j] -= bias[i];
     for (int j = id; j < N; j += blockDim.x) in[i * N + j] -= bias[i];
   }
@@ -189,23 +171,6 @@ __global__ void binary_approx_kernel_1(
   volatile __shared__ Dtype temp[CAFFE_CUDA_NUM_THREADS - WARP_SIZE];
   Dtype val;
   if (use_bias) {
-    /*
-    val = 0;
-    for (int i = id; i < M; i += blockDim.x) val += in[i * N + j];
-    if (id >= WARP_SIZE) temp[id - WARP_SIZE] = val;
-    __syncthreads();
-    if (id < WARP_SIZE) {
-#pragma unroll
-      for (int k = id; k < (CAFFE_CUDA_NUM_THREADS - WARP_SIZE); k += WARP_SIZE)
-        val += temp[k];
-      temp[id] = val;
-    }
-    if (id == 0) {
-      for (int k = 1; k < WARP_SIZE; ++k) val += temp[k];
-      bias[j]    = val / Dtype(M);
-    }
-    __syncthreads();
-    */
     for (int i = id; i < M; i += blockDim.x) in[i * N + j] -= bias[j];
   }
   val = 0;
@@ -256,23 +221,6 @@ __global__ void ternary_approx_kernel_0(
   volatile __shared__ Dtype temp2[CAFFE_CUDA_NUM_THREADS - WARP_SIZE];
   Dtype val, val2;
   if (use_bias) {
-    /*
-    val = 0;
-    for (int j = id; j < N; j += blockDim.x) val += in[i * N + j];
-    if (id >= WARP_SIZE) temp[id - WARP_SIZE] = val;
-    __syncthreads();
-    if (id < WARP_SIZE) {
-#pragma unroll
-      for (int k = id; k < (CAFFE_CUDA_NUM_THREADS - WARP_SIZE); k += WARP_SIZE)
-        val += temp[k];
-      temp[id] = val;
-    }
-    if (id == 0) {
-      for (int k = 1; k < WARP_SIZE; ++k) val += temp[k];
-      bias[i]    = val / Dtype(N);
-    }
-    __syncthreads();
-    */
     for (int j = id; j < N; j += blockDim.x) in[i * N + j] -= bias[i];
   }
   // delta[i]
@@ -336,23 +284,6 @@ __global__ void ternary_approx_kernel_1(
   volatile __shared__ Dtype temp2[CAFFE_CUDA_NUM_THREADS - WARP_SIZE];
   Dtype val, val2;
   if (use_bias) {
-    /*
-    val = 0;
-    for (int i = id; i < M; i += blockDim.x) val += in[i * N + j];
-    if (id >= WARP_SIZE) temp[id - WARP_SIZE] = val;
-    __syncthreads();
-    if (id < WARP_SIZE) {
-#pragma unroll
-      for (int k = id; k < (CAFFE_CUDA_NUM_THREADS - WARP_SIZE); k += WARP_SIZE)
-        val += temp[k];
-      temp[id] = val;
-    }
-    if (id == 0) {
-      for (int k = 1; k < WARP_SIZE; ++k) val += temp[k];
-      bias[j]    = val / Dtype(M);
-    }
-    __syncthreads();
-    */
     for (int i = id; i < M; i += blockDim.x) in[i * N + j] -= bias[j];
   }
   // delta
@@ -418,6 +349,38 @@ void caffe_gpu_ternary_approx(
         M, N, use_bias, in, out, scale, bias, delta);
   }
 }
+
+template <typename Dtype>
+__global__ void mean_center_kernel(
+    const int c_out, const int c_in, const int wh, Dtype *in) {
+  const int i = blockIdx.x * blockDim.x + threadIdx.x;
+  const int x = i / wh;
+  const int y = i % wh;
+  if (x >= c_out) return;
+  Dtype mean  = 0;
+  Dtype *p_in = in + x * c_in * wh + y;
+  for (int i = 0; i < c_in; ++i, p_in += wh) mean += *p_in;
+  mean /= c_in;
+  p_in = in + x * c_in * wh + y;
+  for (int i = 0; i < c_in; ++i, p_in += wh) *p_in -= mean;
+}
+
+template <typename Dtype>
+void mean_center(const int c_out, const int c_in, const int wh, Dtype *in) {
+  mean_center_kernel<Dtype>
+      <<<CAFFE_GET_BLOCKS(c_out * wh), CAFFE_CUDA_NUM_THREADS>>>(
+          c_out, c_in, wh, in);
+}
+
+template <>
+void caffe_gpu_swap<float>(const int N, float *X, float *Y) {
+  CUBLAS_CHECK(cublasSswap(Caffe::cublas_handle(), N, X, 1, Y, 1));
+}
+
+template <>
+void caffe_gpu_swap<double>(const int N, double *X, double *Y) {
+  CUBLAS_CHECK(cublasDswap(Caffe::cublas_handle(), N, X, 1, Y, 1));
+}
 #define INSTANTIATE_BINARY_MATH(Dtype)                                      \
   template void caffe_gpu_binary_gradient<Dtype>(                           \
       const int axis, const int M, const int N, bool use_bias,              \
@@ -437,7 +400,9 @@ void caffe_gpu_ternary_approx(
                                                                             \
   template void caffe_gpu_ternary_approx<Dtype>(                            \
       const int axis, const int M, const int N, bool use_bias, Dtype *in,   \
-      Dtype *out, Dtype *scale, Dtype *bias, Dtype *delta);
+      Dtype *out, Dtype *scale, Dtype *bias, Dtype *delta);                 \
+  template void mean_center<Dtype>(                                         \
+      const int c_out, const int c_in, const int wh, Dtype *in)
 
 INSTANTIATE_BINARY_MATH(float);
 INSTANTIATE_BINARY_MATH(double);

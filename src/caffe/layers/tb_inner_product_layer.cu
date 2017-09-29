@@ -21,7 +21,7 @@ void TBInnerProductLayer<Dtype>::Forward_gpu(
   Dtype *top_data    = top[0]->mutable_gpu_data();
 
   if (clip_ & 1) {
-    Dtype value = sqrt(6. / (K_ + N_));
+    Dtype value = sqrt(3. / K_);
     caffe_gpu_clip<Dtype>(
         K_ * N_, -value, value, this->blobs_[0]->mutable_gpu_data());
   }
@@ -29,12 +29,14 @@ void TBInnerProductLayer<Dtype>::Forward_gpu(
     caffe_gpu_clip<Dtype>(M_ * K_, -1., 1., bottom[0]->mutable_gpu_data());
   }
   // -bias
-  caffe_gpu_gemv<Dtype>(
-      CblasTrans, K_, N_, -1. / K_, weight_data, sum_multiplier_.gpu_data(), 0.,
-      w_bias_);
-  caffe_gpu_gemv<Dtype>(
-      CblasNoTrans, M_, K_, -1. / K_, bottom_data, sum_multiplier_.gpu_data(),
-      0., in_bias_);
+  if (use_bias_) {
+    caffe_gpu_gemv<Dtype>(
+        CblasTrans, K_, N_, -1. / K_, weight_data, sum_multiplier_.gpu_data(),
+        0., w_bias_);
+    caffe_gpu_gemv<Dtype>(
+        CblasNoTrans, M_, K_, -1. / K_, bottom_data, sum_multiplier_.gpu_data(),
+        0., in_bias_);
+  }
   // binary or ternary the weight
   if (is_w_bin_) {
     caffe_gpu_binary_approx<Dtype>(

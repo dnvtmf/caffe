@@ -14,7 +14,8 @@ echo "Usage parse_log.sh /path/to/your.log"
 exit
 fi
 LOG=`basename $1`
-sed -n '/Iteration .* Testing net/,/Iteration *. loss/p' $1 > aux.txt
+cat $1 | grep -e '\bsolver.cpp' | \
+  sed -n '/Iteration .* Testing net/,/Iteration *. loss/p' > aux.txt
 sed -i '/Waiting for data/d' aux.txt
 sed -i '/prefetch queue empty/d' aux.txt
 sed -i '/Iteration .* loss/d' aux.txt

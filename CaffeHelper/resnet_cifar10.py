@@ -2,21 +2,27 @@ from caffe_user import *
 import os
 
 # ----- Configuration -----
-name = "resnet_XnorNet"
+name = "tb"
 batch_size = 128
 resnet_n = 3
-fc_type = "TBInnerProduct"
-conv_type = "TBConvolution"
-tb_param = Parameter('tb_param')
-tb_param.add_param_if('full_train', True)
-tb_param.add_param_if('use_bias', False)
-tb_param.add_param_if('w_binary', True)
-tb_param.add_param_if('in_binary', True)
-tb_param.add_param_if('clip', 0)
-tb_param.add_param_if('reg', 0.)
 activation_method = "ReLU"
-filler_xavier = Filler('xavier')
-filler_constant = Filler('constant')
+filler_weight = Filler('msra')
+filler_bias = Filler('constant')
+
+other_param = None
+if name == 'full':
+    conv_type = "Convolution"
+elif name == 'tb':
+    tb_param = Parameter('tb_param')
+    tb_param.add_param_if('use_bias', False)
+    tb_param.add_param_if('w_binary', True)
+    tb_param.add_param_if('in_binary', False)
+    tb_param.add_param_if('clip', 0)
+    tb_param.add_param_if('reg', 0.)
+    other_param = [tb_param]
+    conv_type = "TBConvolution"
+else:
+    conv_type = 'XnorNetConvolution'
 
 # ---------- solver ----
 solver = Solver().net('./model.prototxt').GPU()
@@ -40,29 +46,34 @@ out = [data]
 label = [label]
 
 out = Conv(out, name='conv1', num_output=16, kernel_size=3, stride=1, pad=1,
-           weight_filler=filler_xavier)
-out = BN(out, name='bn_act1')
+           weight_filler=filler_weight, bias_term=False)
+out = BN(out, name='bn_act1', bias_term=True)
 out = Activation(out, name='act1', method=activation_method)
 
 
 def block(out_, num_output, stride=1):
     out_ = BN(out_, name='bn1')
     x = out_
+
     out_ = Conv(out_, name='conv1', conv_type=conv_type, num_output=num_output,
-                kernel_size=3, stride=stride, pad=1,
-                weight_filler=filler_xavier, optional_params=[tb_param])
-    out_ = BN(out_, name='conv1_bn')
+                kernel_size=3, stride=stride, pad=1, bias_term=False,
+                weight_filler=filler_weight, optional_params=other_param)
+    out_ = BN(out_, name='conv1_bn', bias_term=True)
     out_ = Activation(out_, name='conv1_relu', method=activation_method)
+
     out_ = BN(out_, name='bn2')
     out_ = Conv(out_, name='conv2', conv_type=conv_type, num_output=num_output,
-                kernel_size=3, stride=1, pad=1,
-                weight_filler=filler_xavier, optional_params=[tb_param])
-    out_ = BN(out_, name='conv2_bn')
+                kernel_size=3, stride=1, pad=1, bias_term=False,
+                weight_filler=filler_weight, optional_params=other_param)
+    out_ = BN(out_, name='conv2_bn', bias_term=True)
+
     if stride != 1:
-        x = Conv(x, name='conv_shortcut', conv_type=conv_type,
+        x = Conv(x, name='conv_shortcut', conv_type=conv_type, bias_term=False,
                  num_output=num_output, kernel_size=1, stride=stride,
-                 pad=0, weight_filler=filler_xavier, optional_params=[tb_param])
-        x = BN(x, name='conv_shortcut_bn')
+                 pad=0, weight_filler=filler_weight,
+                 optional_params=other_param)
+        x = BN(x, name='conv_shortcut_bn', bias_term=True)
+
     out_ = Eltwise(out_ + x, name='add')
     out_ = Activation(out_, name='relu', method=activation_method)
     return out_
@@ -87,13 +98,13 @@ with NameScope('res3'):
 with NameScope('res4'):
     out = stack(out, 64, resnet_n, add_stride=1)
 
-out = Pool(out, name='avg_pool', method=1, global_pooling=True, stride=None,
-           kernel_size=None)
-out = FC(out, name='fc', num_output=10, weight_filler=filler_xavier,
-         bias_filler=filler_constant)
+out = Pool(out, name='avg_pool', method=Net.AveragePool, global_pooling=True,
+           stride=None, kernel_size=None)
+out = FC(out, name='fc', num_output=10, weight_filler=filler_weight,
+         bias_filler=filler_bias)
 accuracy = Accuracy(out + label)
 # loss = HingeLoss(out + label, norm=2)
 loss = SoftmaxWithLoss(out + label)
 
-model_dir = os.path.join(os.getenv('HOME'), 'cifar10/' + name)
+model_dir = os.path.join(os.getenv('HOME'), 'cifar10/resnet' + name)
 gen_model(model_dir, solver, [0, 2, 4, 6])

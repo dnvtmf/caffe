@@ -85,7 +85,6 @@ class TBConvolutionLayer : public BaseConvolutionLayer<Dtype> {
  private:
   Blob<Dtype> in_, weight_;
   Blob<Dtype> in_s_, weight_s_, delta_;
-  Blob<Dtype> shuffle_aux_;
   Blob<Dtype> sum_multiplier_;
 
   Dtype *w_scale_, *w_bias_, *w_delta_;
@@ -96,7 +95,6 @@ class TBConvolutionLayer : public BaseConvolutionLayer<Dtype> {
   bool use_bias_;
   bool is_w_bin_, is_in_bin_;
   bool have_reg_;
-  bool shuffle_;
   int clip_;
   Dtype reg_;
 };
