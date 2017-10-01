@@ -12,8 +12,10 @@ bias_filler = Filler('constant')
 #    Parameter('param').add_param('lr_mult', 1).add_param('decay_mult', 1),
 #    Parameter('param').add_param('lr_mult', 2).add_param('decay_mult', 0)]
 other_param = []
+weight_decay = 0
 if name == 'full':
     conv_type = "Convolution"
+    weight_decay = 5e-4
 elif name == 'tb':
     tb_param = Parameter('tb_param')
     tb_param.add_param_if('use_bias', False)
@@ -27,16 +29,13 @@ else:
     conv_type = 'XnorNetConvolution'
 
 # ---------- solver ----
-nEpochs = 50  # Number of total epochs to run
-epochSize = 2500  # Number of batches per epoch
-max_iter = nEpochs * epochSize
 solver = Solver().net('./model.prototxt').GPU()
 solver.test(test_iter=1000, test_interval=1000, test_initialization=False)
-solver.train(base_lr=0.001, lr_policy='step', gamma=0.333, stepsize=max_iter / 5,
-             max_iter=max_iter, weight_decay=0.0005)
-solver.optimizer(type='Adam')
+solver.train(base_lr=0.01, lr_policy='step', gamma=0.1, stepsize=100000,
+             max_iter=460000, weight_decay=weight_decay)
+solver.optimizer(type='SGD', momentum=0.9)
 solver.display(display=20, average_loss=20)
-solver.snapshot(snapshot=epochSize, snapshot_prefix=name)
+solver.snapshot(snapshot=10000, snapshot_prefix=name)
 
 # --------- Network ----------
 Net("ImageNet_" + name)

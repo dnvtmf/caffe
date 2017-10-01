@@ -10,8 +10,10 @@ filler_weight = Filler('msra')
 filler_bias = Filler('constant')
 
 other_param = None
+weight_decay = 0
 if name == 'full':
     conv_type = "Convolution"
+    weight_decay = 1e-4
 elif name == 'tb':
     tb_param = Parameter('tb_param')
     tb_param.add_param_if('use_bias', False)
@@ -26,22 +28,27 @@ else:
 
 # ---------- solver ----
 solver = Solver().net('./model.prototxt').GPU()
-solver.test(test_iter=100, test_interval=1000, test_initialization=True)
-solver.train(base_lr=0.1, lr_policy='multistep', stepvalue=[32000, 48000],
-             gamma=0.1, max_iter=64000, weight_decay=1e-4)
-solver.optimizer(type='SGD', momentum=0.9)
+solver.test(test_iter=100, test_interval=1000, test_initialization=False)
+solver.train(base_lr=0.01, lr_policy='multistep', stepvalue=[32000, 48000],
+             gamma=0.1, max_iter=64000, weight_decay=weight_decay)
+solver.optimizer(type='Adam')
 solver.display(display=200, average_loss=200)
 solver.snapshot(snapshot=10000, snapshot_prefix=name)
 
 # --------- Network ----------
 Net("cifar10_" + name)
-data, label = Data([], phase=TRAIN, source="../cifar10_train_lmdb",
-                   batch_size=batch_size, backend=Net.LMDB,
+data, label = Data([],
+                   phase=TRAIN,
+                   source="../../cifar10_train_lmdb",
+                   batch_size=batch_size,
+                   backend=Net.LMDB,
                    optional_params=[
-                       Transform(mean_file="../mean.binaryproto", mirror=True)])
-Data([], phase=TEST, source="../cifar10_test_lmdb", batch_size=100,
+                       Transform(mean_file="../../mean.binaryproto")])
+Data([], phase=TEST,
+     source="../../cifar10_test_lmdb",
+     batch_size=100,
      backend=Net.LMDB,
-     optional_params=[Transform(mean_file="../mean.binaryproto")])
+     optional_params=[Transform(mean_file="../../mean.binaryproto")])
 out = [data]
 label = [label]
 
@@ -106,5 +113,5 @@ accuracy = Accuracy(out + label)
 # loss = HingeLoss(out + label, norm=2)
 loss = SoftmaxWithLoss(out + label)
 
-model_dir = os.path.join(os.getenv('HOME'), 'cifar10/resnet' + name)
+model_dir = os.path.join(os.getenv('HOME'), 'cifar10/resnet/' + name)
 gen_model(model_dir, solver, [0, 2, 4, 6])
