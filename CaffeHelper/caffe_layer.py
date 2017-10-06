@@ -207,8 +207,11 @@ def Accuracy(data_in, name="accuracy", top_k=None, axis=None, ignore_label=None,
     return data_out
 
 
-def Activation(data_in, name="act", method="ReLU", optional_params=None):
-    data_out = [Blob(name)]
+def Activation(data_in, name="act", method="ReLU", inplace=False, optional_params=None):
+    if inplace:
+        data_out = [data_in[0]]
+    else:
+        data_out = [Blob(name)]
     assert len(data_in) == 1
     param = Layer(name, method, data_in, data_out, optional_params)
     _caffe_net.write_to_proto(param)
@@ -329,7 +332,7 @@ def Filler(filler_type=None, value=None, min_=None, max_=None, mean=None,
     return param
 
 
-def BatchNorm(data_in, name="bn", use_global_stats=None,
+def BatchNorm(data_in, name="bn", use_global_stats=None, inplace=False,
               moving_average_fraction=None, eps=None, optional_params=None):
     """
     message BatchNormParameter {
@@ -354,8 +357,16 @@ def BatchNorm(data_in, name="bn", use_global_stats=None,
         optional float eps = 3 [default = 1e-5];
     }
     """
-    data_out = [Blob(name)]
+    if inplace:
+        data_out = [data_in[0]]
+    else:
+        data_out = [Blob(name)]
     assert len(data_in) == 1
+    if optional_params is None:
+        optional_params=[]
+    optional_params.append(Parameter('param').add_param('lr_mult', 0))
+    optional_params.append(Parameter('param').add_param('lr_mult', 0))
+    optional_params.append(Parameter('param').add_param('lr_mult', 0))
     param = Layer(name, "BatchNorm", data_in, data_out, optional_params)
     bn_param = Parameter("batch_norm_param")
     bn_param.add_param_if("use_global_stats", use_global_stats)
@@ -367,7 +378,7 @@ def BatchNorm(data_in, name="bn", use_global_stats=None,
 
 
 def Scale(data_in, name="scale", axis=None, num_axes=None, filler=None,
-          bias_term=None, bias_filler=None,
+          bias_term=None, bias_filler=None, inplace=False,
           optional_params=None):
     """
     :param name:
@@ -407,7 +418,10 @@ def Scale(data_in, name="scale", axis=None, num_axes=None, filler=None,
     :param bias_filler: FillerParameter
     :param optional_params:
     """
-    data_out = [Blob(name)]
+    if inplace:
+        data_out = [data_in[0]]
+    else:
+        data_out = [Blob(name)]
     assert len(data_in) == 1
     param = Layer(name, "Scale", data_in, data_out, optional_params)
     scale_param = Parameter('scale_param')

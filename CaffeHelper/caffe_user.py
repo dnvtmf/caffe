@@ -5,11 +5,12 @@ import time
 
 
 def BN(data_in, name="BatchNorm", use_global_stats=None, moving_average_fraction=None, eps=None, axis=None,
-       num_axes=None, filler=None, bias_term=None, bias_filler=None):
+       num_axes=None, filler=None, bias_term=None, bias_filler=None, inplace=False):
     with NameScope(name):
         bn = BatchNorm(data_in, use_global_stats=use_global_stats, moving_average_fraction=moving_average_fraction,
-                       eps=eps)
-        scale = Scale(bn, axis=axis, num_axes=num_axes, filler=filler, bias_term=bias_term, bias_filler=bias_filler)
+                       eps=eps, inplace=inplace)
+        scale = Scale(bn, axis=axis, num_axes=num_axes, filler=filler, bias_term=bias_term, bias_filler=bias_filler,
+                inplace=inplace)
     return scale
 
 
@@ -40,7 +41,7 @@ def gen_model(model_dir, solver, log=None):
     sh_content += "LOG=my.log\n"
     sh_content += 'export MPLBACKEND="agg"\n'
     sh_content += "CAFFE=~/caffe\n"
-    sh_content += "$CAFFE/build/tools/caffe train --solver solver.prototxt 2>&1 | tee $LOG\n"
+    sh_content += "$CAFFE/build/tools/caffe train --solver solver.prototxt $@ 2>&1 | tee $LOG\n"
     sh_content += "\n"
     sh_content += "python $CAFFE/tools/extra/parse_log.py $LOG .\n"
     if log is not None:

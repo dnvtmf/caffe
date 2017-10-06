@@ -2,15 +2,13 @@ from caffe_user import *
 import os
 
 # ----- Configuration -----
-name = "tb"
+name = "XnorNet"
 batch_size = 128
+data_dir = os.path.join(os.getenv('HOME'), 'data/ilsvrc12/')
 activation_method = "ReLU"
 weight_filler = Filler('msra')
 bias_filler = Filler('constant')
 
-# other_param = [
-#    Parameter('param').add_param('lr_mult', 1).add_param('decay_mult', 1),
-#    Parameter('param').add_param('lr_mult', 2).add_param('decay_mult', 0)]
 other_param = []
 weight_decay = 0
 if name == 'full':
@@ -40,24 +38,24 @@ solver.snapshot(snapshot=10000, snapshot_prefix=name)
 # --------- Network ----------
 Net("ImageNet_" + name)
 data, label = Data([], phase=TRAIN,
-                   source="/home/wandiwen/data/ilsvrc12/ilsvrc12_train_lmdb",
+                   source=os.path.join(data_dir, "ilsvrc12_train_lmdb"),
                    batch_size=batch_size,
                    backend=Net.LMDB, optional_params=[
         Transform(
-            mean_file="/home/wandiwen/data/ilsvrc12/ilsvrc12_mean.binaryproto",
+            mean_file=os.path.join(data_dir, "ilsvrc12_mean.binaryproto"),
             crop_size=227, mirror=True)])
-Data([], phase=TEST, source="/home/wandiwen/data/ilsvrc12/ilsvrc12_val_lmdb",
+Data([], phase=TEST, source=os.path.join(data_dir, "ilsvrc12_val_lmdb"),
      batch_size=50, backend=Net.LMDB,
      optional_params=[
          Transform(
-             mean_file="/home/wandiwen/data/ilsvrc12/ilsvrc12_mean.binaryproto",
+             mean_file=os.path.join(data_dir, "ilsvrc12_mean.binaryproto"),
              mirror=False, crop_size=227)])
 out = [data]
 label = [label]
 
 out = Conv(out, name='conv1', num_output=96, bias_term=True, kernel_size=11,
            stride=4, weight_filler=weight_filler, bias_filler=bias_filler,
-           optional_params=other_param)
+           optional_params=None)
 out = BN(out, name='acn_bn1', eps=1e-5)
 out = Activation(out, name='act1', method=activation_method)
 out = Pool(out, name='pool1', method=Net.MaxPool, kernel_size=3, stride=2)

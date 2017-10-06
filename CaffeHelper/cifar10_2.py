@@ -2,16 +2,22 @@ from caffe_user import *
 import os
 
 # ----- Configuration -----
-name = "tb"
+name = "full"
 num_epoch = 60
-batch_size = 50
+batch_size = 100
+train_iter = 50000 / batch_size
+test_iter = 10000 / batch_size
+max_iter = num_epoch * train_iter
+data_dir = os.path.join(os.getenv('HOME'), 'data/cifar10')
 activation_method = "Sigmoid"
 weight_filler = Filler('xavier')
 filler_constant = Filler('constant')
 
 other_param = None
+weight_decay = None
 if name == 'full':
     conv_type = "Convolution"
+    weight_decay = 1e-5
 elif name == 'tb':
     tb_param = Parameter('tb_param')
     tb_param.add_param_if('use_bias', False)
@@ -26,32 +32,33 @@ else:
 
 # ---------- solver ----
 solver = Solver().net('./model.prototxt').GPU()
-solver.test(test_iter=100, test_interval=1000, test_initialization=False)
-num_iter = num_epoch * 50000 / batch_size
-solver.train(base_lr=0.01, lr_policy='step', stepsize=num_iter / 3, gamma=0.1,
-             max_iter=num_iter, weight_decay=None)
-solver.optimizer(type='Adam')
+solver.test(test_iter=test_iter, test_interval=train_iter,
+            test_initialization=False)
+solver.train(base_lr=0.01, lr_policy='step', stepsize=max_iter / 3, gamma=0.1,
+             max_iter=max_iter, weight_decay=weight_decay)
+solver.optimizer(type='SGD', momentum=0.9)
 solver.display(display=200, average_loss=200)
-solver.snapshot(snapshot=5000, snapshot_prefix=name)
+solver.snapshot(snapshot=10 * train_iter, snapshot_prefix=name)
 
 # --------- Network ----------
 # 32C5 - sigmoid - MaxPool3 - LRN - 32C5 - sigmoid - MaxPool3 - LRN
 #  - 64C5 - sigmoid - AvePool3 - 10FC - Softmax
 Net("cifar10_" + name)
-data, label = Data([], phase=TRAIN, source="../../cifar10_train_lmdb",
-                   batch_size=batch_size, backend=Net.LMDB,
-                   optional_params=[
-                       Transform(mean_file="../../mean.binaryproto")])
-Data([], phase=TEST, source="../../cifar10_test_lmdb", batch_size=batch_size,
-     backend=Net.LMDB,
-     optional_params=[Transform(mean_file="../../mean.binaryproto")])
+train_dir = os.path.join(data_dir, 'train')
+test_dir = os.path.join(data_dir, 'test')
+mean_file = os.path.join(data_dir, 'mean.binaryproto')
+data, label = \
+    Data([], phase=TRAIN, source=train_dir, batch_size=batch_size,
+         backend=Net.LMDB,
+         optional_params=[Transform(mean_file=mean_file)])
+Data([], phase=TEST, source=test_dir, batch_size=batch_size, backend=Net.LMDB,
+     optional_params=[Transform(mean_file=mean_file)])
 out = [data]
 label = [label]
 
 out = BN(out, name='bn1')
 out = Conv(out, name='conv1', num_output=32, bias_term=False, kernel_size=3,
-           stride=1, pad=1,
-           weight_filler=weight_filler)
+           stride=1, pad=1, weight_filler=weight_filler)
 out = BN(out, name='bn_act1', bias_term=True)
 out = Activation(out, name='act1', method=activation_method)
 out = Pool(out, name='pool1', method=Net.MaxPool, kernel_size=3)
