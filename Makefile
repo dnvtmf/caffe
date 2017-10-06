@@ -319,7 +319,7 @@ ifeq ($(DEBUG), 1)
 	COMMON_FLAGS += -DDEBUG -g -O0
 	NVCCFLAGS += -G
 else
-	COMMON_FLAGS += -DNDEBUG -O2
+	COMMON_FLAGS += -DNDEBUG -O3
 endif
 
 # cuDNN acceleration configuration.
@@ -453,6 +453,13 @@ endif
 	superclean supercleanlist supercleanfiles warn everything
 
 all: lib tools examples
+	@echo CXXFLAGS
+	@echo $(CXXFLAGS)
+	@echo LDFLAGS 
+	@echo $(LDFLAGS)
+	@echo LINKFLAGS
+	@echo $(LINKFLAGS)
+	
 
 lib: $(STATIC_NAME) $(DYNAMIC_NAME)
 

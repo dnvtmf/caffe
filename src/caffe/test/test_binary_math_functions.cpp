@@ -7,6 +7,7 @@
 #include "caffe/util/math_functions.hpp"
 using namespace std;
 namespace caffe {
+#ifndef CPU_ONLY
 template <typename Dtype>
 class BinaryMathFunctionsTest : public ::testing::Test {
  private:
@@ -150,4 +151,5 @@ TYPED_TEST(BinaryMathFunctionsTest, TernaryBias) {
   this->ternary(M, N, 0, true);
   this->ternary(M, N, 1, true);
 }
-}
+#endif  // CPU_ONLY
+}  // namespace caffe
