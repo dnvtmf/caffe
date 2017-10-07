@@ -4,7 +4,7 @@ import os
 # ----- Configuration -----
 name = "XnorNet"
 batch_size = 128
-data_dir = os.path.join(os.getenv('HOME'), 'data/ilsvrc12/')
+images = ImageNet(batch_size)
 activation_method = "ReLU"
 weight_filler = Filler('msra')
 bias_filler = Filler('constant')
@@ -28,7 +28,8 @@ else:
 
 # ---------- solver ----
 solver = Solver().net('./model.prototxt').GPU()
-solver.test(test_iter=1000, test_interval=1000, test_initialization=False)
+solver.test(test_iter=images.num_test / batch_size, test_interval=1000,
+            test_initialization=False)
 solver.train(base_lr=0.1, lr_policy='step', gamma=0.1, stepsize=100000,
              max_iter=460000, weight_decay=weight_decay)
 solver.optimizer(type='SGD', momentum=0.9)
@@ -37,21 +38,7 @@ solver.snapshot(snapshot=10000, snapshot_prefix=name)
 
 # --------- Network ----------
 Net("ImageNet_" + name)
-data, label = Data([], phase=TRAIN,
-                   source=os.path.join(data_dir, "ilsvrc12_train_lmdb"),
-                   batch_size=batch_size,
-                   backend=Net.LMDB, optional_params=[
-        Transform(
-            mean_file=os.path.join(data_dir, "ilsvrc12_mean.binaryproto"),
-            crop_size=227, mirror=True)])
-Data([], phase=TEST, source=os.path.join(data_dir, "ilsvrc12_val_lmdb"),
-     batch_size=50, backend=Net.LMDB,
-     optional_params=[
-         Transform(
-             mean_file=os.path.join(data_dir, "ilsvrc12_mean.binaryproto"),
-             mirror=False, crop_size=227)])
-out = [data]
-label = [label]
+out, label = images.data(cs=227)
 
 out = Conv(out, name='conv1', num_output=96, bias_term=True, kernel_size=11,
            stride=4, weight_filler=weight_filler, bias_filler=bias_filler,

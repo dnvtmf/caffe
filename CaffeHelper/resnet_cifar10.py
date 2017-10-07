@@ -2,10 +2,10 @@ from caffe_user import *
 import os
 
 # ----- Configuration -----
-data_dir = os.path.join(os.getenv('HOME'), 'data/cifar-10-batches-py/')
 name = "tb"
 batch_size = 128
 resnet_n = 3
+cifar10 = CIFAR_10(batch_size)
 activation_method = "ReLU"
 filler_weight = Filler('msra')
 filler_bias = Filler('constant')
@@ -38,22 +38,7 @@ solver.snapshot(snapshot=10000, snapshot_prefix=name)
 
 # --------- Network ----------
 Net("cifar10_" + name)
-data, label = Data([],
-                   phase=TRAIN,
-                   source=os.path.join(data_dir, 'train'),
-                   batch_size=batch_size,
-                   backend=Net.LMDB,
-                   optional_params=[
-                       Transform(scale=0.0078125, mirror=True, crop_size=32,
-                                 mean_value=128)])
-Data([], phase=TEST,
-     source=os.path.join(data_dir, 'test'),
-     batch_size=batch_size,
-     backend=Net.LMDB,
-     optional_params=[Transform(scale=0.0078125, mean_value=128)])
-out = [data]
-label = [label]
-
+out, label = cifar10.data()
 out = Conv(out, name='conv1', num_output=16, kernel_size=3, stride=1, pad=1,
            weight_filler=filler_weight, bias_term=True)
 

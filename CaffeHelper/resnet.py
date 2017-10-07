@@ -4,6 +4,7 @@ import os
 # ----- Configuration -----
 name = "full"
 batch_size = 128
+images = ImageNet(batch_size)
 resnet_nums = [3, 4, 6, 3]  # resnet-50
 fc_type = "InnerProduct"
 conv_type = "Convolution"
@@ -26,20 +27,7 @@ solver.snapshot(snapshot=40000, snapshot_prefix=name)
 
 # --------- Network ----------
 Net("ImageNet_" + name)
-data_dir = "/home/wandiwen/data/ilsvrc12/"
-data, label = \
-    Data([], phase=TRAIN, source=data_dir + "ilsvrc12_train_lmdb",
-         batch_size=batch_size, backend=Net.LMDB,
-         optional_params=[
-             Transform(mean_file=data_dir + "ilsvrc12_mean.binaryproto",
-                       crop_size=224, mirror=True)])
-Data([], phase=TEST, source=data_dir + "ilsvrc12_val_lmdb", batch_size=50,
-     backend=Net.LMDB,
-     optional_params=[
-         Transform(mean_file=data_dir + "ilsvrc12_mean.binaryproto",
-                   mirror=False, crop_size=224)])
-out = [data]
-label = [label]
+out, label = images.data(cs=224)
 
 out = Conv(out, name='resnet1_conv', num_output=64, kernel_size=7, stride=2,
            pad=3,

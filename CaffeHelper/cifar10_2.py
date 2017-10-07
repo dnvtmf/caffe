@@ -2,19 +2,16 @@ from caffe_user import *
 import os
 
 # ----- Configuration -----
-name = "full"
+name = "tb"
 num_epoch = 60
 batch_size = 100
-train_iter = 50000 / batch_size
-test_iter = 10000 / batch_size
-max_iter = num_epoch * train_iter
-data_dir = os.path.join(os.getenv('HOME'), 'data/cifar-10-batches-py')
+cifar10 = CIFAR_10(batch_size)
 activation_method = "Sigmoid"
 weight_filler = Filler('msra')
 filler_constant = Filler('constant')
 
 other_param = None
-weight_decay = None
+weight_decay = 0
 if name == 'full':
     conv_type = "Convolution"
     weight_decay = 1e-4
@@ -32,7 +29,8 @@ else:
 
 # ---------- solver ----
 solver = Solver().net('./model.prototxt').GPU(1)
-solver.test(test_iter=test_iter, test_interval=train_iter,
+max_iter = num_epoch * cifar10.train_iter
+solver.test(test_iter=cifar10.test_iter, test_interval=1000,
             test_initialization=False)
 solver.train(base_lr=0.1, lr_policy='multistep', stepvalue=[32000, 48000],
              gamma=0.1, max_iter=64000, weight_decay=weight_decay)
@@ -44,22 +42,7 @@ solver.snapshot(snapshot=10000, snapshot_prefix=name)
 # 32C5 - sigmoid - MaxPool3 - LRN - 32C5 - sigmoid - MaxPool3 - LRN
 #  - 64C5 - sigmoid - AvePool3 - 10FC - Softmax
 Net("cifar10_" + name)
-data, label = Data([],
-                   phase=TRAIN,
-                   source=os.path.join(data_dir, 'train'),
-                   batch_size=batch_size,
-                   backend=Net.LMDB,
-                   optional_params=[
-                       Transform(scale=0.0078125, mirror=True, crop_size=32,
-                                 mean_value=128)])
-Data([], phase=TEST,
-     source=os.path.join(data_dir, 'test'),
-     batch_size=batch_size,
-     backend=Net.LMDB,
-     optional_params=[Transform(scale=0.0078125, mean_value=128)])
-out = [data]
-label = [label]
-
+out, label = cifar10.data()
 out = BN(out, name='bn1')
 out = Conv(out, name='conv1', num_output=32, bias_term=False, kernel_size=3,
            stride=1, pad=1, weight_filler=weight_filler)

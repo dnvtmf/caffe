@@ -453,13 +453,6 @@ endif
 	superclean supercleanlist supercleanfiles warn everything
 
 all: lib tools examples
-	@echo CXXFLAGS
-	@echo $(CXXFLAGS)
-	@echo LDFLAGS 
-	@echo $(LDFLAGS)
-	@echo LINKFLAGS
-	@echo $(LINKFLAGS)
-	
 
 lib: $(STATIC_NAME) $(DYNAMIC_NAME)
 

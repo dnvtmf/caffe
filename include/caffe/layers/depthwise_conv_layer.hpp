@@ -35,6 +35,36 @@ class DepthwiseConvolutionLayer : public Layer<Dtype> {
       const vector<Blob<Dtype>*>& bottom);
 
  private:
+  void forward_cpu_conv2D(
+      const Dtype* input, const Dtype* weight, Dtype* output);
+  void backward_cpu_conv2D(
+      const Dtype* diff, const Dtype* weight, Dtype* in_diff);
+  void weight_cpu_conv2D(const Dtype* diff, const Dtype* input, Dtype* w_diff);
+#ifndef CPU_ONLY
+  void forward_gpu_conv2D(
+      const Dtype* input, const Dtype* weight, Dtype* output);
+  void backward_gpu_conv2D(
+      const Dtype* diff, const Dtype* weight, Dtype* in_diff);
+  void weight_gpu_conv2D(const Dtype* diff, const Dtype* input, Dtype* w_diff);
+#endif  // CPU_ONLY
+
+  int num_spatial_axes_;
+  int bottom_dim_;
+  int top_dim_;
+
+  int channel_axis_;
+  int num_;
+  int channels_;
+  int out_spatial_dim_;
+  int weight_spatial_dim_;
+  int in_spatial_dim_;
+
+  bool bias_term_;
+
+  Blob<Dtype> bias_multiplier_;
+
+  int in_h_, in_w_, kernel_h_, kernel_w_, out_h_, out_w_;
+  int pad_h_, pad_w_, stride_h_, stride_w_;
 };
 }
 #endif  // CAFFE_DEPTHWISE_CONVOLUTION_LAYER_HPP_

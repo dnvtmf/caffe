@@ -1,4 +1,4 @@
-#include "caffe/layers/depthwise_conv.hpp"
+#include "caffe/layers/depthwise_conv_layer.hpp"
 namespace caffe {
 template <typename Dtype>
 void DepthwiseConvolutionLayer<Dtype>::Forward_gpu(

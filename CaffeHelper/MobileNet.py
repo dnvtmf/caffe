@@ -4,7 +4,7 @@ import os
 # ----- Configuration -----
 name = "full"
 batch_size = 128
-data_dir = os.path.join(os.getenv('HOME'), 'data/ilsvrc12/')
+images = ImageNet(batch_size)
 weight_filler = Filler('msra')
 bias_filler = Filler('constant')
 other_param = []
@@ -35,21 +35,7 @@ solver.snapshot(snapshot=10000, snapshot_prefix=name)
 
 # --------- Network ----------
 Net("ImageNet_" + name)
-data, label = Data([], phase=TRAIN,
-                   source=os.path.join(data_dir, "ilsvrc12_train_lmdb"),
-                   batch_size=batch_size,
-                   backend=Net.LMDB, optional_params=[
-        Transform(
-            mean_file=os.path.join(data_dir, "ilsvrc12_mean.binaryproto"),
-            crop_size=224, mirror=True)])
-Data([], phase=TEST, source=os.path.join(data_dir, "ilsvrc12_val_lmdb"),
-     batch_size=50, backend=Net.LMDB,
-     optional_params=[
-         Transform(
-             mean_file=os.path.join(data_dir, "ilsvrc12_mean.binaryproto"),
-             mirror=False, crop_size=224)])
-out = [data]
-label = [label]
+out, label = images.data(cs=224)
 
 out = Conv(out, name='conv1', num_output=32, bias_term=False, kernel_size=3,
            stride=2, pad=1, weight_filler=weight_filler,

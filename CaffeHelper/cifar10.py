@@ -5,7 +5,7 @@ import os
 name = "full"
 num_epoch = 500
 batch_size = 50
-activation_method = "ReLU"
+cifar10 = CIFAR_10(batch_size, False)
 weight_filler = Filler('msra')
 filler_constant = Filler('constant')
 
@@ -13,7 +13,7 @@ other_param = None
 weight_decay = 0
 if name == 'full':
     conv_type = "Convolution"
-    weight_decay=0.004
+    weight_decay = 0.004
 elif name == 'tb':
     tb_param = Parameter('tb_param')
     tb_param.add_param_if('use_bias', False)
@@ -21,15 +21,16 @@ elif name == 'tb':
     tb_param.add_param_if('in_binary', False)
     tb_param.add_param_if('clip', 2)
     tb_param.add_param_if('reg', 0)
-    other_param = [tb_param] 
+    other_param = [tb_param]
     conv_type = "TBConvolution"
 else:
     conv_type = 'XnorNetConvolution'
 
 # ---------- solver ----
 solver = Solver().net('./model.prototxt').GPU(1)
-solver.test(test_iter=100, test_interval=1000, test_initialization=False)
-num_iter = num_epoch * 50000 / batch_size
+solver.test(test_iter=cifar10.test_iter, test_interval=cifar10.train_iter,
+            test_initialization=False)
+num_iter = num_epoch * cifar10.train_iter
 lr_start = 0.003
 lr_end = 0.000002
 lr_decay = (lr_end / lr_start) ** (1. / num_iter)
@@ -42,74 +43,46 @@ solver.snapshot(snapshot=5000, snapshot_prefix=name)
 # --------- Network ----------
 # 2x(128C3)-MP2-2x(256C3)-MP2-2x(512C3)-MP2-2x(1024FC)-SVM
 Net("cifar10_" + name)
-data, label = Data([], phase=TRAIN, source="../../cifar10_train_lmdb",
-                   batch_size=batch_size, backend=Net.LMDB,
-                   optional_params=[Transform(mean_file="../../mean.binaryproto")])
-Data([], phase=TEST, source="../../cifar10_test_lmdb", batch_size=100,
-     backend=Net.LMDB,
-     optional_params=[Transform(mean_file="../../mean.binaryproto")])
-out = [data]
-label = [label]
-out = Conv(out, name='conv1', num_output=128, bias_term=True, kernel_size=3,
-           stride=1, pad=1,
-           weight_filler=weight_filler, bias_filler=filler_constant)
+out, label = cifar10.data()
+out = Conv(out, name='conv1', num_output=128, bias_term=False, kernel_size=3,
+           stride=1, pad=1, weight_filler=weight_filler)
 out = BN(out, name='bn_act1', bias_term=True, inplace=True)
-out = Activation(out, name='act1', method=activation_method, inplace=True)
-# out = BN(out, name='bn2')
-out = Conv(out, name='conv2', conv_type=conv_type, num_output=128,
-           bias_term=True, kernel_size=3, stride=1, pad=1,
-           weight_filler=weight_filler, bias_filler=filler_constant,
-           optional_params=other_param)
-out = BN(out, name='bn_act2', bias_term=True, inplace=True)
-out = Activation(out, name='act2', method=activation_method, inplace=True)
+out = Activation(out, name='act1', method="ReLU", inplace=True)
+
+
+def Convolution(out_, name_, num_output, kernel_size, stride, pad):
+    with NameScope(name_):
+        if name != 'full':
+            out_ = BN(out_, name='bn')
+        out_ = Conv(out_, conv_type=conv_type, num_output=num_output,
+                    kernel_size=kernel_size, stride=stride, pad=pad,
+                    weight_filler=weight_filler, bias_term=False,
+                    optional_params=other_param)
+        if name == 'full':
+            out_ = BN(out_, name='conv_bn', bias_term=True, inplace=True)
+            out_ = Activation(out_, name='relu', method="ReLU", inplace=True)
+    return out_
+
+
+out = Convolution(out, 'conv2', 128, 3, 1, 1)
 out = Pool(out, name='pool1')
 
-# out = BN(out, name='bn3')
-out = Conv(out, name='conv3', conv_type=conv_type, num_output=256,
-           bias_term=True, kernel_size=3, stride=1, pad=1,
-           weight_filler=weight_filler, bias_filler=filler_constant,
-           optional_params=other_param)
-out = BN(out, name='bn_act3', bias_term=True, inplace=True)
-out = Activation(out, name='act3', method=activation_method, inplace=True)
-# out = BN(out, name='bn4')
-out = Conv(out, name='conv4', conv_type=conv_type, num_output=256,
-           bias_term=True, kernel_size=3, stride=1, pad=1,
-           weight_filler=weight_filler, bias_filler=filler_constant,
-           optional_params=other_param)
-out = BN(out, name='bn_act4', bias_term=True, inplace=True)
-out = Activation(out, name='act4', method=activation_method, inplace=True)
+out = Convolution(out, 'conv3', 256, 3, 1, 1)
+out = Convolution(out, 'conv4', 256, 3, 1, 1)
 out = Pool(out, name='pool2')
 
-# out = BN(out, name='bn5')
-out = Conv(out, name='conv5', conv_type=conv_type, num_output=512,
-           bias_term=True, kernel_size=3, stride=1, pad=1,
-           weight_filler=weight_filler, bias_filler=filler_constant,
-           optional_params=other_param)
-out = BN(out, name='bn_act5', bias_term=True, inplace=True)
-out = Activation(out, name='act5', method=activation_method, inplace=True)
-# out = BN(out, name='bn6')
-out = Conv(out, name='conv6', conv_type=conv_type, num_output=512,
-           bias_term=True, kernel_size=3, stride=1, pad=1,
-           weight_filler=weight_filler, bias_filler=filler_constant,
-           optional_params=other_param)
-out = BN(out, name='bn_act6', bias_term=True, inplace=True)
-out = Activation(out, name='act6', method=activation_method, inplace=True)
+out = Convolution(out, 'conv5', 512, 3, 1, 1)
+out = Convolution(out, 'conv6', 512, 3, 1, 1)
 out = Pool(out, name='pool3')
 
-# out = BN(out, name='bn7')
-out = Conv(out, name='conv7', conv_type=conv_type, num_output=1024, bias_term=True,
-         kernel_size=1, stride=1, pad=0, weight_filler=weight_filler,
-         bias_filler=filler_constant, optional_params=other_param)
-out = BN(out, name='bn_act7', bias_term=True, inplace=True)
-out = Activation(out, name='act7', method=activation_method, inplace=True)
-# out = BN(out, name='bn8')
-out = Conv(out, name='conv8', conv_type=conv_type, num_output=1024, bias_term=True,
-         kernel_size=1, stride=1, pad=0, weight_filler=weight_filler,
-         bias_filler=filler_constant, optional_params=other_param)
-out = BN(out, name='bn_act8', bias_term=True, inplace=True)
-out = Activation(out, name='act8', method=activation_method, inplace=True)
+out = Convolution(out, 'fc1', 1024, 1, 1, 0)
+out = Convolution(out, 'fc2', 1024, 1, 1, 0)
 
-out = FC(out, name='fc9', num_output=10, weight_filler=weight_filler,
+if name != 'full':
+    out = BN(out, name='fc2_bn', bias_term=True, inplace=True)
+    out = Activation(out, name='fc2_relu', method="ReLU", inplace=True)
+
+out = FC(out, name='fc3', num_output=10, weight_filler=weight_filler,
          bias_term=True, bias_filler=filler_constant)
 accuracy = Accuracy(out + label)
 loss = HingeLoss(out + label, norm=2)
