@@ -23,17 +23,6 @@ class XnorNetConvolutionLayer : public BaseConvolutionLayer<Dtype> {
  protected:
   virtual void LayerSetUp_more();
   virtual void Reshape_more();
-
-  void forward_cpu_gemm(Dtype* input, Dtype* output);
-  void backward_cpu_gemm(
-      Dtype* input, const Dtype* top_diff, Dtype* input_diff,
-      Dtype* weight_diff);
-#ifndef CPU_ONLY
-  void forward_gpu_gemm(Dtype* input, Dtype* output);
-  void backward_gpu_gemm(
-      Dtype* input, const Dtype* top_diff, Dtype* input_diff,
-      Dtype* weight_diff);
-#endif  // CPU_ONLY
   virtual void Forward_cpu(
       const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top);
   virtual void Forward_gpu(
@@ -48,11 +37,8 @@ class XnorNetConvolutionLayer : public BaseConvolutionLayer<Dtype> {
   virtual void compute_output_shape();
 
  private:
-  Blob<Dtype> in_, weight_;
-  Blob<Dtype> in_s_, weight_s_;
-  Blob<Dtype> sum_multiplier_;
+  Blob<Dtype> weight_, weight_s_;
   Dtype *w_scale_, *w_bias_;
-  Dtype *in_scale_, *in_bias_;
   int M_, N_, K_;
 };
 
