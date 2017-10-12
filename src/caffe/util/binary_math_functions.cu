@@ -15,27 +15,31 @@ inline __device__ double sign(double val, double s) { return copysign(val, s); }
 template <typename Dtype>
 __global__ void binary_gradient_kernel_0(
     const int M, const int N, bool use_bias, const Dtype *in,
-    const Dtype *scale, const Dtype *bias, Dtype *grad) {
+    const Dtype *scale, const Dtype *bias, Dtype *grad, const Dtype mul) {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx >= M * N) return;
-  int i           = idx / N;
-  const Dtype mul = (Dtype) 1. / (Dtype) N;
+  int i = idx / N;
+  grad[idx] *= mul + Dtype(gpu_abs(in[idx]) < Dtype(1)) * scale[i];
+  /*
   const Dtype val = gpu_abs(in[idx] - Dtype(use_bias) * bias[i]);
   grad[idx] *= mul + Dtype(val < Dtype(1)) * scale[i];
   if (use_bias) grad[idx] *= (Dtype) 1. - mul;
+  */
 }
 
 template <typename Dtype>
 __global__ void binary_gradient_kernel_1(
     const int M, const int N, bool use_bias, const Dtype *in,
-    const Dtype *scale, const Dtype *bias, Dtype *grad) {
+    const Dtype *scale, const Dtype *bias, Dtype *grad, const Dtype mul) {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx >= M * N) return;
-  int j           = idx % N;
-  const Dtype mul = (Dtype) 1. / (Dtype) M;
+  int j = idx % N;
+  grad[idx] *= mul + Dtype(gpu_abs(in[idx]) < Dtype(1)) * scale[j];
+  /*
   const Dtype val = gpu_abs(in[idx] - Dtype(use_bias) * bias[j]);
   grad[idx] *= mul + Dtype(val < Dtype(1)) * scale[j];
   if (use_bias) grad[idx] *= (Dtype) 1. - mul;
+  */
 }
 
 template <typename Dtype>
@@ -45,40 +49,42 @@ void caffe_gpu_binary_gradient(
   if (axis == 0) {
     binary_gradient_kernel_0<Dtype>
         <<<CAFFE_GET_BLOCKS(M * N), CAFFE_CUDA_NUM_THREADS>>>(
-            M, N, use_bias, in, scale, bias, grad);
+            M, N, use_bias, in, scale, bias, grad, 1. / N);
   } else {
     binary_gradient_kernel_1<Dtype>
         <<<CAFFE_GET_BLOCKS(M * N), CAFFE_CUDA_NUM_THREADS>>>(
-            M, N, use_bias, in, scale, bias, grad);
+            M, N, use_bias, in, scale, bias, grad, 1. / M);
   }
 }
 
 template <typename Dtype>
 __global__ void ternary_gradient_kernel_0(
     const int M, const int N, bool use_bias, const Dtype *in,
-    const Dtype *scale, const Dtype *bias, const Dtype *delta, Dtype *grad) {
+    const Dtype *scale, const Dtype *bias, const Dtype *delta, Dtype *grad,
+    const Dtype mul) {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx >= M * N) return;
-  int i     = idx / N;
-  Dtype mul = (Dtype) 1. / (Dtype) N;
-  Dtype val = gpu_abs(in[idx] - Dtype(use_bias) * bias[i]);
+  int i = idx / N;
+  // Dtype val = gpu_abs(in[idx] - Dtype(use_bias) * bias[i]);
+  Dtype val = gpu_abs(in[idx]);
   grad[idx] *=
       mul + Dtype(val < Dtype(1)) * Dtype(val <= delta[i] ? 1 : scale[i]);
-  if (use_bias) grad[idx] *= (Dtype) 1. - mul;
+  // if (use_bias) grad[idx] *= (Dtype) 1. - mul;
 }
 
 template <typename Dtype>
 __global__ void ternary_gradient_kernel_1(
     const int M, const int N, bool use_bias, const Dtype *in,
-    const Dtype *scale, const Dtype *bias, const Dtype *delta, Dtype *grad) {
+    const Dtype *scale, const Dtype *bias, const Dtype *delta, Dtype *grad,
+    const Dtype mul) {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx >= M * N) return;
-  int j     = idx % N;
-  Dtype mul = (Dtype) 1. / (Dtype) M;
-  Dtype val = gpu_abs(in[idx] - Dtype(use_bias) * bias[j]);
+  int j = idx % N;
+  // Dtype val = gpu_abs(in[idx] - Dtype(use_bias) * bias[j]);
+  Dtype val = gpu_abs(in[idx]);
   grad[idx] *=
       mul + Dtype(val < Dtype(1)) * Dtype(val <= delta[j] ? 1 : scale[j]);
-  if (use_bias) grad[idx] *= (Dtype) 1. - mul;
+  // if (use_bias) grad[idx] *= (Dtype) 1. - mul;
 }
 
 template <typename Dtype>
@@ -88,11 +94,11 @@ void caffe_gpu_ternary_gradient(
   if (axis == 0) {
     ternary_gradient_kernel_0<Dtype>
         <<<CAFFE_GET_BLOCKS(M * N), CAFFE_CUDA_NUM_THREADS>>>(
-            M, N, use_bias, in, scale, bias, delta, grad);
+            M, N, use_bias, in, scale, bias, delta, grad, 1. / N);
   } else {
     ternary_gradient_kernel_1<Dtype>
         <<<CAFFE_GET_BLOCKS(M * N), CAFFE_CUDA_NUM_THREADS>>>(
-            M, N, use_bias, in, scale, bias, delta, grad);
+            M, N, use_bias, in, scale, bias, delta, grad, 1. / M);
   }
 }
 

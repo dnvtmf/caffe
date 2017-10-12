@@ -23,7 +23,7 @@ solver.train(base_lr=0.1, lr_policy='step', gamma=0.96, stepsize=320000,
              max_iter=600000, weight_decay=0.0001)
 solver.optimizer(type='SGD', momentum=0.9)
 solver.display(display=40, average_loss=40)
-solver.snapshot(snapshot=40000, snapshot_prefix=name)
+solver.snapshot(snapshot=40000, snapshot_prefix='snapshot/' + name)
 
 # --------- Network ----------
 Net("ImageNet_" + name)

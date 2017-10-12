@@ -34,7 +34,7 @@ solver.train(base_lr=0.1, lr_policy='multistep', stepvalue=[32000, 48000],
              gamma=0.1, max_iter=64000, weight_decay=weight_decay)
 solver.optimizer(type='Nesterov', momentum=0.9)
 solver.display(display=100, average_loss=100)
-solver.snapshot(snapshot=10000, snapshot_prefix=name)
+solver.snapshot(snapshot=10000, snapshot_prefix='snapshot/' + name)
 
 # --------- Network ----------
 Net("cifar10_" + name)

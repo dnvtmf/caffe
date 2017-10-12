@@ -11,8 +11,12 @@ void TernaryLayer<Dtype>::Forward_cpu(
   const Dtype* bottom_data = bottom[0]->cpu_data();
   Dtype* top_data          = top[0]->mutable_cpu_data();
   const int count          = bottom[0]->count();
+  caffe_rng_uniform<Dtype>(count, 0, 1., top_data);
   for (int i = 0; i < count; ++i) {
-    top_data[i] = tanh(bottom_data[i]);
+    if (bottom_data[i] >= 0)
+      top_data[i] = top_data[i] <= bottom_data[i];
+    else
+      top_data[i] = -(top_data[i] <= -bottom_data[i]);
   }
 }
 
@@ -21,15 +25,11 @@ void TernaryLayer<Dtype>::Backward_cpu(
     const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
     const vector<Blob<Dtype>*>& bottom) {
   if (propagate_down[0]) {
-    const Dtype* top_data = top[0]->cpu_data();
     const Dtype* top_diff = top[0]->cpu_diff();
     Dtype* bottom_diff    = bottom[0]->mutable_cpu_diff();
     const int count       = bottom[0]->count();
-    Dtype tanhx;
-    for (int i = 0; i < count; ++i) {
-      tanhx          = top_data[i];
-      bottom_diff[i] = top_diff[i] * (1 - tanhx * tanhx);
-    }
+    if (top_diff != bottom_diff)
+      caffe_copy<Dtype>(count, top_diff, bottom_diff);
   }
 }
 

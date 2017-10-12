@@ -64,7 +64,7 @@ class CIFAR_10(DataSet):
                 batch_size=self.batch_size, backend=Net.LMDB,
                 optional_params=[Transform(mean_file=mean_file)])
             Data([], phase=TEST, source=os.path.join(self.data_dir, 'test'),
-                 batch_size=self.data_dir, backend=Net.LMDB,
+                 batch_size=self.batch_size, backend=Net.LMDB,
                  optional_params=[Transform(mean_file=mean_file)])
         return [[data], [label]]
 
@@ -114,6 +114,9 @@ def gen_model(model_dir, solver, log=None):
     """
     if not os.path.exists(model_dir):
         os.mkdir(model_dir)
+    snapshot_dir = os.path.join(model_dir, 'snapshot')
+    if not os.path.exists(snapshot_dir):
+        os.mkdir(snapshot_dir)
 
     sh_content = ""
     sh_content += "#!/usr/bin/env sh\n"

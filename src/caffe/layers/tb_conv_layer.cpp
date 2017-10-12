@@ -168,6 +168,8 @@ void TBConvolutionLayer<Dtype>::Forward_cpu(
   if (clip_ & 1) {
     Dtype val = sqrt(6.0 / (M_ + K_));
     caffe_cpu_clip<Dtype>(M_ * K_, -val, val, weight);
+  } else {
+    caffe_cpu_clip<Dtype>(M_ * K_, -1, 1, weight);
   }
 
   if (is_w_bin_) {

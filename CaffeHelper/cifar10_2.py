@@ -2,9 +2,9 @@ from caffe_user import *
 import os
 
 # ----- Configuration -----
-name = "XnorNet"
-num_epoch = 200
-batch_size = 50
+name = "tb"
+num_epoch = 60
+batch_size = 100
 cifar10 = CIFAR_10(batch_size)
 activation_method = "Sigmoid"
 weight_filler = Filler('msra')
@@ -21,7 +21,7 @@ elif name == 'tb':
     tb_param.add_param_if('w_binary', True)
     tb_param.add_param_if('in_binary', False)
     tb_param.add_param_if('clip', 0)
-    tb_param.add_param_if('reg', 0.)
+    tb_param.add_param_if('reg', 1e-6)
     other_param = [tb_param]
     conv_type = "TBConvolution"
 else:
@@ -32,13 +32,15 @@ solver = Solver().net('./model.prototxt').GPU(1)
 max_iter = num_epoch * cifar10.train_iter
 solver.test(test_iter=cifar10.test_iter, test_interval=2 * cifar10.train_iter,
             test_initialization=False)
-solver.train(base_lr=0.001, lr_policy='step',
-             stepsize=num_epoch * cifar10.train_iter / 2,
+solver.train(base_lr=0.01, lr_policy='step',
+             # stepsize=10000,
+             stepsize=num_epoch * cifar10.train_iter / 3,
              gamma=0.1, max_iter=num_epoch * cifar10.train_iter,
              weight_decay=weight_decay)
-solver.optimizer(type='Adam', momentum=0.9)
+# solver.optimizer(type='SGD', momentum=0.9)
+solver.optimizer(type='Adam')
 solver.display(display=200, average_loss=200)
-solver.snapshot(snapshot=10000, snapshot_prefix=name)
+solver.snapshot(snapshot=10000, snapshot_prefix='snapshot/' + name)
 
 # --------- Network ----------
 # 32C5 - sigmoid - MaxPool3 - LRN - 32C5 - sigmoid - MaxPool3 - LRN
@@ -55,7 +57,7 @@ out = Pool(out, name='pool1', method=Net.MaxPool, kernel_size=3)
 out = LRN(out, name='lrn1')
 
 out = BN(out, name='bn2')
-out = Activation(out, name='binary1', method="Ternary")
+out = Activation(out, name='binary1', method="Binary")
 out = Conv(out, name='conv2', conv_type=conv_type, num_output=32,
            bias_term=False, kernel_size=3, stride=1, pad=1,
            weight_filler=weight_filler, optional_params=other_param)
@@ -65,7 +67,7 @@ out = Pool(out, name='pool2', method=Net.MaxPool, kernel_size=3)
 out = LRN(out, name='lrn2')
 
 out = BN(out, name='bn3')
-out = Activation(out, name='binary2', method="Ternary")
+out = Activation(out, name='binary2', method="Binary")
 out = Conv(out, name='conv3', conv_type=conv_type, num_output=64,
            bias_term=False, kernel_size=3, stride=1, pad=1,
            weight_filler=weight_filler, optional_params=other_param)

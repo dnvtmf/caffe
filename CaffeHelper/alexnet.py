@@ -2,7 +2,7 @@ from caffe_user import *
 import os
 
 # ----- Configuration -----
-name = "XnorNet"
+name = "tb"
 batch_size = 128
 images = ImageNet(batch_size)
 activation_method = "ReLU"
@@ -10,7 +10,7 @@ weight_filler = Filler('msra')
 bias_filler = Filler('constant')
 
 other_param = []
-weight_decay = 0
+weight_decay = 5e-4
 if name == 'full':
     conv_type = "Convolution"
     weight_decay = 5e-4
@@ -30,11 +30,12 @@ else:
 solver = Solver().net('./model.prototxt').GPU()
 solver.test(test_iter=images.num_test / batch_size, test_interval=1000,
             test_initialization=False)
-solver.train(base_lr=0.1, lr_policy='step', gamma=0.1, stepsize=100000,
-             max_iter=460000, weight_decay=weight_decay)
+solver.train(base_lr=0.1, lr_policy='step', gamma=0.1,
+             stepsize=20 * images.train_iter,
+             max_iter=4 * 20 * images.train_iter, weight_decay=weight_decay)
 solver.optimizer(type='SGD', momentum=0.9)
 solver.display(display=20, average_loss=20)
-solver.snapshot(snapshot=10000, snapshot_prefix=name)
+solver.snapshot(snapshot=10000, snapshot_prefix='snapshot/' + name)
 
 # --------- Network ----------
 Net("ImageNet_" + name)

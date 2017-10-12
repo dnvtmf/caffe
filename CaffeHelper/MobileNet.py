@@ -31,7 +31,7 @@ solver.train(base_lr=0.1, lr_policy='step', gamma=0.1, stepsize=100000,
              max_iter=460000, weight_decay=weight_decay)
 solver.optimizer(type='SGD', momentum=0.9)
 solver.display(display=20, average_loss=20)
-solver.snapshot(snapshot=10000, snapshot_prefix=name)
+solver.snapshot(snapshot=10000, snapshot_prefix='snapshot/' + name)
 
 # --------- Network ----------
 Net("ImageNet_" + name)
@@ -58,6 +58,7 @@ def Convolution(out_, name_, num_input, num_output, kernel_size, pad, stride=1):
         out_ = BN(out_, name='conv_bn', bias_term=True, inplace=True)
         out_ = Activation(out_, name='conv_relu', method="ReLU", inplace=True)
     return out_
+
 
 out = Convolution(out, 'c2', 32, 64, 3, 1, 1)
 out = Convolution(out, 'c3', 64, 128, 3, 1, 2)
