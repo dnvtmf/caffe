@@ -7,16 +7,20 @@
 #include "caffe/layer.hpp"
 #include "caffe/proto/caffe.pb.h"
 
-#include "caffe/layers/neuron_layer.hpp"
-
 namespace caffe {
 
 template <typename Dtype>
-class TernaryLayer : public NeuronLayer<Dtype> {
+class TernaryLayer : public Layer<Dtype> {
  public:
-  explicit TernaryLayer(const LayerParameter& param)
-      : NeuronLayer<Dtype>(param) {}
+  explicit TernaryLayer(const LayerParameter& param) : Layer<Dtype>(param) {}
 
+  virtual void LayerSetUp(
+      const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top);
+  virtual void Reshape(
+      const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top);
+
+  virtual inline int ExactNumBottomBlobs() const { return 1; }
+  virtual inline int ExactNumTopBlobs() const { return 1; }
   virtual inline const char* type() const { return "TernaryLayer"; }
 
   virtual void Forward_cpu(
@@ -29,6 +33,11 @@ class TernaryLayer : public NeuronLayer<Dtype> {
   virtual void Backward_gpu(
       const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
       const vector<Blob<Dtype>*>& bottom);
+
+ private:
+  Dtype threshold_;
+  Dtype *Wn_, *Wp_;
+  Dtype* temp_;
 };
 }  // namespace caffe
 

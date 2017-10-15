@@ -31,26 +31,17 @@ void TBConvolutionLayer<Dtype>::forward_gpu_gemm(Dtype *input, Dtype *output) {
           sum_multiplier_.gpu_data(), 0, in_bias_ + N_ * g);
     }
   }
-  // binary or ternary
-  if (is_in_bin_) {
-    for (int g = 0; g < this->group_; ++g) {
-      const int offset = this->col_offset_ * g;
-      caffe_gpu_binary_approx<Dtype>(
-          1, K_, N_, use_bias_, col_buff + offset,
-          in_.mutable_gpu_data() + offset, in_scale_ + N_ * g,
-          in_bias_ + N_ * g);
-    }
-    col_buff = in_.mutable_gpu_data();
-  } else if (is_w_bin_) {
-    for (int g = 0; g < this->group_; ++g) {
-      const int offset = this->col_offset_ * g;
-      caffe_gpu_ternary_approx<Dtype>(
-          1, K_, N_, use_bias_, col_buff + offset,
-          in_.mutable_gpu_data() + offset, in_scale_ + N_ * g,
-          in_bias_ + N_ * g, in_delta_ + N_ * g);
-    }
-    col_buff = in_.mutable_gpu_data();
+  // ternary
+
+  for (int g = 0; g < this->group_; ++g) {
+    const int offset = this->col_offset_ * g;
+    caffe_gpu_ternary_approx<Dtype>(
+        1, K_, N_, use_bias_, col_buff + offset,
+        in_.mutable_gpu_data() + offset, in_scale_ + N_ * g, in_bias_ + N_ * g,
+        in_delta_ + N_ * g);
   }
+  col_buff = in_.mutable_gpu_data();
+
   // forward
   for (int g = 0; g < this->group_; ++g) {
     caffe_gpu_gemm<Dtype>(

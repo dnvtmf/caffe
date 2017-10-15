@@ -2,7 +2,7 @@ from caffe_user import *
 import os
 
 # ----- Configuration -----
-name = "tb"
+name = "XnorNet"
 num_epoch = 60
 batch_size = 100
 cifar10 = CIFAR_10(batch_size)
@@ -21,7 +21,7 @@ elif name == 'tb':
     tb_param.add_param_if('w_binary', True)
     tb_param.add_param_if('in_binary', False)
     tb_param.add_param_if('clip', 0)
-    tb_param.add_param_if('reg', 1e-6)
+    tb_param.add_param_if('reg', 0)
     other_param = [tb_param]
     conv_type = "TBConvolution"
 else:
@@ -57,7 +57,7 @@ out = Pool(out, name='pool1', method=Net.MaxPool, kernel_size=3)
 out = LRN(out, name='lrn1')
 
 out = BN(out, name='bn2')
-out = Activation(out, name='binary1', method="Binary")
+out = Activation(out, name='binary1', method="Ternary")
 out = Conv(out, name='conv2', conv_type=conv_type, num_output=32,
            bias_term=False, kernel_size=3, stride=1, pad=1,
            weight_filler=weight_filler, optional_params=other_param)
@@ -67,7 +67,7 @@ out = Pool(out, name='pool2', method=Net.MaxPool, kernel_size=3)
 out = LRN(out, name='lrn2')
 
 out = BN(out, name='bn3')
-out = Activation(out, name='binary2', method="Binary")
+out = Activation(out, name='binary2', method="Ternary")
 out = Conv(out, name='conv3', conv_type=conv_type, num_output=64,
            bias_term=False, kernel_size=3, stride=1, pad=1,
            weight_filler=weight_filler, optional_params=other_param)
