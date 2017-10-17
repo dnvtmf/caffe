@@ -308,7 +308,7 @@ message ParamSpec {
 // NOTE
 // Update the next available ID when you add a new LayerParameter field.
 //
-// LayerParameter next available layer-specific ID: 148 (last added: tb_param)
+// LayerParameter next available layer-specific ID: 148 (last added: ternary_param)
 message LayerParameter {
   optional string name = 1; // the layer name
   optional string type = 2; // the layer type
@@ -402,7 +402,7 @@ message LayerParameter {
   optional SPPParameter spp_param = 132;
   optional SliceParameter slice_param = 126;
   optional TanHParameter tanh_param = 127;
-  optional TBParameter tb_param = 147;
+  optional TernaryParameter ternary_param = 147;
   optional ThresholdParameter threshold_param = 128;
   optional TileParameter tile_param = 138;
   optional WindowDataParameter window_data_param = 129;
@@ -1152,6 +1152,19 @@ message TanHParameter {
   optional Engine engine = 1 [default = DEFAULT];
 }
 
+message TernaryParameter {
+  // What fraction of the moving average remains each iteration?
+  // Smaller values make the moving average decay faster, giving more
+  // weight to the recent values.
+  // Each iteration updates the moving average @f$S_{t-1}@f$ with the
+  // current mean @f$ Y_t @f$ by
+  // @f$ S_t = (1-\beta)Y_t + \beta \cdot S_{t-1} @f$, where @f$ \beta @f$
+  // is the moving_average_fraction parameter.
+  optional float moving_average_fraction = 1 [default = .999];
+  optional float threshold_t = 2 [default = 0.5];
+  optional int group = 3 [default = 1];
+}
+
 // Message that stores parameters used by TileLayer
 message TileParameter {
   // The index of the axis to tile.
@@ -1411,18 +1424,3 @@ message PReLUParameter {
   // Whether or not slope parameters are shared across channels.
   optional bool channel_shared = 2 [default = false];
 }
-
-message TBParameter {
-  optional bool full_train = 1 [default = true];
-  optional bool use_bias = 2 [default = false];
-  // If true, binary the weight or input, otherwise ternary it.
-  // If both false, is full precision.
-  optional bool w_binary = 3 [default = true];
-  optional bool in_binary = 4 [default = true];
-  // 0, no clip; 1, clip weights; 2, clip input; 3 clip weight and input
-  optional int32 clip = 5 [default = 0];
-  optional float reg = 6 [default = 0.];
-  // open shuffleNet
-  optional bool shuffle = 7 [default = false];
-}
-

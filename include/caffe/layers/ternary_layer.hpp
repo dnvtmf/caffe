@@ -20,7 +20,7 @@ class TernaryLayer : public Layer<Dtype> {
       const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top);
 
   virtual inline int ExactNumBottomBlobs() const { return 1; }
-  virtual inline int ExactNumTopBlobs() const { return 1; }
+  virtual inline int ExactNumTopBlobs() const { return 3; }
   virtual inline const char* type() const { return "TernaryLayer"; }
 
   virtual void Forward_cpu(
@@ -35,9 +35,9 @@ class TernaryLayer : public Layer<Dtype> {
       const vector<Blob<Dtype>*>& bottom);
 
  private:
-  Dtype threshold_;
-  Dtype *Wn_, *Wp_;
-  Dtype* temp_;
+  int channels_, group_, num_;
+  float moving_average_fraction_;
+  float threshold_t_;
 };
 }  // namespace caffe
 

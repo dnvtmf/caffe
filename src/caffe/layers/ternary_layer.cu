@@ -11,6 +11,36 @@ inline __device__ float gpu_abs(float x) { return fabsf(x); }
 inline __device__ double gpu_abs(double x) { return fabs(x); }
 
 template <typename Dtype>
+void __global__ delta_kernel(
+    const int n, const int dim, const int channels, const Dtype* in,
+    Dtype* delta) {
+  const int i  = blockIdx.x;
+  const int id = threadIdx.x;
+  volatile __shared__ Dtype temp[CAFFE_CUDA_NUM_THREADS - WARP_SIZE];
+  volatile __shared__ Dtype temp2[CAFFE_CUDA_NUM_THREADS - WARP_SIZE];
+  Dtype val, val2;
+  if (use_bias) {
+    for (int j = id; j < N; j += blockDim.x) in[i * N + j] -= bias[i];
+  }
+  // delta[i]
+  val = 0;
+  for (int j = id; j < N; j += blockDim.x) val += gpu_abs(in[i * N + j]);
+  if (id >= WARP_SIZE) temp[id - WARP_SIZE] = val;
+  __syncthreads();
+  if (id < WARP_SIZE) {
+#pragma unroll
+    for (int k = id; k < (CAFFE_CUDA_NUM_THREADS - WARP_SIZE); k += WARP_SIZE)
+      val += temp[k];
+    temp[id] = val;
+  }
+  __syncthreads();
+  if (id == 0) {
+    for (int k = 1; k < WARP_SIZE; ++k) val += temp[k];
+    delta[i]   = val * Dtype(0.5) / Dtype(N);
+  }
+}
+
+template <typename Dtype>
 struct abs_data : public thrust::unary_function<Dtype, int> {
   const Dtype* data;
   abs_data(const Dtype* _data) : data(_data){};
