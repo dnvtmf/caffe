@@ -363,7 +363,7 @@ def BatchNorm(data_in, name="bn", use_global_stats=None, inplace=False,
         data_out = [Blob(name)]
     assert len(data_in) == 1
     if optional_params is None:
-        optional_params=[]
+        optional_params = []
     optional_params.append(Parameter('param').add_param('lr_mult', 0))
     optional_params.append(Parameter('param').add_param('lr_mult', 0))
     optional_params.append(Parameter('param').add_param('lr_mult', 0))
@@ -597,7 +597,7 @@ def Conv(data_in, name="conv", conv_type="Convolution", num_output=None,
     }
     """
     data_out = [Blob(name)]
-    assert len(data_in) == 1
+    # assert len(data_in) == 1
     param = Layer(name, conv_type, data_in, data_out, optional_params)
     convolution_param = Parameter("convolution_param")
     convolution_param.add_param_if("num_output", num_output)
@@ -682,6 +682,22 @@ def Eltwise(data_in, name="eltwise", eltwise_op=None, optional_params=None):
         eltwise_param = Parameter('eltwise_param')
         eltwise_param.add_param("operation: %s" % eltwise_ops[eltwise_op])
         param.add_subparam(eltwise_param)
+    _caffe_net.write_to_proto(param)
+    return data_out
+
+
+def Ternary(data_in, name="ternary", threshold_t=None, group=None, moving_average_fraction=None, optional_params=None):
+    """
+
+    """
+    data_out = [Blob(name + "_1"), Blob(name + "_2"), Blob(name + "_3")]
+    assert len(data_in) == 1
+    param = Layer(name, "Ternary", data_in, data_out, optional_params)
+    ternary_param = Parameter('ternary_param')
+    ternary_param.add_param_if("threshold_t", threshold_t)
+    ternary_param.add_param_if("group", group)
+    ternary_param.add_param_if("moving_average_fraction", moving_average_fraction)
+    param.add_subparam(ternary_param)
     _caffe_net.write_to_proto(param)
     return data_out
 

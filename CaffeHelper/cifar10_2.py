@@ -2,7 +2,7 @@ from caffe_user import *
 import os
 
 # ----- Configuration -----
-name = "XnorNet"
+name = "tb"
 num_epoch = 60
 batch_size = 100
 cifar10 = CIFAR_10(batch_size)
@@ -10,19 +10,11 @@ activation_method = "Sigmoid"
 weight_filler = Filler('msra')
 filler_constant = Filler('constant')
 
-other_param = None
 weight_decay = 0
 if name == 'full':
     conv_type = "Convolution"
     weight_decay = 1e-4
 elif name == 'tb':
-    tb_param = Parameter('tb_param')
-    tb_param.add_param_if('use_bias', False)
-    tb_param.add_param_if('w_binary', True)
-    tb_param.add_param_if('in_binary', False)
-    tb_param.add_param_if('clip', 0)
-    tb_param.add_param_if('reg', 0)
-    other_param = [tb_param]
     conv_type = "TBConvolution"
 else:
     conv_type = 'XnorNetConvolution'
@@ -57,20 +49,20 @@ out = Pool(out, name='pool1', method=Net.MaxPool, kernel_size=3)
 out = LRN(out, name='lrn1')
 
 out = BN(out, name='bn2')
-out = Activation(out, name='binary1', method="Ternary")
+out = Ternary(out, name='ternary2')
 out = Conv(out, name='conv2', conv_type=conv_type, num_output=32,
            bias_term=False, kernel_size=3, stride=1, pad=1,
-           weight_filler=weight_filler, optional_params=other_param)
+           weight_filler=weight_filler)
 out = BN(out, name='bn_act2', bias_term=True, inplace=True)
 out = Activation(out, name='act2', method="Sigmoid")
 out = Pool(out, name='pool2', method=Net.MaxPool, kernel_size=3)
 out = LRN(out, name='lrn2')
 
 out = BN(out, name='bn3')
-out = Activation(out, name='binary2', method="Ternary")
+out = Ternary(out, name='ternary3')
 out = Conv(out, name='conv3', conv_type=conv_type, num_output=64,
            bias_term=False, kernel_size=3, stride=1, pad=1,
-           weight_filler=weight_filler, optional_params=other_param)
+           weight_filler=weight_filler)
 out = BN(out, name='bn_act3', bias_term=True, inplace=True)
 out = Activation(out, name='act3', method="Sigmoid")
 out = Pool(out, name='pool3', method=Net.AveragePool, kernel_size=3)

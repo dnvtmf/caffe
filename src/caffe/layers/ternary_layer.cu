@@ -10,21 +10,23 @@ namespace caffe {
 inline __device__ float gpu_abs(float x) { return fabsf(x); }
 inline __device__ double gpu_abs(double x) { return fabs(x); }
 
+/**
+\delta_c = \frac{t}{num * dim} \sum_{n=1}^{num}{\sum_{i=1}^{dim}{|in[n][c][i]|}}
+*/
 template <typename Dtype>
-void __global__ delta_kernel(
-    const int n, const int dim, const int channels, const Dtype* in,
-    Dtype* delta) {
-  const int i  = blockIdx.x;
+void __global__ delta_kernel(const int num, const int channels, const int dim,
+    const Dtype threshold_t, const Dtype *in, Dtype *delta) {
+  const int c  = blockIdx.x;
   const int id = threadIdx.x;
   volatile __shared__ Dtype temp[CAFFE_CUDA_NUM_THREADS - WARP_SIZE];
-  volatile __shared__ Dtype temp2[CAFFE_CUDA_NUM_THREADS - WARP_SIZE];
-  Dtype val, val2;
-  if (use_bias) {
-    for (int j = id; j < N; j += blockDim.x) in[i * N + j] -= bias[i];
+  Dtype val = 0;
+  in += c * dim;
+  for (int n = 0; n < num; ++n) {
+    for (int j = id; j < dim; j += blockDim.x) {
+      val += gpu_abs(in[j]);
+    }
+    in += channels * dim;
   }
-  // delta[i]
-  val = 0;
-  for (int j = id; j < N; j += blockDim.x) val += gpu_abs(in[i * N + j]);
   if (id >= WARP_SIZE) temp[id - WARP_SIZE] = val;
   __syncthreads();
   if (id < WARP_SIZE) {
@@ -36,104 +38,133 @@ void __global__ delta_kernel(
   __syncthreads();
   if (id == 0) {
     for (int k = 1; k < WARP_SIZE; ++k) val += temp[k];
-    delta[i]   = val * Dtype(0.5) / Dtype(N);
+    delta[c]   = val * threshold_t;
   }
 }
 
 template <typename Dtype>
-struct abs_data : public thrust::unary_function<Dtype, int> {
-  const Dtype* data;
-  abs_data(const Dtype* _data) : data(_data){};
-  __host__ __device__ Dtype operator()(int i) { return gpu_abs(data[i]); }
-};
-
-template <typename Dtype>
-struct greater_fetch : public thrust::unary_function<Dtype, int> {
-  const Dtype *data, *diff, value;
-  greater_fetch(const Dtype* _data, const Dtype* _diff, const Dtype _value)
-      : data(_data), diff(_diff), value(_value){};
-  __host__ __device__ Dtype operator()(int i) {
-    return diff[i] * (data[i] > value);
+void __global__ forward_kernel(const int channels, const int dim,
+    const Dtype *delta, const Dtype *in, Dtype *out, Dtype *beta, Dtype *sum) {
+  const int idx = blockIdx.x;
+  const int id  = threadIdx.x;
+  volatile __shared__ Dtype temp[CAFFE_CUDA_NUM_THREADS - WARP_SIZE];
+  volatile __shared__ Dtype temp2[CAFFE_CUDA_NUM_THREADS - WARP_SIZE];
+  Dtype val = 0, val2 = 0;
+  for (int c = id; c < channels; c += blockDim.x) {
+    const int offset = c * dim + idx;
+    out[offset]      = 0;
+    if (in[offset] > delta[c]) {
+      out[offset] = 1;
+      val += in[offset];
+      val2++;
+    }
+    if (in[offset] < -delta[c]) {
+      out[offset] = -1;
+      val -= in[offset];
+      val2++;
+    }
   }
-};
-
-template <typename Dtype>
-struct less_fetch : public thrust::unary_function<Dtype, int> {
-  const Dtype *data, *diff, value;
-  less_fetch(const Dtype* _data, const Dtype* _diff, const Dtype _value)
-      : data(_data), diff(_diff), value(_value){};
-  __host__ __device__ Dtype operator()(int i) {
-    return diff[i] * (data[i] < value);
+  if (id >= WARP_SIZE) {
+    temp[id - WARP_SIZE]  = val;
+    temp2[id - WARP_SIZE] = val2;
   }
-};
-
-template <typename Dtype>
-void __global__ ternary_forward_kernel(
-    const int n, const Dtype* in, const Dtype wp, const Dtype wn,
-    const Dtype threshold, Dtype* out) {
-  const int idx = blockIdx.x * blockDim.x + threadIdx.x;
-  if (idx < n) {
-    out[idx] = wp * (in[idx] > threshold) - wn * (in[idx] < -threshold);
+  __syncthreads();
+  if (id < WARP_SIZE) {
+#pragma unroll
+    for (int k = id; k < (CAFFE_CUDA_NUM_THREADS - WARP_SIZE); k += WARP_SIZE)
+      val += temp[k], val2 += temp2[k];
+    temp[id]  = val;
+    temp2[id] = val2;
+  }
+  __syncthreads();
+  if (id == 0) {
+    for (int k = 1; k < WARP_SIZE; ++k) val += temp[k], val2 += temp2[k];
+    beta[idx]  = val;
+    sum[idx]   = val2;
   }
 }
 
 template <typename Dtype>
-void __global__ ternary_backward_input_kernel(
-    const int N, const Dtype wp, const Dtype wn, const Dtype threshold,
-    const Dtype* bottom_data, const Dtype* top_diff, Dtype* bottom_diff) {
-  const int idx = blockIdx.x * blockDim.x + threadIdx.x;
+void __global__ backward_kernel(const int n, const int channels,
+    const int group_channels, const int dim, const Dtype *delta,
+    const Dtype *in, const Dtype *beta, Dtype *out) {
+  CUDA_KERNEL_LOOP(index, n) {
+    int y      = index % dim;
+    int index2 = index / dim;
+    int c      = index2 % channels;
+    index2     = (index2 / group_channels) * dim + y;
+    if (gpu_abs(in[index]) > delta[c]) out[index] *= beta[index2];
+    if (gpu_abs(in[index]) > 1) out[index] = 0;
+  }
+}
 
-  if (idx < N) {
-    bottom_diff[idx] = top_diff[idx];
-    bottom_diff[idx] *=
-        (bottom_data[idx] > threshold ? wp
-                                      : bottom_data[idx] < -threshold ? wn : 1);
+template <typename Dtype>
+void test_delta(const int num, const int channels, const int dim,
+    const Dtype threshold_t, const Dtype *in, const Dtype *out) {
+  vector<Dtype> delta(channels, 0);
+  for (int n = 0; n < num; ++n) {
+    for (int c = 0; c < channels; ++c) {
+      for (int d = 0; d < dim; ++d) {
+        delta[c] += std::abs(in[(n * channels + c) * dim + d]);
+      }
+    }
+  }
+  for (int c = 0; c < channels; ++c) {
+    delta[c] *= threshold_t;
+    if (std::abs(delta[c] - out[c]) > 1e-4) {
+      printf("Error: %.10f %.10f\n", delta[c], out[c]);
+      CHECK(false);
+    }
   }
 }
 
 template <typename Dtype>
 void TernaryLayer<Dtype>::Forward_gpu(
-    const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
+    const vector<Blob<Dtype> *> &bottom, const vector<Blob<Dtype> *> &top) {
   const int count = bottom[0]->count();
-  abs_data<Dtype> bottom_data(bottom[0]->mutable_gpu_data());
-  thrust::maximum<Dtype> fcn1;
-  threshold_ = functionReduce<Dtype>(count, &temp_, 0, bottom_data, fcn1);
-  // Dtype mx       = 0;
-  // const Dtype* A = bottom[0]->cpu_data();
-  // for (int i = 0; i < count; ++i) mx += std::abs(A[i]);
-  // LOG(INFO) << "threshold: " << threshold_ << ' ' << mx;
-  // CHECK(std::abs(threshold_ - mx) < 1e-6);
-  threshold_ *= 0.05;
-  // LOG(INFO) << "threshold: " << threshold_;
-  // LOG(INFO) << "wp: " << *Wp_;
-  // LOG(INFO) << "Wn: " << *Wn_;
-  ternary_forward_kernel<Dtype>
-      <<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS>>>(
-          count, bottom[0]->gpu_data(), *Wp_, *Wn_, threshold_,
-          top[0]->mutable_gpu_data());
+  if (!use_global_stats_) {
+    Dtype threshold_t = threshold_t_ / Dtype(count / channels_);
+    delta_kernel<Dtype><<<channels_, CAFFE_CUDA_NUM_THREADS>>>(num_ * group_,
+        channels_, dim_, threshold_t, bottom[0]->gpu_data(),
+        delta_.mutable_gpu_data());
+    // test_delta<Dtype>(
+    //     num_ * group_, channels_, dim_, threshold_t, bottom[0]->cpu_data(),
+    //     delta_.cpu_data());
+    caffe_gpu_axpby<Dtype>(count, 1. - moving_average_fraction_,
+        delta_.gpu_data(), moving_average_fraction_,
+        this->blobs_[0]->mutable_gpu_data());
+  }
+  const Dtype *delta =
+      use_global_stats_ ? this->blobs_[0]->gpu_data() : delta_.gpu_data();
+  const Dtype *bottom_data = bottom[0]->gpu_data();
+  Dtype *top_data          = top[0]->mutable_gpu_data();
+  Dtype *beta_data         = top[1]->mutable_gpu_data();
+  Dtype *sum_data          = top[2]->mutable_gpu_data();
+  const int offset         = channels_ / group_;
+  for (int n = 0; n < num_; ++n) {
+    for (int g = 0; g < group_; ++g) {
+      const int offset2 = (n * group_ + g) * offset * dim_;
+      const int offset3 = (n * group_ + g) * dim_;
+      forward_kernel<Dtype><<<dim_, CAFFE_CUDA_NUM_THREADS>>>(offset, dim_,
+          delta + offset * g, bottom_data + offset2, top_data + offset2,
+          beta_data + offset3, sum_data + offset3);
+    }
+  }
 }
 template <typename Dtype>
-void TernaryLayer<Dtype>::Backward_gpu(
-    const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
-    const vector<Blob<Dtype>*>& bottom) {
-  const int count          = bottom[0]->count();
-  const Dtype* bottom_data = bottom[0]->gpu_data();
-  const Dtype* top_diff    = top[0]->gpu_diff();
+void TernaryLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype> *> &top,
+    const vector<bool> &propagate_down, const vector<Blob<Dtype> *> &bottom) {
   if (propagate_down[0]) {
-    ternary_backward_input_kernel<Dtype>
-        <<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS>>>(
-            count, *Wp_, *Wn_, threshold_, bottom_data, top_diff,
-            bottom[0]->mutable_gpu_diff());
+    const int count       = bottom[0]->count();
+    const Dtype *top_diff = top[0]->gpu_diff();
+    caffe_gpu_div<Dtype>(top[1]->count(), top[1]->gpu_data(),
+        top[2]->gpu_data(), top[1]->mutable_gpu_data());
+    caffe_copy(count, top_diff, bottom[0]->mutable_gpu_diff());
+    backward_kernel<Dtype>
+        <<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS>>>(count, channels_,
+            channels_ / group_, dim_, delta_.gpu_data(), bottom[0]->gpu_data(),
+            top[1]->gpu_data(), bottom[0]->mutable_gpu_diff());
   }
-
-  greater_fetch<Dtype> gf_fcn(bottom_data, top_diff, threshold_);
-  less_fetch<Dtype> lf_fcn(bottom_data, top_diff, -threshold_);
-  thrust::plus<Dtype> fcn1;
-  const int num = bottom[0]->shape(0);
-  this->blobs_[0]->mutable_cpu_diff()[0] =
-      functionReduce<Dtype>(count, &temp_, 0, gf_fcn, fcn1) / num;
-  this->blobs_[0]->mutable_cpu_diff()[1] =
-      functionReduce<Dtype>(count, &temp_, 0, lf_fcn, fcn1) / num;
 }
 
 INSTANTIATE_LAYER_GPU_FUNCS(TernaryLayer);

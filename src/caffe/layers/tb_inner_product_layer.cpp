@@ -47,12 +47,12 @@ void TBInnerProductLayer<Dtype>::LayerSetUp(
   }
   // parameter initialization
   this->param_propagate_down_.resize(this->blobs_.size(), true);
-  full_train_ = this->layer_param_.tb_param().full_train();
-  use_bias_   = this->layer_param_.tb_param().use_bias();
-  is_w_bin_   = this->layer_param_.tb_param().w_binary();
-  is_in_bin_  = this->layer_param_.tb_param().in_binary();
-  clip_       = this->layer_param_.tb_param().clip();
-  reg_        = this->layer_param_.tb_param().reg();
+  full_train_ = true;
+  use_bias_   = false;
+  is_w_bin_   = true; 
+  is_in_bin_  = false;
+  clip_       = 0;
+  reg_        = 0;
   have_reg_   = (is_w_bin_ || is_in_bin_) && abs(reg_) < 1e-10;
   weight_.Reshape({K_, N_});
   weight_s_.Reshape({N_});

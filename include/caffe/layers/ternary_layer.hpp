@@ -35,9 +35,11 @@ class TernaryLayer : public Layer<Dtype> {
       const vector<Blob<Dtype>*>& bottom);
 
  private:
-  int channels_, group_, num_;
+  int channels_, group_, num_, dim_;
   float moving_average_fraction_;
   float threshold_t_;
+  Blob<Dtype> delta_;
+  bool use_global_stats_;
 };
 }  // namespace caffe
 

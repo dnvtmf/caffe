@@ -1162,7 +1162,7 @@ message TernaryParameter {
   // is the moving_average_fraction parameter.
   optional float moving_average_fraction = 1 [default = .999];
   optional float threshold_t = 2 [default = 0.5];
-  optional int group = 3 [default = 1];
+  optional uint32 group = 3 [default = 1];
 }
 
 // Message that stores parameters used by TileLayer

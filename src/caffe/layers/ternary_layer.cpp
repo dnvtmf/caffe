@@ -12,8 +12,10 @@ void TernaryLayer<Dtype>::LayerSetUp(
   moving_average_fraction_ = param.moving_average_fraction();
   threshold_t_             = param.threshold_t();
   group_                   = param.group();
-  CHECK_EQ(bottom[0]->num_axis(), 4);
+  use_global_stats_        = this->phase_ == TEST;
+  CHECK_EQ(bottom[0]->num_axes(), 4);
   channels_ = bottom[0]->shape(1);
+  dim_      = bottom[0]->count(2);
   CHECK(channels_ % group_ == 0);
   if (this->blobs_.size() > 0) {
     CHECK_EQ(this->blobs_.size(), 1);
@@ -30,19 +32,20 @@ void TernaryLayer<Dtype>::LayerSetUp(
       fixed_param_spec->set_lr_mult(0.f);
     } else {
       CHECK_EQ(this->layer_param_.param(i).lr_mult(), 0.f)
-          << "Cannot configure batch normalization statistics as layer "
-          << "parameters.";
+          << "Cannot configure ternary statistics as layer parameters.";
     }
   }
+  if (!use_global_stats_) delta_.Reshape({channels_});
 }
 template <typename Dtype>
 void TernaryLayer<Dtype>::Reshape(
     const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
   CHECK_EQ(bottom[0]->shape(1), channels_);
+  CHECK_EQ(top.size(), 3) << "num top blob: " << top.size();
   num_ = bottom[0]->shape(0);
   top[0]->ReshapeLike(*bottom[0]);
-  top[1]->Reshape({num_, group_});
-  top[2]->Reshape({num_, group_});
+  top[1]->Reshape({num_, group_, dim_});
+  top[2]->Reshape({num_, group_, dim_});
 }
 
 template <typename Dtype>
@@ -50,9 +53,8 @@ void TernaryLayer<Dtype>::Forward_cpu(
     const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {}
 
 template <typename Dtype>
-void TernaryLayer<Dtype>::Backward_cpu(
-    const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
-    const vector<Blob<Dtype>*>& bottom) {
+void TernaryLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
+    const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
   if (propagate_down[0]) {
   }
 }
