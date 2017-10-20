@@ -10,6 +10,13 @@ namespace caffe {
 inline __device__ float gpu_abs(float x) { return fabsf(x); }
 inline __device__ double gpu_abs(double x) { return fabs(x); }
 
+template <typename Dtype>
+void __global__ beta_div_kernel(const int n, const Dtype *sum, Dtype *beta) {
+  CUDA_KERNEL_LOOP(index, n) {
+    if (sum[index] > 0) beta[index] /= sum[index];
+  }
+}
+
 /**
 \delta_c = \frac{t}{num * dim} \sum_{n=1}^{num}{\sum_{i=1}^{dim}{|in[n][c][i]|}}
 */
@@ -48,8 +55,9 @@ void __global__ forward_kernel(const int channels, const int dim,
   const int idx = blockIdx.x;
   const int id  = threadIdx.x;
   volatile __shared__ Dtype temp[CAFFE_CUDA_NUM_THREADS - WARP_SIZE];
-  volatile __shared__ Dtype temp2[CAFFE_CUDA_NUM_THREADS - WARP_SIZE];
-  Dtype val = 0, val2 = 0;
+  volatile __shared__ int temp2[CAFFE_CUDA_NUM_THREADS - WARP_SIZE];
+  Dtype val = 0;
+  int val2  = 0;
   for (int c = id; c < channels; c += blockDim.x) {
     const int offset = c * dim + idx;
     out[offset]      = 0;
@@ -99,41 +107,18 @@ void __global__ backward_kernel(const int n, const int channels,
 }
 
 template <typename Dtype>
-void test_delta(const int num, const int channels, const int dim,
-    const Dtype threshold_t, const Dtype *in, const Dtype *out) {
-  vector<Dtype> delta(channels, 0);
-  for (int n = 0; n < num; ++n) {
-    for (int c = 0; c < channels; ++c) {
-      for (int d = 0; d < dim; ++d) {
-        delta[c] += std::abs(in[(n * channels + c) * dim + d]);
-      }
-    }
-  }
-  for (int c = 0; c < channels; ++c) {
-    delta[c] *= threshold_t;
-    if (std::abs(delta[c] - out[c]) > 1e-4) {
-      printf("Error: %.10f %.10f\n", delta[c], out[c]);
-      CHECK(false);
-    }
-  }
-}
-
-template <typename Dtype>
 void TernaryLayer<Dtype>::Forward_gpu(
     const vector<Blob<Dtype> *> &bottom, const vector<Blob<Dtype> *> &top) {
   const int count = bottom[0]->count();
   if (!use_global_stats_) {
     Dtype threshold_t = threshold_t_ / Dtype(count / channels_);
-    delta_kernel<Dtype><<<channels_, CAFFE_CUDA_NUM_THREADS>>>(num_ * group_,
-        channels_, dim_, threshold_t, bottom[0]->gpu_data(),
-        delta_.mutable_gpu_data());
-    // test_delta<Dtype>(
-    //     num_ * group_, channels_, dim_, threshold_t, bottom[0]->cpu_data(),
-    //     delta_.cpu_data());
-    caffe_gpu_axpby<Dtype>(count, 1. - moving_average_fraction_,
+    delta_kernel<Dtype><<<channels_, CAFFE_CUDA_NUM_THREADS>>>(num_, channels_,
+        dim_, threshold_t, bottom[0]->gpu_data(), delta_.mutable_gpu_data());
+    caffe_gpu_axpby<Dtype>(channels_, 1. - moving_average_fraction_,
         delta_.gpu_data(), moving_average_fraction_,
         this->blobs_[0]->mutable_gpu_data());
   }
+
   const Dtype *delta =
       use_global_stats_ ? this->blobs_[0]->gpu_data() : delta_.gpu_data();
   const Dtype *bottom_data = bottom[0]->gpu_data();
@@ -151,14 +136,18 @@ void TernaryLayer<Dtype>::Forward_gpu(
     }
   }
 }
+
 template <typename Dtype>
 void TernaryLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype> *> &top,
     const vector<bool> &propagate_down, const vector<Blob<Dtype> *> &bottom) {
   if (propagate_down[0]) {
     const int count       = bottom[0]->count();
     const Dtype *top_diff = top[0]->gpu_diff();
-    caffe_gpu_div<Dtype>(top[1]->count(), top[1]->gpu_data(),
-        top[2]->gpu_data(), top[1]->mutable_gpu_data());
+    beta_div_kernel<Dtype>
+        <<<CAFFE_GET_BLOCKS(top[1]->count()), CAFFE_CUDA_NUM_THREADS>>>(
+            top[1]->count(), top[2]->gpu_data(), top[1]->mutable_gpu_data());
+    caffe_gpu_add_scalar<Dtype>(
+        top[1]->count(), 1. / (channels_ / group_), top[1]->mutable_gpu_data());
     caffe_copy(count, top_diff, bottom[0]->mutable_gpu_diff());
     backward_kernel<Dtype>
         <<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS>>>(count, channels_,

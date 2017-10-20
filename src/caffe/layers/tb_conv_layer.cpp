@@ -169,7 +169,10 @@ void TBConvolutionLayer<Dtype>::LayerSetUp(
     weight_filler->Fill(this->blobs_[0].get());
     // Initialize and fill the weight scales
     this->blobs_[1].reset(new Blob<Dtype>(scale_shape));
-    caffe_set<Dtype>(num_output_, 1, this->blobs_[1]->mutable_cpu_data());
+    const Dtype init_value =
+        0.5 * sqrt(3 / this->blobs_[0]->count(channel_axis_));
+    caffe_set<Dtype>(
+        num_output_, init_value, this->blobs_[1]->mutable_cpu_data());
     // If necessary, initialize and fill the biases.
     if (bias_term_) {
       this->blobs_[2].reset(new Blob<Dtype>(bias_shape));

@@ -81,6 +81,7 @@ class TBConvolutionLayer : public Layer<Dtype> {
   void conv2D_gpu(const Dtype* in, const int num, Dtype* out);
   void forward_gpu_gemm(const Dtype* input, const Dtype* beta,
       const Dtype* weight, Dtype* output);
+  void forward_gpu_bias(Dtype* output, const Dtype* bias);
   void backward_gpu_gemm(
       const Dtype* output, const Dtype* weights, Dtype* input);
   void weight_gpu_gemm(const Dtype* input, const Dtype* output,

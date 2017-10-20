@@ -9,6 +9,25 @@
 
 namespace caffe {
 template <typename Dtype>
+void out(const char* info, const Blob<Dtype>& x) {
+  printf("%s: (", info);
+  for (auto y : x.shape()) printf("%d ", y);
+  printf(")\n");
+  for (int i = 0; i < min(100, x.count()); ++i) printf("%g ", x.cpu_data()[i]);
+  if (x.count() > 100) printf("......");
+  puts("");
+}
+template <typename Dtype>
+void outt(const char* info, const Blob<Dtype>& x) {
+  printf("%s: (", info);
+  for (auto y : x.shape()) printf("%d ", y);
+  printf(")\n");
+  for (int i = 0; i < min(100, x.count()); ++i) printf("%g ", x.cpu_diff()[i]);
+  if (x.count() > 100) printf("......");
+  puts("");
+}
+
+template <typename Dtype>
 void __global__ scale_kernel_1(
     const int n, const int width, const Dtype* alpha, Dtype* out) {
   CUDA_KERNEL_LOOP(index, n) { out[index] = out[index] * alpha[index / width]; }
@@ -17,6 +36,13 @@ template <typename Dtype>
 void __global__ scale_kernel_2(
     const int n, const int width, const Dtype* beta, Dtype* out) {
   CUDA_KERNEL_LOOP(index, n) { out[index] = out[index] * beta[index % width]; }
+}
+
+template <typename Dtype>
+void __global__ beta_div_kernel(const int n, const Dtype* sum, Dtype* beta) {
+  CUDA_KERNEL_LOOP(index, n) {
+    if (sum[index] > 0) beta[index] /= sum[index];
+  }
 }
 
 template <typename Dtype>
@@ -98,6 +124,15 @@ void TBConvolutionLayer<Dtype>::forward_gpu_gemm(
         col_buff + col_offset_ * g, (Dtype) 0., output + output_offset_ * g);
   }
 }
+
+template <typename Dtype>
+void TBConvolutionLayer<Dtype>::forward_gpu_bias(
+    Dtype* output, const Dtype* bias) {
+  caffe_gpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, num_output_,
+      out_spatial_dim_, 1, (Dtype) 1., bias, bias_multiplier_.gpu_data(),
+      (Dtype) 1., output);
+}
+
 template <typename Dtype>
 void TBConvolutionLayer<Dtype>::backward_gpu_gemm(
     const Dtype* output, const Dtype* weights, Dtype* input) {
@@ -167,10 +202,11 @@ void TBConvolutionLayer<Dtype>::Forward_gpu(
     caffe_copy<Dtype>(beta_.count(), b1_data, beta_.mutable_gpu_data());
     caffe_copy<Dtype>(sum_.count(), b2_data, sum_.mutable_gpu_data());
   }
-  caffe_gpu_div<Dtype>(out_spatial_dim_, beta_.gpu_data(), sum_.gpu_data(),
-      beta_.mutable_gpu_data());
-
+  beta_div_kernel<Dtype>
+      <<<CAFFE_GET_BLOCKS(beta_.count()), CAFFE_CUDA_NUM_THREADS>>>(
+          beta_.count(), sum_.gpu_data(), beta_.mutable_gpu_data());
   const Dtype* beta = beta_.gpu_data();
+
   if (is_1x1_) {
     Dtype* bottom_data = bottom[0]->mutable_gpu_data();
     for (int i = 0; i < num_ * group_; ++i) {
@@ -187,12 +223,8 @@ void TBConvolutionLayer<Dtype>::Forward_gpu(
   for (int n = 0; n < num_; ++n) {
     forward_gpu_gemm(bottom_data + n * bottom_dim_, beta + n * beta_dim_,
         weight, top_data + n * top_dim_);
-  }
-
-  if (this->bias_term_) {
-    const Dtype* bias = this->blobs_[2]->gpu_data();
-    top_data          = top[0]->mutable_gpu_data();
-    for (int n = 0; n < num_; ++n) {
+    if (this->bias_term_) {
+      const Dtype* bias = this->blobs_[2]->gpu_data();
       caffe_gpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, num_output_,
           out_spatial_dim_, 1, (Dtype) 1., bias, bias_multiplier_.gpu_data(),
           (Dtype) 1., top_data + n * top_dim_);
@@ -207,36 +239,41 @@ void TBConvolutionLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
   const Dtype* alpha       = this->blobs_[1]->gpu_data();
   const Dtype* top_diff    = top[0]->gpu_diff();
   const Dtype* bottom_data = bottom[0]->gpu_data();
-  const Dtype* beta        = is_1x1_ ? bottom[1]->gpu_data() : beta_.gpu_data();
-  Dtype* weight_diff       = this->blobs_[0]->mutable_gpu_diff();
-  Dtype* bottom_diff       = bottom[0]->mutable_gpu_diff();
+  const Dtype* beta        = beta_.gpu_data();
 
   // Bias gradient, if necessary.
   if (bias_term_ && this->param_propagate_down_[2]) {
     Dtype* bias_diff = this->blobs_[1]->mutable_gpu_diff();
-    for (int n = 0; n < this->num_; ++n) {
-      this->backward_gpu_bias(bias_diff, top_diff + n * this->top_dim_);
+    for (int n = 0; n < num_; ++n) {
+      backward_gpu_bias(bias_diff, top_diff + n * top_dim_);
     }
   }
   // gradient w.r.t. weight. Note that we will accumulate diffs.
   if (this->param_propagate_down_[0]) {
+    Dtype* weight_diff = this->blobs_[0]->mutable_gpu_diff();
     for (int n = 0; n < num_; ++n) {
-      this->weight_gpu_gemm(bottom_data + n * bottom_dim_,
-          top_diff + n * top_dim_, beta + n * beta_dim_, weight_diff);
+      weight_gpu_gemm(bottom_data + n * bottom_dim_, top_diff + n * top_dim_,
+          beta + n * beta_dim_, weight_diff);
     }
   }
   // gradient w.r.t. bottom data, if necessary.
   if (propagate_down[0]) {
+    Dtype* bottom_diff = bottom[0]->mutable_gpu_diff();
     for (int n = 0; n < num_; ++n) {
-      this->backward_gpu_gemm(
+      backward_gpu_gemm(
           top_diff + n * top_dim_, weight, bottom_diff + n * bottom_dim_);
     }
   }
-  weight_diff       = this->blobs_[0]->mutable_gpu_diff();
-  Dtype* alpha_diff = this->blobs_[1]->mutable_gpu_diff();
+  // gradient w.r.t weight scales and weight.
+  Dtype* weight_diff = this->blobs_[0]->mutable_gpu_diff();
+  Dtype* alpha_diff  = this->blobs_[1]->mutable_gpu_diff();
+  const int count    = this->blobs_[0]->count();
+  Dtype* temp_diff   = weight_.mutable_gpu_diff();
+  caffe_gpu_sign<Dtype>(
+      count, this->blobs_[0]->gpu_data(), weight_.mutable_gpu_data());
+  caffe_gpu_mul<Dtype>(count, weight_diff, weight_.gpu_data(), temp_diff);
   caffe_gpu_gemv<Dtype>(CblasNoTrans, num_output_, kernel_dim_, (Dtype) 1.,
-      weight_diff, sum_multiplier_.gpu_data(), (Dtype) 0., alpha_diff);
-  const int count = num_output_ * kernel_dim_;
+      weight_.gpu_diff(), sum_multiplier_.gpu_data(), (Dtype) 0., alpha_diff);
   scale_kernel_1<Dtype><<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS>>>(
       count, kernel_dim_, alpha, weight_diff);
 }

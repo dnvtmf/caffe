@@ -25,7 +25,6 @@ max_iter = num_epoch * cifar10.train_iter
 solver.test(test_iter=cifar10.test_iter, test_interval=2 * cifar10.train_iter,
             test_initialization=False)
 solver.train(base_lr=0.01, lr_policy='step',
-             # stepsize=10000,
              stepsize=num_epoch * cifar10.train_iter / 3,
              gamma=0.1, max_iter=num_epoch * cifar10.train_iter,
              weight_decay=weight_decay)
