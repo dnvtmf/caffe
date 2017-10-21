@@ -10,19 +10,11 @@ activation_method = "ReLU"
 filler_weight = Filler('msra')
 filler_bias = Filler('constant')
 
-other_param = None
 weight_decay = 0
 if name == 'full':
     conv_type = "Convolution"
     weight_decay = 5e-4
 elif name == 'tb':
-    tb_param = Parameter('tb_param')
-    tb_param.add_param_if('use_bias', False)
-    tb_param.add_param_if('w_binary', True)
-    tb_param.add_param_if('in_binary', False)
-    tb_param.add_param_if('clip', 0)
-    tb_param.add_param_if('reg', 0.)
-    other_param = [tb_param]
     conv_type = "TBConvolution"
 else:
     conv_type = 'XnorNetConvolution'
@@ -48,25 +40,24 @@ def block(out_, num_output, stride=1):
     #    out_ = BN(out_, name='bn_relu1', bias_term=True)
     #    out_ = Activation(out_, name='relu1', method=activation_method)
     out_ = BN(out_, name='bn')
+    out_ = Ternary(out_, 'ternary1')
     out_ = Conv(out_, name='conv1', conv_type=conv_type, num_output=num_output,
                 kernel_size=3, stride=stride, pad=1,
-                weight_filler=filler_weight, optional_params=other_param)
+                weight_filler=filler_weight)
 
     #    out_ = BN(out_, name='bn_relu2', bias_term=True)
     #    out_ = Activation(out_, name='relu2', method=activation_method)
     out_ = BN(out_, name='bn2')
+    out_ = Ternary(out_, 'ternary2')
     out_ = Conv(out_, name='conv2', conv_type=conv_type, num_output=num_output,
-                kernel_size=3, stride=1, pad=1,
-                weight_filler=filler_weight, optional_params=other_param)
+                kernel_size=3, stride=1, pad=1, weight_filler=filler_weight)
 
     if stride != 1:
         with NameScope('shortcut'):
             x = BN(x, name='bn', bias_term=True)
             x = Activation(x, name='act', method=activation_method)
-            x = Conv(x, name='conv',
-                     num_output=num_output, kernel_size=2, stride=stride,
-                     pad=0, weight_filler=filler_weight,
-                     optional_params=other_param)
+            x = Conv(x, name='conv', num_output=num_output, kernel_size=2,
+                     stride=stride, pad=0, weight_filler=filler_weight)
 
     out_ = Eltwise(out_ + x, name='add')
     return out_

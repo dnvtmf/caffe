@@ -42,7 +42,7 @@ void __global__ delta_kernel(const int num, const int channels, const int dim,
       val += temp[k];
     temp[id] = val;
   }
-  __syncthreads();
+  // __syncthreads();
   if (id == 0) {
     for (int k = 1; k < WARP_SIZE; ++k) val += temp[k];
     delta[c]   = val * threshold_t;
@@ -84,7 +84,7 @@ void __global__ forward_kernel(const int channels, const int dim,
     temp[id]  = val;
     temp2[id] = val2;
   }
-  __syncthreads();
+  // __syncthreads();
   if (id == 0) {
     for (int k = 1; k < WARP_SIZE; ++k) val += temp[k], val2 += temp2[k];
     beta[idx]  = val;

@@ -2,32 +2,37 @@
 #include <vector>
 
 #include "caffe/layers/binary_layer.hpp"
-#include "caffe/util/math_functions.hpp"
+#include "caffe/util/binary_math_functions.hpp"
 
 namespace caffe {
-
 template <typename Dtype>
-void BinaryLayer<Dtype>::Forward_cpu(
+void BinaryLayer<Dtype>::LayerSetUp(
     const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
-  caffe_cpu_sign<Dtype>(
-      bottom[0]->count(), bottom[0]->cpu_data(), top[0]->mutable_cpu_data());
+  TernaryParameter param = this->layer_param_.ternary_param();
+  group_                 = param.group();
+  CHECK_EQ(bottom[0]->num_axes(), 4);
+  channels_ = bottom[0]->shape(1);
+  dim_      = bottom[0]->count(2);
+  CHECK(channels_ % group_ == 0);
+}
+template <typename Dtype>
+void BinaryLayer<Dtype>::Reshape(
+    const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
+  CHECK_EQ(bottom[0]->shape(1), channels_);
+  num_ = bottom[0]->shape(0);
+  top[0]->ReshapeLike(*bottom[0]);
+  top[1]->Reshape({num_, group_, dim_});
+  top[2]->Reshape({num_, group_, dim_});
 }
 
 template <typename Dtype>
-void BinaryLayer<Dtype>::Backward_cpu(
-    const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
-    const vector<Blob<Dtype>*>& bottom) {
+void BinaryLayer<Dtype>::Forward_cpu(
+    const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {}
+
+template <typename Dtype>
+void BinaryLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
+    const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
   if (propagate_down[0]) {
-    const Dtype* top_diff    = top[0]->cpu_diff();
-    const Dtype* bottom_data = bottom[0]->cpu_data();
-    Dtype* bottom_diff       = bottom[0]->mutable_cpu_diff();
-    const int count          = bottom[0]->count();
-
-    for (int i = 0; i < count; ++i) {
-      bottom_diff[i] = top_diff[i];
-
-      if (std::abs(bottom_data[i]) >= 1) bottom_diff[i] = 0;
-    }
   }
 }
 

@@ -13,9 +13,9 @@ inline __device__ float sign(float val, float s) { return copysignf(val, s); }
 inline __device__ double sign(double val, double s) { return copysign(val, s); }
 
 template <typename Dtype>
-__global__ void binary_gradient_kernel_0(
-    const int M, const int N, bool use_bias, const Dtype *in,
-    const Dtype *scale, const Dtype *bias, Dtype *grad, const Dtype mul) {
+__global__ void binary_gradient_kernel_0(const int M, const int N,
+    bool use_bias, const Dtype *in, const Dtype *scale, const Dtype *bias,
+    Dtype *grad, const Dtype mul) {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx >= M * N) return;
   int i = idx / N;
@@ -28,9 +28,9 @@ __global__ void binary_gradient_kernel_0(
 }
 
 template <typename Dtype>
-__global__ void binary_gradient_kernel_1(
-    const int M, const int N, bool use_bias, const Dtype *in,
-    const Dtype *scale, const Dtype *bias, Dtype *grad, const Dtype mul) {
+__global__ void binary_gradient_kernel_1(const int M, const int N,
+    bool use_bias, const Dtype *in, const Dtype *scale, const Dtype *bias,
+    Dtype *grad, const Dtype mul) {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx >= M * N) return;
   int j = idx % N;
@@ -43,9 +43,9 @@ __global__ void binary_gradient_kernel_1(
 }
 
 template <typename Dtype>
-void caffe_gpu_binary_gradient(
-    const int axis, const int M, const int N, bool use_bias, const Dtype *in,
-    const Dtype *scale, const Dtype *bias, Dtype *grad) {
+void caffe_gpu_binary_gradient(const int axis, const int M, const int N,
+    bool use_bias, const Dtype *in, const Dtype *scale, const Dtype *bias,
+    Dtype *grad) {
   if (axis == 0) {
     binary_gradient_kernel_0<Dtype>
         <<<CAFFE_GET_BLOCKS(M * N), CAFFE_CUDA_NUM_THREADS>>>(
@@ -58,10 +58,9 @@ void caffe_gpu_binary_gradient(
 }
 
 template <typename Dtype>
-__global__ void ternary_gradient_kernel_0(
-    const int M, const int N, bool use_bias, const Dtype *in,
-    const Dtype *scale, const Dtype *bias, const Dtype *delta, Dtype *grad,
-    const Dtype mul) {
+__global__ void ternary_gradient_kernel_0(const int M, const int N,
+    bool use_bias, const Dtype *in, const Dtype *scale, const Dtype *bias,
+    const Dtype *delta, Dtype *grad, const Dtype mul) {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx >= M * N) return;
   int i = idx / N;
@@ -73,10 +72,9 @@ __global__ void ternary_gradient_kernel_0(
 }
 
 template <typename Dtype>
-__global__ void ternary_gradient_kernel_1(
-    const int M, const int N, bool use_bias, const Dtype *in,
-    const Dtype *scale, const Dtype *bias, const Dtype *delta, Dtype *grad,
-    const Dtype mul) {
+__global__ void ternary_gradient_kernel_1(const int M, const int N,
+    bool use_bias, const Dtype *in, const Dtype *scale, const Dtype *bias,
+    const Dtype *delta, Dtype *grad, const Dtype mul) {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx >= M * N) return;
   int j = idx % N;
@@ -88,9 +86,9 @@ __global__ void ternary_gradient_kernel_1(
 }
 
 template <typename Dtype>
-void caffe_gpu_ternary_gradient(
-    const int axis, const int M, const int N, bool use_bias, const Dtype *in,
-    const Dtype *scale, const Dtype *bias, const Dtype *delta, Dtype *grad) {
+void caffe_gpu_ternary_gradient(const int axis, const int M, const int N,
+    bool use_bias, const Dtype *in, const Dtype *scale, const Dtype *bias,
+    const Dtype *delta, Dtype *grad) {
   if (axis == 0) {
     ternary_gradient_kernel_0<Dtype>
         <<<CAFFE_GET_BLOCKS(M * N), CAFFE_CUDA_NUM_THREADS>>>(
@@ -129,9 +127,8 @@ void caffe_gpu_clip(const int N, Dtype min_value, Dtype max_value, Dtype *X) {
 }
 
 template <typename Dtype>
-__global__ void binary_approx_kernel_0(
-    const int M, const int N, bool use_bias, Dtype *in, Dtype *out,
-    Dtype *scale, Dtype *bias) {
+__global__ void binary_approx_kernel_0(const int M, const int N, bool use_bias,
+    Dtype *in, Dtype *out, Dtype *scale, Dtype *bias) {
   const int i  = blockIdx.x;
   const int id = threadIdx.x;
   volatile __shared__ Dtype temp[CAFFE_CUDA_NUM_THREADS - WARP_SIZE];
@@ -151,7 +148,6 @@ __global__ void binary_approx_kernel_0(
       val += temp[k];
     temp[id] = val;
   }
-  __syncthreads();
   if (id == 0) {
     for (int k = 1; k < WARP_SIZE; ++k) val += temp[k];
     scale[i]   = val / Dtype(N);
@@ -170,9 +166,8 @@ __global__ void binary_approx_kernel_0(
 }
 
 template <typename Dtype>
-__global__ void binary_approx_kernel_1(
-    const int M, const int N, bool use_bias, Dtype *in, Dtype *out,
-    Dtype *scale, Dtype *bias) {
+__global__ void binary_approx_kernel_1(const int M, const int N, bool use_bias,
+    Dtype *in, Dtype *out, Dtype *scale, Dtype *bias) {
   const int j  = blockIdx.x;
   const int id = threadIdx.x;
   volatile __shared__ Dtype temp[CAFFE_CUDA_NUM_THREADS - WARP_SIZE];
@@ -207,9 +202,8 @@ __global__ void binary_approx_kernel_1(
 }
 
 template <typename Dtype>
-void caffe_gpu_binary_approx(
-    const int axis, const int M, const int N, bool use_bias, Dtype *in,
-    Dtype *out, Dtype *scale, Dtype *bias) {
+void caffe_gpu_binary_approx(const int axis, const int M, const int N,
+    bool use_bias, Dtype *in, Dtype *out, Dtype *scale, Dtype *bias) {
   if (axis == 0) {
     binary_approx_kernel_0<Dtype>
         <<<M, CAFFE_CUDA_NUM_THREADS>>>(M, N, use_bias, in, out, scale, bias);
@@ -220,9 +214,8 @@ void caffe_gpu_binary_approx(
 }
 
 template <typename Dtype>
-__global__ void ternary_approx_kernel_0(
-    const int M, const int N, bool use_bias, Dtype *in, Dtype *out,
-    Dtype *scale, Dtype *bias, Dtype *delta) {
+__global__ void ternary_approx_kernel_0(const int M, const int N, bool use_bias,
+    Dtype *in, Dtype *out, Dtype *scale, Dtype *bias, Dtype *delta) {
   const int i  = blockIdx.x;
   const int id = threadIdx.x;
   volatile __shared__ Dtype temp[CAFFE_CUDA_NUM_THREADS - WARP_SIZE];
@@ -285,9 +278,8 @@ __global__ void ternary_approx_kernel_0(
 }
 
 template <typename Dtype>
-__global__ void ternary_approx_kernel_1(
-    const int M, const int N, bool use_bias, Dtype *in, Dtype *out,
-    Dtype *scale, Dtype *bias, Dtype *delta) {
+__global__ void ternary_approx_kernel_1(const int M, const int N, bool use_bias,
+    Dtype *in, Dtype *out, Dtype *scale, Dtype *bias, Dtype *delta) {
   const int j  = blockIdx.x;
   const int id = threadIdx.x;
   volatile __shared__ Dtype temp[CAFFE_CUDA_NUM_THREADS - WARP_SIZE];
@@ -350,9 +342,9 @@ __global__ void ternary_approx_kernel_1(
 }
 
 template <typename Dtype>
-void caffe_gpu_ternary_approx(
-    const int axis, const int M, const int N, bool use_bias, Dtype *in,
-    Dtype *out, Dtype *scale, Dtype *bias, Dtype *delta) {
+void caffe_gpu_ternary_approx(const int axis, const int M, const int N,
+    bool use_bias, Dtype *in, Dtype *out, Dtype *scale, Dtype *bias,
+    Dtype *delta) {
   if (axis == 0) {
     ternary_approx_kernel_0<Dtype><<<M, CAFFE_CUDA_NUM_THREADS>>>(
         M, N, use_bias, in, out, scale, bias, delta);
@@ -395,8 +387,8 @@ void caffe_gpu_swap<double>(const int N, double *X, double *Y) {
 }
 
 template <typename Dtype>
-void __global__
-    axis_asum_kernel_0(const int M, const int N, const Dtype *in, Dtype *out) {
+void __global__ axis_asum_kernel_0(
+    const int M, const int N, const Dtype *in, Dtype *out) {
   const int i  = blockIdx.x;
   const int id = threadIdx.x;
   volatile __shared__ Dtype temp[CAFFE_CUDA_NUM_THREADS - WARP_SIZE];
@@ -418,8 +410,8 @@ void __global__
 }
 
 template <typename Dtype>
-void __global__
-    axis_asum_kernel_1(const int M, const int N, const Dtype *in, Dtype *out) {
+void __global__ axis_asum_kernel_1(
+    const int M, const int N, const Dtype *in, Dtype *out) {
   const int j  = blockIdx.x;
   const int id = threadIdx.x;
   volatile __shared__ Dtype temp[CAFFE_CUDA_NUM_THREADS - WARP_SIZE];
@@ -450,31 +442,30 @@ void caffe_gpu_axis_asum(
   }
 }
 
-#define INSTANTIATE_BINARY_MATH(Dtype)                                      \
-  template void caffe_gpu_binary_gradient<Dtype>(                           \
-      const int axis, const int M, const int N, bool use_bias,              \
-      const Dtype *in, const Dtype *scale, const Dtype *bias, Dtype *grad); \
-                                                                            \
-  template void caffe_gpu_ternary_gradient<Dtype>(                          \
-      const int axis, const int M, const int N, bool use_bias,              \
-      const Dtype *in, const Dtype *scale, const Dtype *bias,               \
-      const Dtype *delta, Dtype *grad);                                     \
-                                                                            \
-  template void caffe_gpu_clip<Dtype>(                                      \
-      const int N, Dtype min_value, Dtype max_value, Dtype *X);             \
-                                                                            \
-  template void caffe_gpu_binary_approx<Dtype>(                             \
-      const int axis, const int M, const int N, bool use_bias, Dtype *in,   \
-      Dtype *out, Dtype *scale, Dtype *bias);                               \
-                                                                            \
-  template void caffe_gpu_ternary_approx<Dtype>(                            \
-      const int axis, const int M, const int N, bool use_bias, Dtype *in,   \
-      Dtype *out, Dtype *scale, Dtype *bias, Dtype *delta);                 \
-                                                                            \
-  template void mean_center<Dtype>(                                         \
-      const int c_out, const int c_in, const int wh, Dtype *in);            \
-                                                                            \
-  template void caffe_gpu_axis_asum<Dtype>(                                 \
+#define INSTANTIATE_BINARY_MATH(Dtype)                                         \
+  template void caffe_gpu_binary_gradient<Dtype>(const int axis, const int M,  \
+      const int N, bool use_bias, const Dtype *in, const Dtype *scale,         \
+      const Dtype *bias, Dtype *grad);                                         \
+                                                                               \
+  template void caffe_gpu_ternary_gradient<Dtype>(const int axis, const int M, \
+      const int N, bool use_bias, const Dtype *in, const Dtype *scale,         \
+      const Dtype *bias, const Dtype *delta, Dtype *grad);                     \
+                                                                               \
+  template void caffe_gpu_clip<Dtype>(                                         \
+      const int N, Dtype min_value, Dtype max_value, Dtype *X);                \
+                                                                               \
+  template void caffe_gpu_binary_approx<Dtype>(const int axis, const int M,    \
+      const int N, bool use_bias, Dtype *in, Dtype *out, Dtype *scale,         \
+      Dtype *bias);                                                            \
+                                                                               \
+  template void caffe_gpu_ternary_approx<Dtype>(const int axis, const int M,   \
+      const int N, bool use_bias, Dtype *in, Dtype *out, Dtype *scale,         \
+      Dtype *bias, Dtype *delta);                                              \
+                                                                               \
+  template void mean_center<Dtype>(                                            \
+      const int c_out, const int c_in, const int wh, Dtype *in);               \
+                                                                               \
+  template void caffe_gpu_axis_asum<Dtype>(                                    \
       const int axis, const int M, const int N, const Dtype *in, Dtype *out);
 
 INSTANTIATE_BINARY_MATH(float);

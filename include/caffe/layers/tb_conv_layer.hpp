@@ -89,10 +89,8 @@ class TBConvolutionLayer : public Layer<Dtype> {
   void backward_gpu_bias(Dtype* bias, const Dtype* input);
 #endif
 
-      /// @brief The spatial dimensions of the input.
-      inline int input_shape(int i) {
-    return (*bottom_shape_)[channel_axis_ + i];
-  }
+  /// @brief The spatial dimensions of the input.
+  inline int input_shape(int i) { return (*bottom_shape_)[channel_axis_ + i]; }
   // Compute height_out_ and width_out_ from other parameters.
   void compute_output_shape();
 
