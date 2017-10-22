@@ -1,5 +1,5 @@
-#ifndef CAFFE_BINNARY_LAYER_HPP_
-#define CAFFE_BINNARY
+#ifndef CAFFE_TANH_TERNARY_LAYER_HPP_
+#define CAFFE_TANH_TERNARY_LAYER_HPP_
 
 #include <vector>
 
@@ -10,9 +10,10 @@
 namespace caffe {
 
 template <typename Dtype>
-class BinaryLayer : public Layer<Dtype> {
+class TanHTernaryLayer : public Layer<Dtype> {
  public:
-  explicit BinaryLayer(const LayerParameter& param) : Layer<Dtype>(param) {}
+  explicit TanHTernaryLayer(const LayerParameter& param)
+      : Layer<Dtype>(param) {}
 
   virtual void LayerSetUp(
       const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top);
@@ -21,7 +22,7 @@ class BinaryLayer : public Layer<Dtype> {
 
   virtual inline int ExactNumBottomBlobs() const { return 1; }
   virtual inline int MinNumTopBlobs() const { return 1; }
-  virtual inline const char* type() const { return "BinaryLayer"; }
+  virtual inline const char* type() const { return "TanHTernaryLayer"; }
 
   virtual void Forward_cpu(
       const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top);
@@ -33,9 +34,9 @@ class BinaryLayer : public Layer<Dtype> {
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
 
  private:
-  int channels_, group_, num_, dim_;
   bool scale_term_;
+  int num_, group_, channels_, dim_;
 };
 }  // namespace caffe
 
-#endif  // CAFFE_BINARY_LAYER_HPP_
+#endif  // CAFFE_TANH_TERNARY_LAYER_HPP_

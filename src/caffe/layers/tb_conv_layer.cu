@@ -109,12 +109,14 @@ void TBConvolutionLayer<Dtype>::forward_gpu_gemm(
   const Dtype* col_buff = input;
   if (!is_1x1_) {
     conv_im2col_gpu(input, col_buffer_.mutable_gpu_data());
-    Dtype* temp = col_buffer_.mutable_gpu_data();
-    for (int g = 0; g < group_; ++g) {
-      scale_kernel_2<Dtype>
-          <<<CAFFE_GET_BLOCKS(col_offset_), CAFFE_CUDA_NUM_THREADS>>>(
-              col_offset_, out_spatial_dim_, beta + out_spatial_dim_ * g,
-              temp + col_offset_ * g);
+    if (beta_term_) {
+      Dtype* temp = col_buffer_.mutable_gpu_data();
+      for (int g = 0; g < group_; ++g) {
+        scale_kernel_2<Dtype>
+            <<<CAFFE_GET_BLOCKS(col_offset_), CAFFE_CUDA_NUM_THREADS>>>(
+                col_offset_, out_spatial_dim_, beta + out_spatial_dim_ * g,
+                temp + col_offset_ * g);
+      }
     }
     col_buff = col_buffer_.gpu_data();
   }
@@ -158,12 +160,14 @@ void TBConvolutionLayer<Dtype>::weight_gpu_gemm(const Dtype* input,
   const Dtype* col_buff = input;
   if (!is_1x1_) {
     conv_im2col_gpu(input, col_buffer_.mutable_gpu_data());
-    Dtype* temp = col_buffer_.mutable_gpu_data();
-    for (int g = 0; g < group_; ++g) {
-      scale_kernel_2<Dtype>
-          <<<CAFFE_GET_BLOCKS(col_offset_), CAFFE_CUDA_NUM_THREADS>>>(
-              col_offset_, out_spatial_dim_, beta + out_spatial_dim_ * g,
-              temp + col_offset_ * g);
+    if (beta_term_) {
+      Dtype* temp = col_buffer_.mutable_gpu_data();
+      for (int g = 0; g < group_; ++g) {
+        scale_kernel_2<Dtype>
+            <<<CAFFE_GET_BLOCKS(col_offset_), CAFFE_CUDA_NUM_THREADS>>>(
+                col_offset_, out_spatial_dim_, beta + out_spatial_dim_ * g,
+                temp + col_offset_ * g);
+      }
     }
     col_buff = col_buffer_.gpu_data();
   }
@@ -200,27 +204,30 @@ void TBConvolutionLayer<Dtype>::Forward_gpu(
       count, kernel_dim_, alpha, weight_.mutable_gpu_data());
 #endif
   // beta
-  const Dtype* b1_data = bottom[1]->gpu_data();
-  const Dtype* b2_data = bottom[2]->gpu_data();
-  if (!is_1x1_) {
-    conv2D_gpu(b1_data, num_ * group_, beta_.mutable_gpu_data());
-    conv2D_gpu(b2_data, num_ * group_, sum_.mutable_gpu_data());
-  } else {
-    caffe_copy<Dtype>(beta_.count(), b1_data, beta_.mutable_gpu_data());
-    caffe_copy<Dtype>(sum_.count(), b2_data, sum_.mutable_gpu_data());
-  }
-  beta_div_kernel<Dtype>
-      <<<CAFFE_GET_BLOCKS(beta_.count()), CAFFE_CUDA_NUM_THREADS>>>(
-          beta_.count(), sum_.gpu_data(), beta_.mutable_gpu_data());
-  const Dtype* beta = beta_.gpu_data();
-  // Input = beta * ternary(bottom)
-  if (is_1x1_) {
-    Dtype* bottom_data = bottom[0]->mutable_gpu_data();
-    for (int i = 0; i < num_ * group_; ++i) {
-      scale_kernel_2<Dtype>
-          <<<CAFFE_GET_BLOCKS(col_offset_), CAFFE_CUDA_NUM_THREADS>>>(
-              col_offset_, out_spatial_dim_, beta + out_spatial_dim_ * i,
-              bottom_data + col_offset_ * i);
+  const Dtype* beta = nullptr;
+  if (beta_term_) {
+    const Dtype* b1_data = bottom[1]->gpu_data();
+    const Dtype* b2_data = bottom[2]->gpu_data();
+    if (!is_1x1_) {
+      conv2D_gpu(b1_data, num_ * group_, beta_.mutable_gpu_data());
+      conv2D_gpu(b2_data, num_ * group_, sum_.mutable_gpu_data());
+    } else {
+      caffe_copy<Dtype>(beta_.count(), b1_data, beta_.mutable_gpu_data());
+      caffe_copy<Dtype>(sum_.count(), b2_data, sum_.mutable_gpu_data());
+    }
+    beta_div_kernel<Dtype>
+        <<<CAFFE_GET_BLOCKS(beta_.count()), CAFFE_CUDA_NUM_THREADS>>>(
+            beta_.count(), sum_.gpu_data(), beta_.mutable_gpu_data());
+    // Input = beta * ternary(bottom)
+    beta = beta_.gpu_data();
+    if (is_1x1_) {
+      Dtype* bottom_data = bottom[0]->mutable_gpu_data();
+      for (int i = 0; i < num_ * group_; ++i) {
+        scale_kernel_2<Dtype>
+            <<<CAFFE_GET_BLOCKS(col_offset_), CAFFE_CUDA_NUM_THREADS>>>(
+                col_offset_, out_spatial_dim_, beta + out_spatial_dim_ * i,
+                bottom_data + col_offset_ * i);
+      }
     }
   }
   // Output = Weight x Input (+ bias)
@@ -246,7 +253,7 @@ void TBConvolutionLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
   const Dtype* alpha       = this->blobs_[1]->gpu_data();
   const Dtype* top_diff    = top[0]->gpu_diff();
   const Dtype* bottom_data = bottom[0]->gpu_data();
-  const Dtype* beta        = beta_.gpu_data();
+  const Dtype* beta        = beta_term_ ? beta_.gpu_data() : nullptr;
 
   // Bias gradient, if necessary.
   if (bias_term_ && this->param_propagate_down_[2]) {

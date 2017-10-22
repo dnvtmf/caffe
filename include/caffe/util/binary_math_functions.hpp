@@ -152,6 +152,13 @@ void caffe_gpu_swap(const int N, Dtype *X, Dtype *Y);
 template <typename Dtype>
 void caffe_gpu_axis_asum(
     const int axis, const int M, const int N, const Dtype *in, Dtype *out);
+
+template <typename Dtype>
+void caffe_gpu_input_scale(const int num, const int channels, const int dim,
+    const Dtype *in, const Dtype *out, Dtype *beta, Dtype *sum);
+
+template <typename Dtype>
+void caffe_gpu_clip_grad(const int n, const Dtype *in, Dtype *diff);
 #endif  // CPU_ONLY
 }
 #endif  // CAFFE_UTIL_BINARY_MATH_FUNCTIONS_HPP_

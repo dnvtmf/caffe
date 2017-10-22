@@ -18,12 +18,14 @@ def BN(data_in, name="BatchNorm", use_global_stats=None,
     return scale
 
 
-def BinaryBlock(out, name='Binary', num_output=None, bias_term=None,
-                kernel_size=None, stride=None, pad=None, group=None,
-                weight_filler=None, act=None, threshold_t=None):
+def TBBlock(out, name='Ternary', method="Ternary", scale_term=True,
+            num_output=None, bias_term=None, kernel_size=None, stride=None,
+            pad=None, group=None, weight_filler=None, act=None,
+            threshold_t=None):
     with NameScope(name):
         out = BN(out)
-        out = Binary(out, group=group)
+        out = TBActiv(out, method=method, scale_term=scale_term,
+                      threshold_t=threshold_t, group=group)
         out = Conv(out, conv_type="TBConvolution", num_output=num_output,
                    bias_term=bias_term, kernel_size=kernel_size, stride=stride,
                    pad=pad, group=group, weight_filler=weight_filler)
@@ -33,30 +35,17 @@ def BinaryBlock(out, name='Binary', num_output=None, bias_term=None,
     return out
 
 
-def TernaryBlock(out, name='Ternary', num_output=None, bias_term=None,
-                 kernel_size=None, stride=None, pad=None, group=None,
-                 weight_filler=None, act=None, threshold_t=None):
+def NormalBlock(out, name='Normal', method=None, scale_term=None,
+                num_output=None, bias_term=False, kernel_size=None, stride=None,
+                pad=None, group=None, weight_filler=None, act=None,
+                threshold_t=None):
     with NameScope(name):
-        out = BN(out)
-        out = Ternary(out, threshold_t=threshold_t, group=group)
-        out = Conv(out, conv_type="TBConvolution", num_output=num_output,
-                   bias_term=bias_term, kernel_size=kernel_size, stride=stride,
-                   pad=pad, group=group, weight_filler=weight_filler)
-        if act is not None:
-            out = BN(out, name='act_bn', bias_term=True)
-            out = Activation(out, method=act)
-    return out
-
-
-def NormalBlock(out, name='Normal', num_output=None, bias_term=None,
-                kernel_size=None, stride=None, pad=None, group=None,
-                weight_filler=None, act=None, threshold_t=None):
-    with NameScope(name):
-        out = Conv(out, num_output=num_output, bias_term=False,
+        out = Conv(out, num_output=num_output, bias_term=bias_term,
                    kernel_size=kernel_size, stride=stride, pad=pad, group=group,
                    weight_filler=weight_filler)
-        out = BN(out, bias_term=True)
-        out = Activation(out, method=act)
+        if act is not None:
+            out = BN(out, bias_term=True)
+            out = Activation(out, method=act)
     return out
 
 

@@ -7,19 +7,17 @@ num_epoch = 120
 batch_size = 100
 cifar10 = CIFAR_10(batch_size)
 activation_method = "Sigmoid"
-weight_filler = Filler('xavier')
+weight_filler = Filler('msra')
 filler_constant = Filler('constant')
 
 weight_decay = 0
 t = None
+conv = TBBlock
+tb_method = name
+scale_term = True
 if name == 'full':
     conv = NormalBlock
     weight_decay = 1e-4
-elif name == 'tb':
-    t = 0.5
-    conv = TernaryBlock
-else:
-    conv = BinaryBlock
 
 # ---------- solver ----
 solver = Solver().net('./model.prototxt').GPU(0)
@@ -27,8 +25,12 @@ max_iter = num_epoch * cifar10.train_iter
 solver.test(test_iter=cifar10.test_iter, test_interval=2 * cifar10.train_iter,
             test_initialization=False)
 solver.train(base_lr=0.1, lr_policy='multistep',
-             stepvalue=[60 * cifar10.train_iter, 90 * cifar10.train_iter],
-             gamma=0.1, max_iter=num_epoch * cifar10.train_iter,
+             stepvalue=[60 * cifar10.train_iter,  # 1e-2
+                        90 * cifar10.train_iter,  # 1e-3
+                        (num_epoch + 0) * cifar10.train_iter,  # 1e-4
+                        (num_epoch + 2) * cifar10.train_iter,  # 1e-5
+                        (num_epoch + 4) * cifar10.train_iter],  # 1e-6
+             gamma=0.1, max_iter=(num_epoch + 6) * cifar10.train_iter,
              weight_decay=weight_decay)
 solver.optimizer(type='SGD', momentum=0.9)
 # solver.optimizer(type='Adam')
@@ -47,13 +49,15 @@ out = NormalBlock(out, 'conv1', num_output=32, kernel_size=3, stride=1, pad=1,
 out = Pool(out, name='pool1', method=Net.MaxPool, kernel_size=3)
 out = LRN(out, name='lrn1')
 
-out = conv(out, 'conv2', num_output=32, kernel_size=3, stride=1, pad=1,
-           weight_filler=weight_filler, act="Sigmoid", threshold_t=t)
+out = conv(out, 'conv2', method=tb_method, scale_term=scale_term, num_output=32,
+           kernel_size=3, stride=1, pad=1, weight_filler=weight_filler,
+           act="Sigmoid", threshold_t=t)
 out = Pool(out, name='pool2', method=Net.MaxPool, kernel_size=3)
 out = LRN(out, name='lrn2')
 
-out = conv(out, 'conv3', num_output=64, kernel_size=3, stride=1, pad=1,
-           weight_filler=weight_filler, act="Sigmoid", threshold_t=t)
+out = conv(out, 'conv3', method=tb_method, scale_term=scale_term, num_output=64,
+           kernel_size=3, stride=1, pad=1, weight_filler=weight_filler,
+           act="Sigmoid", threshold_t=t)
 out = Pool(out, name='pool3', method=Net.AveragePool, kernel_size=3)
 
 # out = BN(out, name='bn_fc')

@@ -1,5 +1,5 @@
 #ifndef CAFFE_TERNARY_LAYER_HPP_
-#define CAFFE_TERNARY
+#define CAFFE_TERNARY_LAYER_HPP_
 
 #include <vector>
 
@@ -20,7 +20,7 @@ class TernaryLayer : public Layer<Dtype> {
       const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top);
 
   virtual inline int ExactNumBottomBlobs() const { return 1; }
-  virtual inline int ExactNumTopBlobs() const { return 3; }
+  virtual inline int MinNumTopBlobs() const { return 1; }
   virtual inline const char* type() const { return "TernaryLayer"; }
 
   virtual void Forward_cpu(
@@ -38,6 +38,7 @@ class TernaryLayer : public Layer<Dtype> {
   float threshold_t_;
   Blob<Dtype> delta_;
   bool use_global_stats_;
+  bool scale_term_;
 };
 }  // namespace caffe
 

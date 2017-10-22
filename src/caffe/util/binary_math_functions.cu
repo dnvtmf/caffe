@@ -442,6 +442,61 @@ void caffe_gpu_axis_asum(
   }
 }
 
+/* in \in \mathbb{R}^n
+ * out \in \{-1, 0, 1\}^n or out \in \{-1, +1\}^n
+ */
+template <typename Dtype>
+void __global__ input_scale_kernel(const int channels, const int dim,
+    const Dtype *in, const Dtype *out, Dtype *beta, Dtype *sum) {
+  const int idx = blockIdx.x;
+  const int id  = threadIdx.x;
+  volatile __shared__ Dtype temp[CAFFE_CUDA_NUM_THREADS - WARP_SIZE];
+  volatile __shared__ Dtype temp2[CAFFE_CUDA_NUM_THREADS - WARP_SIZE];
+  Dtype val  = 0;
+  Dtype val2 = 0;
+  int offset = idx / dim * channels * dim + idx % dim;
+  in += offset;
+  out += offset;
+  for (int c = id; c < channels; c += blockDim.x) {
+    offset = c * dim;
+    val += out[offset] * in[offset];
+    val2 += gpu_abs(out[offset]);
+  }
+  if (id >= WARP_SIZE) {
+    temp[id - WARP_SIZE]  = val;
+    temp2[id - WARP_SIZE] = val2;
+  }
+  __syncthreads();
+  if (id < WARP_SIZE) {
+#pragma unroll
+    for (int k = id; k < (CAFFE_CUDA_NUM_THREADS - WARP_SIZE); k += WARP_SIZE)
+      val += temp[k], val2 += temp2[k];
+    temp[id]  = val;
+    temp2[id] = val2;
+  }
+  if (id == 0) {
+    for (int k = 1; k < WARP_SIZE; ++k) val += temp[k], val2 += temp2[k];
+    beta[idx]  = val;
+    sum[idx]   = val2;
+  }
+}
+template <typename Dtype>
+void caffe_gpu_input_scale(const int num, const int channels, const int dim,
+    const Dtype *in, const Dtype *out, Dtype *beta, Dtype *sum) {
+  input_scale_kernel<Dtype><<<num * dim, CAFFE_CUDA_NUM_THREADS>>>(
+      channels, dim, in, out, beta, sum);
+}
+template <typename Dtype>
+void __global__ clip_grad_kernel(const int n, const Dtype *in, Dtype *diff) {
+  CUDA_KERNEL_LOOP(index, n) {
+    if (gpu_abs(in[index]) >= 1) diff[index] = 0;
+  }
+}
+template <typename Dtype>
+void caffe_gpu_clip_grad(const int n, const Dtype *in, Dtype *diff) {
+  clip_grad_kernel<Dtype>
+      <<<CAFFE_GET_BLOCKS(n), CAFFE_CUDA_NUM_THREADS>>>(n, in, diff);
+}
 #define INSTANTIATE_BINARY_MATH(Dtype)                                         \
   template void caffe_gpu_binary_gradient<Dtype>(const int axis, const int M,  \
       const int N, bool use_bias, const Dtype *in, const Dtype *scale,         \
@@ -466,7 +521,12 @@ void caffe_gpu_axis_asum(
       const int c_out, const int c_in, const int wh, Dtype *in);               \
                                                                                \
   template void caffe_gpu_axis_asum<Dtype>(                                    \
-      const int axis, const int M, const int N, const Dtype *in, Dtype *out);
+      const int axis, const int M, const int N, const Dtype *in, Dtype *out);  \
+  template void caffe_gpu_input_scale<Dtype>(const int num,                    \
+      const int channels, const int dim, const Dtype *in, const Dtype *out,    \
+      Dtype *beta, Dtype *sum);                                                \
+  template void caffe_gpu_clip_grad<Dtype>(                                    \
+      const int n, const Dtype *in, Dtype *diff);
 
 INSTANTIATE_BINARY_MATH(float);
 INSTANTIATE_BINARY_MATH(double);

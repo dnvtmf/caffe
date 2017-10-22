@@ -54,7 +54,7 @@ class TBConvolutionLayer : public Layer<Dtype> {
       const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top);
   virtual void Reshape(
       const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top);
-  virtual inline int ExactNumBottomBlobs() const { return 3; }
+  virtual inline int MinNumBottomBlobs() const { return 1; }
   virtual inline int ExactNumTopBlobs() const { return 1; }
   virtual inline const char* type() const { return "TBConvolution"; }
 
@@ -131,6 +131,7 @@ class TBConvolutionLayer : public Layer<Dtype> {
   int num_kernels_im2col_;
   int num_kernels_col2im_;
   bool is_1x1_;
+  bool beta_term_;
 
   Blob<Dtype> col_buffer_;
   Blob<Dtype> bias_multiplier_;

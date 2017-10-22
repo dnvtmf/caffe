@@ -193,6 +193,8 @@ void TBConvolutionLayer<Dtype>::LayerSetUp(
   caffe_set<Dtype>(
       sum_multiplier_.count(), 1, sum_multiplier_.mutable_cpu_data());
   weight_.ReshapeLike(*this->blobs_[0]);
+  CHECK(bottom.size() == 1 || bottom.size() == 3);
+  beta_term_ = bottom.size() == 3;
 }
 
 template <typename Dtype>
@@ -247,13 +249,17 @@ void TBConvolutionLayer<Dtype>::Reshape(
     caffe_set(bias_multiplier_.count(), Dtype(1),
         bias_multiplier_.mutable_cpu_data());
   }
-  beta_.Reshape({num_ * group_, out_spatial_dim_});
-  sum_.Reshape({num_ * group_, out_spatial_dim_});
-  vector<int> b1_shape = {num_, group_, in_spatial_dim_};
-  CHECK_EQ(bottom.size(), 3) << "the number of bottom is incorrect";
-  CHECK(bottom[1]->shape() == b1_shape);
-  CHECK(bottom[2]->shape() == b1_shape);
-  beta_dim_ = group_ * out_spatial_dim_;
+  if (beta_term_) {
+    beta_.Reshape({num_ * group_, out_spatial_dim_});
+    sum_.Reshape({num_ * group_, out_spatial_dim_});
+    vector<int> b1_shape = {num_, group_, in_spatial_dim_};
+    CHECK_EQ(bottom.size(), 3) << "the number of bottom is incorrect";
+    CHECK(bottom[1]->shape() == b1_shape);
+    CHECK(bottom[2]->shape() == b1_shape);
+    beta_dim_ = group_ * out_spatial_dim_;
+  }
+  else
+    CHECK_EQ(bottom.size(), 1) << "the number of bottom is incorrect";
 }
 
 template <typename Dtype>

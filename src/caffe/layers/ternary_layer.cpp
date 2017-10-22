@@ -17,6 +17,9 @@ void TernaryLayer<Dtype>::LayerSetUp(
   channels_ = bottom[0]->shape(1);
   dim_      = bottom[0]->count(2);
   CHECK(channels_ % group_ == 0);
+  CHECK(top.size() == 1 || top.size() == 3);
+  scale_term_ = top.size() == 3;
+
   if (this->blobs_.size() > 0) {
     CHECK_EQ(this->blobs_.size(), 1);
     CHECK_EQ(this->blobs_[0]->count(), channels_);
@@ -40,12 +43,15 @@ void TernaryLayer<Dtype>::LayerSetUp(
 template <typename Dtype>
 void TernaryLayer<Dtype>::Reshape(
     const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
-  CHECK_EQ(bottom[0]->shape(1), channels_);
-  CHECK_EQ(top.size(), 3) << "num top blob: " << top.size();
-  num_ = bottom[0]->shape(0);
   top[0]->ReshapeLike(*bottom[0]);
-  top[1]->Reshape({num_, group_, dim_});
-  top[2]->Reshape({num_, group_, dim_});
+  if (scale_term_) {
+    CHECK(top.size() == 3);
+    num_ = bottom[0]->shape(0);
+    top[1]->Reshape({num_, group_, dim_});
+    top[2]->Reshape({num_, group_, dim_});
+  } else {
+    CHECK(top.size() == 1);
+  }
 }
 
 template <typename Dtype>
