@@ -257,8 +257,7 @@ void TBConvolutionLayer<Dtype>::Reshape(
     CHECK(bottom[1]->shape() == b1_shape);
     CHECK(bottom[2]->shape() == b1_shape);
     beta_dim_ = group_ * out_spatial_dim_;
-  }
-  else
+  } else
     CHECK_EQ(bottom.size(), 1) << "the number of bottom is incorrect";
 }
 
@@ -408,6 +407,7 @@ void TBConvolutionLayer<Dtype>::backward_cpu_bias(
 template <typename Dtype>
 void TBConvolutionLayer<Dtype>::Forward_cpu(
     const vector<Blob<Dtype> *> &bottom, const vector<Blob<Dtype> *> &top) {
+  NOT_IMPLEMENTED;
   /*
   w_scale_  = weight_s_.mutable_cpu_data();
   w_bias_   = weight_s_.mutable_cpu_diff();
@@ -454,6 +454,7 @@ void TBConvolutionLayer<Dtype>::Forward_cpu(
 template <typename Dtype>
 void TBConvolutionLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype> *> &top,
     const vector<bool> &propagate_down, const vector<Blob<Dtype> *> &bottom) {
+  NOT_IMPLEMENTED;
   /*
   Dtype *weight_diff = this->blobs_[0]->mutable_cpu_diff();
   for (int i = 0; i < top.size(); ++i) {

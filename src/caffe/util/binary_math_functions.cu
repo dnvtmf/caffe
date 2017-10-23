@@ -480,6 +480,7 @@ void __global__ input_scale_kernel(const int channels, const int dim,
     sum[idx]   = val2;
   }
 }
+
 template <typename Dtype>
 void caffe_gpu_input_scale(const int num, const int channels, const int dim,
     const Dtype *in, const Dtype *out, Dtype *beta, Dtype *sum) {

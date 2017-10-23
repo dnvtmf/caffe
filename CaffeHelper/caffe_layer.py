@@ -175,7 +175,7 @@ def FC(data_in, name="fc", fc_type="InnerProduct", num_output=None,
 
 
 def Accuracy(data_in, name="accuracy", top_k=None, axis=None, ignore_label=None,
-             optional_params=None):
+             test=True, optional_params=None):
     """
     message AccuracyParameter {
       // When computing accuracy, count as correct by comparing the true label to
@@ -202,7 +202,10 @@ def Accuracy(data_in, name="accuracy", top_k=None, axis=None, ignore_label=None,
     accuracy_param.add_param_if("axis", axis)
     accuracy_param.add_param_if("ignore_label", ignore_label)
     param.add_subparam(accuracy_param)
-    param.add_subparam(TEST)
+    if test:
+        param.add_subparam(TEST)
+    else:
+        param.add_subparam(TRAIN)
     _caffe_net.write_to_proto(param)
     return data_out
 

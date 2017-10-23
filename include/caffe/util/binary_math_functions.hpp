@@ -3,8 +3,6 @@
 #include <cstdint>
 #include <vector>
 
-// #define CMP_BINARY
-
 namespace caffe {
 using std::vector;
 using std::max;

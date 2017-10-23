@@ -12,14 +12,12 @@ filler_bias = Filler('constant')
 
 weight_decay = 0
 t = None
+conv = TBBlock
+tb_method = name
+scale_term = False
 if name == 'full':
     conv = NormalBlock
     weight_decay = 1e-4
-elif name == 'tb':
-    t = 0.6
-    conv = TernaryBlock
-else:
-    conv = BinaryBlock
 
 # ---------- solver ----
 solver = Solver().net('./model.prototxt').GPU(0)
@@ -40,19 +38,20 @@ out = NormalBlock(out, name='conv1', num_output=16, kernel_size=3, stride=1,
 
 def block(out_, num_output, stride=1):
     x = out_
-    out_ = conv(out_, 'conv1', num_output=num_output, kernel_size=3, pad=1,
-                stride=stride, weight_filler=weight_filler, act="ReLU")
+    out_ = conv(out_, 'conv1', method=tb_method, scale_term=scale_term,
+                num_output=num_output, kernel_size=3, pad=1, stride=stride,
+                weight_filler=weight_filler, threshold_t=t)
 
-    out_ = conv(out_, 'conv2', num_output=num_output, kernel_size=3, pad=1,
-                stride=1, weight_filler=weight_filler)
+    out_ = conv(out_, 'conv2', method=tb_method, scale_term=scale_term,
+                num_output=num_output, kernel_size=3, pad=1, stride=1,
+                weight_filler=weight_filler, threshold_t=t)
 
     if stride != 1:
-        x = NormalBlock(x, name='shortcut', num_output=num_output,
-                        kernel_size=2, stride=stride, pad=0,
-                        weight_filler=weight_filler)
+        x = conv(x, 'shortcut', method=tb_method, scale_term=scale_term,
+                 num_output=num_output, kernel_size=2, pad=0, stride=stride,
+                 weight_filler=weight_filler, threshold_t=t)
 
     out_ = Eltwise(out_ + x, name='add')
-    out_ = Activation(out_, name='relu', method="ReLU")
     return out_
 
 

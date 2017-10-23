@@ -21,12 +21,17 @@ void TernaryLayer<Dtype>::LayerSetUp(
   scale_term_ = top.size() == 3;
 
   if (this->blobs_.size() > 0) {
-    CHECK_EQ(this->blobs_.size(), 1);
+    CHECK_EQ(this->blobs_.size(), 2);
     CHECK_EQ(this->blobs_[0]->count(), channels_);
+    CHECK_EQ(this->blobs_[1]->count(), 1);
   } else {
-    this->blobs_.resize(1);
+    this->blobs_.resize(2);
     this->blobs_[0].reset(new Blob<Dtype>({channels_}));
-    caffe_set(channels_, Dtype(0), this->blobs_[0]->mutable_cpu_data());
+    this->blobs_[1].reset(new Blob<Dtype>({1}));
+    for (int i = 0; i < (int) this->blobs_.size(); ++i) {
+      caffe_set(this->blobs_[i]->count(), Dtype(0),
+          this->blobs_[i]->mutable_cpu_data());
+    }
   }
 
   for (int i = 0; i < this->blobs_.size(); ++i) {
@@ -38,7 +43,7 @@ void TernaryLayer<Dtype>::LayerSetUp(
           << "Cannot configure ternary statistics as layer parameters.";
     }
   }
-  if (!use_global_stats_) delta_.Reshape({channels_});
+  delta_.Reshape({channels_});
 }
 template <typename Dtype>
 void TernaryLayer<Dtype>::Reshape(
@@ -56,11 +61,14 @@ void TernaryLayer<Dtype>::Reshape(
 
 template <typename Dtype>
 void TernaryLayer<Dtype>::Forward_cpu(
-    const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {}
+    const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
+  NOT_IMPLEMENTED;
+}
 
 template <typename Dtype>
 void TernaryLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
     const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
+  NOT_IMPLEMENTED;
   if (propagate_down[0]) {
   }
 }

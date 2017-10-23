@@ -15,7 +15,9 @@ inline __device__ double gpu_floor(double x) { return floor(x); }
 template <typename Dtype>
 void __global__ forward_kernel(const int n, const Dtype *in, Dtype *out) {
   CUDA_KERNEL_LOOP(index, n) {
-    out[index] = gpu_floor(tanh(in[index]) + out[index]);
+    Dtype tanhx = tanh(in[index]);
+    out[index]  = tanhx >= 0 ? out[index] < tanhx : -(out[index] < -tanhx);
+    // gpu_floor(tanh(in[index]) + out[index]);
   }
 }
 
@@ -55,14 +57,16 @@ void TanHTernaryLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype> *> &top,
     const int count = bottom[0]->count();
     caffe_copy(count, top[0]->gpu_diff(), bottom[0]->mutable_gpu_diff());
     if (scale_term_) {
+      caffe_gpu_add_scalar<Dtype>(
+          top[1]->count(), Dtype(1.), top[1]->mutable_gpu_diff());
       caffe_gpu_div<Dtype>(top[1]->count(), top[1]->gpu_data(),
           top[2]->gpu_data(), top[1]->mutable_gpu_diff());
-      caffe_gpu_add_scalar<Dtype>(top[1]->count(),
-          Dtype(group_) / Dtype(channels_), top[1]->mutable_gpu_diff());
       backward_kernel<Dtype>
           <<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS>>>(count,
               channels_ / group_, dim_, top[1]->gpu_diff(),
               bottom[0]->mutable_gpu_diff());
+      caffe_gpu_clip_grad(
+          count, bottom[0]->gpu_data(), bottom[0]->mutable_gpu_diff());
     } else {
       backward_kernel<Dtype>
           <<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS>>>(
