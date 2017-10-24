@@ -13,6 +13,14 @@ inline __device__ float gpu_floor(float x) { return floorf(x); }
 inline __device__ double gpu_floor(double x) { return floor(x); }
 
 template <typename Dtype>
+void __global__ beta_div_add_kernel(
+    const int n, const Dtype *sum, const Dtype add_value, Dtype *beta) {
+  CUDA_KERNEL_LOOP(index, n) {
+    if (sum[index] > 0) beta[index] = (beta[index] + add_value) / sum[index];
+  }
+}
+
+template <typename Dtype>
 void __global__ forward_kernel(const int n, const Dtype *in, Dtype *out) {
   CUDA_KERNEL_LOOP(index, n) {
     Dtype tanhx = tanh(in[index]);
@@ -31,11 +39,16 @@ void __global__ backward_kernel(const int n, const Dtype *in, Dtype *out_diff) {
 
 template <typename Dtype>
 void __global__ backward_kernel(const int n, const int group_channels,
-    const int dim, const Dtype *beta, Dtype *diff) {
+    const int dim, const Dtype *out, const Dtype *beta, Dtype *diff) {
   CUDA_KERNEL_LOOP(index, n) {
-    diff[index] *= beta[index / dim % group_channels];
+    if (out[index] != 0) {
+      const int beta_index =
+          (index / dim / group_channels) * dim + (index % dim);
+      diff[index] *= beta[beta_index];
+    }
   }
 }
+
 template <typename Dtype>
 void TanHTernaryLayer<Dtype>::Forward_gpu(
     const vector<Blob<Dtype> *> &bottom, const vector<Blob<Dtype> *> &top) {
@@ -57,21 +70,19 @@ void TanHTernaryLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype> *> &top,
     const int count = bottom[0]->count();
     caffe_copy(count, top[0]->gpu_diff(), bottom[0]->mutable_gpu_diff());
     if (scale_term_) {
-      caffe_gpu_add_scalar<Dtype>(
-          top[1]->count(), Dtype(1.), top[1]->mutable_gpu_diff());
-      caffe_gpu_div<Dtype>(top[1]->count(), top[1]->gpu_data(),
-          top[2]->gpu_data(), top[1]->mutable_gpu_diff());
+      beta_div_add_kernel<Dtype>
+          <<<CAFFE_GET_BLOCKS(top[1]->count()), CAFFE_CUDA_NUM_THREADS>>>(
+              top[1]->count(), top[2]->gpu_data(), 1,
+              top[1]->mutable_gpu_data());
       backward_kernel<Dtype>
           <<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS>>>(count,
-              channels_ / group_, dim_, top[1]->gpu_diff(),
+              channels_ / group_, dim_, top[0]->gpu_data(), top[1]->gpu_data(),
               bottom[0]->mutable_gpu_diff());
       caffe_gpu_clip_grad(
           count, bottom[0]->gpu_data(), bottom[0]->mutable_gpu_diff());
-    } else {
-      backward_kernel<Dtype>
-          <<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS>>>(
-              count, bottom[0]->gpu_data(), bottom[0]->mutable_gpu_diff());
     }
+    backward_kernel<Dtype><<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS>>>(
+        count, bottom[0]->gpu_data(), bottom[0]->mutable_gpu_diff());
   }
 }
 

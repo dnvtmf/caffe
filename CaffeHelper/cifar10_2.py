@@ -11,26 +11,26 @@ weight_filler = Filler('msra')
 filler_constant = Filler('constant')
 
 weight_decay = 0
-t = None
+t = 0
 conv = TBBlock
 tb_method = name
-scale_term = True
+scale_term = True 
 if name == 'full':
     conv = NormalBlock
     weight_decay = 1e-4
 
 # ---------- solver ----
-solver = Solver().net('./model.prototxt').GPU(1)
+solver = Solver().net('./model.prototxt').GPU(0)
 max_iter = num_epoch * cifar10.train_iter
 solver.test(test_iter=cifar10.test_iter, test_interval=2 * cifar10.train_iter,
             test_initialization=False)
-solver.train(base_lr=0.01, lr_policy='multistep',
+solver.train(base_lr=0.1, lr_policy='multistep',
              stepvalue=[60 * cifar10.train_iter,  # 1e-2
                         90 * cifar10.train_iter],  # 1e-3
              gamma=0.1, max_iter=num_epoch * cifar10.train_iter,
              weight_decay=weight_decay)
-# solver.optimizer(type='SGD', momentum=0.9)
-solver.optimizer(type='Adam')
+solver.optimizer(type='SGD', momentum=0.9)
+# solver.optimizer(type='Adam')
 solver.display(display=200, average_loss=200)
 solver.snapshot(snapshot=10000, snapshot_prefix='snapshot/' + name)
 
@@ -50,7 +50,7 @@ out = Pool(out, name='pool2', method=Net.MaxPool, kernel_size=3)  # 8 x 8
 
 out = conv(out, 'conv3', method=tb_method, scale_term=scale_term, num_output=64,
            kernel_size=3, stride=1, pad=1, weight_filler=weight_filler,
-           act="ReLU", threshold_t=t)
+           act=activation_method, threshold_t=t)
 out = Pool(out, name='pool3', method=Net.AveragePool, kernel_size=3)  # 4 x 4
 
 out = FC(out, 'fc', num_output=10, weight_filler=weight_filler)

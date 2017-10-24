@@ -66,7 +66,7 @@ out = TBBlock(out, 'fc7', method=tb_method, scale_term=scale_term,
               weight_filler=weight_filler)
 out = TBBlock(out, 'fc8', method=tb_method, scale_term=scale_term,
               num_output=1024, kernel_size=1, stride=1, pad=0,
-              weight_filler=weight_filler)
+              weight_filler=weight_filler, act="ReLU")
 
 out = FC(out, 'fc9', num_output=10, weight_filler=weight_filler)
 test_accuracy = Accuracy(out + label)

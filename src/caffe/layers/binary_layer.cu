@@ -14,7 +14,8 @@ template <typename Dtype>
 void __global__ backward_kernel(const int n, const int group_channels,
     const int dim, const Dtype *beta, Dtype *diff) {
   CUDA_KERNEL_LOOP(index, n) {
-    diff[index] *= beta[index / dim % group_channels];
+    const int beta_index = index / dim / group_channels * dim + index % dim;
+    diff[index] *= beta[beta_index];
   }
 }
 
@@ -39,7 +40,7 @@ void BinaryLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype> *> &top,
     caffe_copy(count, top[0]->gpu_diff(), bottom[0]->mutable_gpu_diff());
     if (scale_term_) {
       caffe_gpu_add_scalar<Dtype>(
-          top[1]->count(), 1, top[1]->mutable_gpu_diff());
+          top[1]->count(), 1, top[1]->mutable_gpu_data());
       caffe_gpu_div<Dtype>(top[1]->count(), top[1]->gpu_data(),
           top[2]->gpu_data(), top[1]->mutable_gpu_diff());
       backward_kernel<Dtype>

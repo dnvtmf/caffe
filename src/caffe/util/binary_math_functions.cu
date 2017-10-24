@@ -486,6 +486,7 @@ void caffe_gpu_input_scale(const int num, const int channels, const int dim,
     const Dtype *in, const Dtype *out, Dtype *beta, Dtype *sum) {
   input_scale_kernel<Dtype><<<num * dim, CAFFE_CUDA_NUM_THREADS>>>(
       channels, dim, in, out, beta, sum);
+  CUDA_POST_KERNEL_CHECK;
 }
 template <typename Dtype>
 void __global__ clip_grad_kernel(const int n, const Dtype *in, Dtype *diff) {
@@ -497,6 +498,7 @@ template <typename Dtype>
 void caffe_gpu_clip_grad(const int n, const Dtype *in, Dtype *diff) {
   clip_grad_kernel<Dtype>
       <<<CAFFE_GET_BLOCKS(n), CAFFE_CUDA_NUM_THREADS>>>(n, in, diff);
+  CUDA_POST_KERNEL_CHECK;
 }
 #define INSTANTIATE_BINARY_MATH(Dtype)                                         \
   template void caffe_gpu_binary_gradient<Dtype>(const int axis, const int M,  \
