@@ -5,23 +5,22 @@ import time
 
 
 def BN(data_in, name="BatchNorm", use_global_stats=None,
-       moving_average_fraction=None, eps=None, axis=None,
-       num_axes=None, filler=None, bias_term=None, bias_filler=None,
-       inplace=False):
+       moving_average_fraction=None, eps=None, axis=None, num_axes=None,
+       filler=None, bias_term=None, bias_filler=None, inplace=False):
     with NameScope(name):
         bn = BatchNorm(data_in, use_global_stats=use_global_stats,
-                       moving_average_fraction=moving_average_fraction,
-                       eps=eps, inplace=inplace)
+                       moving_average_fraction=moving_average_fraction, eps=eps,
+                       inplace=inplace)
         scale = Scale(bn, axis=axis, num_axes=num_axes, filler=filler,
                       bias_term=bias_term, bias_filler=bias_filler,
                       inplace=inplace)
     return scale
 
 
-def TBBlock(out, name='Ternary', method="Ternary", scale_term=True,
-            num_output=None, bias_term=None, kernel_size=None, stride=None,
-            pad=None, group=None, weight_filler=None, act=None,
-            threshold_t=None):
+def TBBlock(out, name='Ternary', method="Ternary", num_output=None,
+            kernel_size=None, stride=None, pad=None, weight_filler=None,
+            act=None, threshold_t=None, group=None, bias_term=None,
+            scale_term=True):
     with NameScope(name):
         out = BN(out)
         out = TBActiv(out, method=method, scale_term=scale_term,
@@ -35,17 +34,19 @@ def TBBlock(out, name='Ternary', method="Ternary", scale_term=True,
     return out
 
 
-def NormalBlock(out, name='Normal', method=None, scale_term=None,
-                num_output=None, bias_term=False, kernel_size=None, stride=None,
-                pad=None, group=None, weight_filler=None, act=None,
-                threshold_t=None):
+def NormalBlock(out, name='C', method=None, num_output=None, kernel_size=None,
+                stride=None, pad=None, weight_filler=None, act=None,
+                threshold_t=None, group=None, bias_term=None, scale_term=None):
     with NameScope(name):
+        if method is not None:
+            out = BN(out, 'bn', bias_term=True)
+            out = Activation(out, 'act', method=method)
         out = Conv(out, num_output=num_output, bias_term=bias_term,
                    kernel_size=kernel_size, stride=stride, pad=pad, group=group,
                    weight_filler=weight_filler)
         if act is not None:
-            out = BN(out, bias_term=True)
-            out = Activation(out, method=act)
+            out = BN(out, 'bn2', bias_term=True)
+            out = Activation(out, 'act2', method=act)
     return out
 
 
@@ -76,22 +77,18 @@ class CIFAR_10(DataSet):
 
     def data(self):
         if self.more:
-            data, label = Data(
-                [], phase=TRAIN,
+            data, label = Data([], phase=TRAIN,
                 source=os.path.join(self.data_dir, 'train'),
-                batch_size=self.batch_size, backend=Net.LMDB,
-                optional_params=[
+                batch_size=self.batch_size, backend=Net.LMDB, optional_params=[
                     Transform(scale=0.0078125, mirror=True, crop_size=32,
                               mean_value=128)])
-            Data([], phase=TEST,
-                 source=os.path.join(self.data_dir, 'test'),
-                 batch_size=self.batch_size,
-                 backend=Net.LMDB,
+            Data([], phase=TEST, source=os.path.join(self.data_dir, 'test'),
+                 batch_size=self.batch_size, backend=Net.LMDB,
                  optional_params=[Transform(scale=0.0078125, mean_value=128)])
         else:
             mean_file = os.path.join(self.data_dir, 'mean.binaryproto')
-            data, label = Data(
-                [], phase=TRAIN, source=os.path.join(self.data_dir, 'train'),
+            data, label = Data([], phase=TRAIN,
+                source=os.path.join(self.data_dir, 'train'),
                 batch_size=self.batch_size, backend=Net.LMDB,
                 optional_params=[Transform(mean_file=mean_file)])
             Data([], phase=TEST, source=os.path.join(self.data_dir, 'test'),
@@ -114,10 +111,9 @@ class ImageNet(DataSet):
         train_file = os.path.join(self.data_dir, "ilsvrc12_train_lmdb")
         test_file = os.path.join(self.data_dir, "ilsvrc12_val_lmdb")
         mean_file = os.path.join(self.data_dir, "ilsvrc12_mean.binaryproto")
-        data, label = Data(
-            [], phase=TRAIN, source=train_file, batch_size=self.batch_size,
-            backend=Net.LMDB, optional_params=[Transform(
-                mean_file=mean_file, crop_size=cs, mirror=True)])
+        data, label = Data([], phase=TRAIN, source=train_file,
+            batch_size=self.batch_size, backend=Net.LMDB, optional_params=[
+                Transform(mean_file=mean_file, crop_size=cs, mirror=True)])
         Data([], phase=TEST, source=test_file, batch_size=self.batch_size,
              backend=Net.LMDB, optional_params=[
                 Transform(mean_file=mean_file, mirror=False, crop_size=cs)])

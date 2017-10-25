@@ -135,8 +135,7 @@ def Layer(name, layer_type, data_in=None, data_out=None, optional_params=None):
 
 
 def FC(data_in, name="fc", fc_type="InnerProduct", num_output=None,
-       bias_term=None, weight_filler=None,
-       bias_filler=None, axis=None,
+       bias_term=None, weight_filler=None, bias_filler=None, axis=None,
        transpose=None, optional_params=None):
     """
     - num_output: [uint32] The number of outputs for the layer
@@ -175,7 +174,7 @@ def FC(data_in, name="fc", fc_type="InnerProduct", num_output=None,
 
 
 def Accuracy(data_in, name="accuracy", top_k=None, axis=None, ignore_label=None,
-             test=True, optional_params=None):
+             test=None, optional_params=None):
     """
     message AccuracyParameter {
       // When computing accuracy, count as correct by comparing the true label to
@@ -202,7 +201,9 @@ def Accuracy(data_in, name="accuracy", top_k=None, axis=None, ignore_label=None,
     accuracy_param.add_param_if("axis", axis)
     accuracy_param.add_param_if("ignore_label", ignore_label)
     param.add_subparam(accuracy_param)
-    if test:
+    if test is None:
+        pass
+    elif test:
         param.add_subparam(TEST)
     else:
         param.add_subparam(TRAIN)
@@ -244,9 +245,8 @@ def HingeLoss(data_in, name="loss", norm=1, optional_params=None):
 
 
 def Pool(data_in, name="pool", method=0, pad=None, pad_h=None, pad_w=None,
-         kernel_size=2, kernel_h=None,
-         kernel_w=None, stride=2, stride_h=None, stride_w=None,
-         global_pooling=None, optional_params=None):
+         kernel_size=2, kernel_h=None, kernel_w=None, stride=2, stride_h=None,
+         stride_w=None, global_pooling=None, optional_params=None):
     """
     message PoolingParameter {
       enum pool_method {
@@ -299,8 +299,7 @@ def Pool(data_in, name="pool", method=0, pad=None, pad_h=None, pad_w=None,
 
 
 def Filler(filler_type=None, value=None, min_=None, max_=None, mean=None,
-           std=None, sparse=None,
-           variance_norm=None):
+           std=None, sparse=None, variance_norm=None):
     """
     message FillerParameter {
         // The filler type.
@@ -540,12 +539,10 @@ def Transform(scale=None, mirror=None, crop_size=None, mean_file=None,
 
 
 def Conv(data_in, name="conv", conv_type="Convolution", num_output=None,
-         bias_term=None, pad=None, kernel_size=None,
-         group=None, stride=None, weight_filler=None, bias_filler=None,
-         pad_h=None, pad_w=None, kernel_h=None,
-         kernel_w=None, stride_h=None, stride_w=None, axis=None,
-         force_nd_im2col=None, dilation=None,
-         optional_params=None):
+         bias_term=None, pad=None, kernel_size=None, group=None, stride=None,
+         weight_filler=None, bias_filler=None, pad_h=None, pad_w=None,
+         kernel_h=None, kernel_w=None, stride_h=None, stride_w=None, axis=None,
+         force_nd_im2col=None, dilation=None, optional_params=None):
     """
     message ConvolutionParameter {
         optional uint32 num_output = 1; // The number of outputs for the layer

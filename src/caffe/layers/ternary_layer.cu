@@ -78,7 +78,8 @@ void ternary_count(const int n, const Dtype *out) {
 template <typename Dtype>
 void TernaryLayer<Dtype>::Forward_gpu(
     const vector<Blob<Dtype> *> &bottom, const vector<Blob<Dtype> *> &top) {
-// caffe_gpu_clip<Dtype>(count, -1., 1., bottom[0]->mutable_gpu_data());
+  caffe_gpu_clip<Dtype>(
+      bottom[0]->count(), -1., 1., bottom[0]->mutable_gpu_data());
 #if TERNARY_METHOD == 2
   const int count = num_ * group_ * dim_;
   forward_kernel<Dtype><<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS>>>(
