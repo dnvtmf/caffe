@@ -14,6 +14,13 @@
 #define BINARY_METHOD 1
 
 namespace caffe {
+#if BINARY_METHOD == 1
+template <typename Dtype>
+__global__ void binary_backward_kernel(const int n, const int width,
+    const Dtype alpha, const Dtype* scale, Dtype* diff) {
+  CUDA_KERNEL_LOOP(index, n) { diff[index] *= alpha + scale[index / width]; }
+}
+#endif
 template <typename Dtype>
 void out(const char* info, const Blob<Dtype>& x) {
   printf("%s: (", info);
@@ -325,17 +332,20 @@ void TBConvolutionLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
           top_diff + n * top_dim_, bin_weight, bottom_diff + n * bottom_dim_);
     }
   }
-// gradient w.r.t weight scales and weight.
-#if BINARY_METHOD == 0
-#elif BINARY_METHOD == 1
-  caffe_gpu_binary_gradient<Dtype>(0, num_output_, kernel_dim_, false,
-      this->blobs_[0]->gpu_data(), this->blobs_[1]->gpu_data(), NULL,
-      this->blobs_[0]->mutable_gpu_diff());
-#else
+  // gradient w.r.t weight scales and weight.
   const int count    = this->blobs_[0]->count();
   Dtype* weight_diff = this->blobs_[0]->mutable_gpu_diff();
-  Dtype* alpha_diff  = this->blobs_[1]->mutable_gpu_diff();
-  Dtype* temp        = weight_.mutable_gpu_data();
+#if BINARY_METHOD == 0
+#elif BINARY_METHOD == 1
+  // caffe_gpu_binary_gradient<Dtype>(0, num_output_, kernel_dim_, false,
+  //     this->blobs_[0]->gpu_data(), this->blobs_[1]->gpu_data(), NULL,
+  //     this->blobs_[0]->mutable_gpu_diff());
+  binary_backward_kernel<Dtype>
+      <<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS>>>(count, kernel_dim_,
+          1. / kernel_dim_, this->blobs_[1]->gpu_data(), weight_diff);
+#else
+  Dtype* alpha_diff = this->blobs_[1]->mutable_gpu_diff();
+  Dtype* temp       = weight_.mutable_gpu_data();
   w_backward_kernel<Dtype><<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS>>>(
       count, kernel_dim_, this->blobs_[0]->gpu_data(),
       this->blobs_[1]->gpu_data(), weight_diff, temp);

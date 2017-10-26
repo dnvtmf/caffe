@@ -11,10 +11,12 @@ using std::min;
 typedef uint64_t Btype;
 const int BINARY_SIZE = 8 * sizeof(Btype);
 #define bitcount __builtin_popcountll
+#define cuda_bitcount __popc
 #else
 typedef uint32_t Btype;
 const int BINARY_SIZE = 8 * sizeof(Btype);
 #define bitcount __builtin_popcount
+#define cuda_bitcount __popcll
 #endif
 /**
  * \brief Computes a matrix-matrix product with general compressed binary
@@ -156,7 +158,16 @@ void caffe_gpu_input_scale(const int num, const int channels, const int dim,
     const Dtype *in, const Dtype *out, Dtype *beta, Dtype *sum);
 
 template <typename Dtype>
-void caffe_gpu_clip_grad(const int n, const Dtype *in, Dtype *diff);
+void caffe_gpu_clip_grad(
+    const int n, const Dtype clip_value, const Dtype *in, Dtype *diff);
+
+template <typename Dtype>
+void caffe_gpu_bb_gemm(const int M, const int N, const int K, const Btype *A,
+    const Btype *B, Dtype *C);
+
+template <typename Dtype>
+void caffe_gpu_bt_gemm(const int M, const int N, const int K, const Btype *A,
+    const Btype *B1, const Btype *B2, Dtype *C);
 #endif  // CPU_ONLY
 }
 #endif  // CAFFE_UTIL_BINARY_MATH_FUNCTIONS_HPP_

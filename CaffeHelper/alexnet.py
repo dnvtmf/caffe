@@ -9,7 +9,7 @@ weight_filler = Filler('msra')
 bias_filler = Filler('constant')
 
 weight_decay = 0
-t = 0.6
+t = 0.8
 conv = TBBlock
 tb_method = name
 act_method = "TanH"
@@ -24,8 +24,8 @@ if name == 'full':
 solver = Solver().net('./model.prototxt').GPU(1)
 solver.test(test_iter=images.num_test / batch_size, test_interval=1000,
             test_initialization=False)
-solver.train(base_lr=0.1, lr_policy='step', gamma=0.01,
-             stepsize=4 * images.train_iter, max_iter=4 * 4 * images.train_iter,
+solver.train(base_lr=0.001, lr_policy='step', gamma=0.1,
+             stepsize=100000, max_iter=450000,
              weight_decay=weight_decay)
 solver.optimizer(type='Adam')
 solver.display(display=20, average_loss=20)
@@ -52,10 +52,8 @@ out = Pool(out, name='pool5', method=Net.MaxPool, kernel_size=3, stride=2)
 
 out = conv(out, 'fc6', tb_method, 4096, 6, 1, 0, weight_filler, act_method,
            threshold_t=t, scale_term=scale_term)
-out = DropOut(out, "drop1", dropout_ratio=0.5)
-out = conv(out, 'fc7', tb_method, 4096, 1, 1, 0, weight_filler, act_method,
+out = conv(out, 'fc7', tb_method, 4096, 1, 1, 0, weight_filler, "ReLU",
            threshold_t=t, scale_term=scale_term)
-out = DropOut(out, "drop2", dropout_ratio=0.5)
 
 out = FC(out, name='fc8', num_output=1000, weight_filler=weight_filler,
          bias_filler=bias_filler)

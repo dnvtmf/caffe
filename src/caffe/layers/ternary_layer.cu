@@ -74,12 +74,12 @@ void ternary_count(const int n, const Dtype *out) {
   }
   LOG(INFO) << "-1: " << cnt[0] << ", 0: " << cnt[1] << ", 1: " << cnt[2];
 }
-
+const double clip_value = 1;
 template <typename Dtype>
 void TernaryLayer<Dtype>::Forward_gpu(
     const vector<Blob<Dtype> *> &bottom, const vector<Blob<Dtype> *> &top) {
-  caffe_gpu_clip<Dtype>(
-      bottom[0]->count(), -1., 1., bottom[0]->mutable_gpu_data());
+  caffe_gpu_clip<Dtype>(bottom[0]->count(), -clip_value, clip_value,
+      bottom[0]->mutable_gpu_data());
 #if TERNARY_METHOD == 2
   const int count = num_ * group_ * dim_;
   forward_kernel<Dtype><<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS>>>(
@@ -122,8 +122,8 @@ void TernaryLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype> *> &top,
         bottom[0]->mutable_gpu_diff());
     CUDA_POST_KERNEL_CHECK;
   }
-  caffe_gpu_clip_grad(
-      count, bottom[0]->gpu_data(), bottom[0]->mutable_gpu_diff());
+  caffe_gpu_clip_grad(count, (Dtype) clip_value, bottom[0]->gpu_data(),
+      bottom[0]->mutable_gpu_diff());
 }
 
 INSTANTIATE_LAYER_GPU_FUNCS(TernaryLayer);

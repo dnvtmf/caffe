@@ -88,8 +88,8 @@ void TanHTernaryLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype> *> &top,
               bottom[0]->mutable_gpu_diff());
     }
 #ifdef HARD_TANH
-    caffe_gpu_clip_grad(
-        count, bottom[0]->gpu_data(), bottom[0]->mutable_gpu_diff());
+    caffe_gpu_clip_grad(count, (Dtype) 1., bottom[0]->gpu_data(),
+        bottom[0]->mutable_gpu_diff());
 #else
     tanh_backward_kernel<Dtype>
         <<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS>>>(

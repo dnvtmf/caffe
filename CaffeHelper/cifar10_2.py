@@ -24,13 +24,13 @@ solver = Solver().net('./model.prototxt').GPU(0)
 max_iter = num_epoch * cifar10.train_iter
 solver.test(test_iter=cifar10.test_iter, test_interval=2 * cifar10.train_iter,
             test_initialization=False)
-solver.train(base_lr=0.1, lr_policy='multistep',
+solver.train(base_lr=0.01, lr_policy='multistep',
              stepvalue=[60 * cifar10.train_iter,  # 1e-2
                         90 * cifar10.train_iter],  # 1e-3
              gamma=0.1, max_iter=num_epoch * cifar10.train_iter,
              weight_decay=weight_decay)
-solver.optimizer(type='SGD', momentum=0.9)
-# solver.optimizer(type='Adam')
+# solver.optimizer(type='SGD', momentum=0.9)
+solver.optimizer(type='Adam')
 solver.display(display=200, average_loss=200)
 solver.snapshot(snapshot=10000, snapshot_prefix='snapshot/' + name)
 

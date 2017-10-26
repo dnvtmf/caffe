@@ -49,7 +49,7 @@ void BinaryLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype> *> &top,
               bottom[0]->mutable_gpu_diff());
     }
     caffe_gpu_clip_grad(
-        count, bottom[0]->gpu_data(), bottom[0]->mutable_gpu_diff());
+        count, (Dtype)1., bottom[0]->gpu_data(), bottom[0]->mutable_gpu_diff());
   }
 }
 

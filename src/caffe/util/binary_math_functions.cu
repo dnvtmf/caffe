@@ -127,6 +127,22 @@ void caffe_gpu_clip(const int N, Dtype min_value, Dtype max_value, Dtype *X) {
 }
 
 template <typename Dtype>
+void __global__ clip_grad_kernel(
+    const int n, const Dtype clip_value, const Dtype *in, Dtype *diff) {
+  CUDA_KERNEL_LOOP(index, n) {
+    if (gpu_abs(in[index]) >= clip_value) diff[index] = 0;
+  }
+}
+
+template <typename Dtype>
+void caffe_gpu_clip_grad(
+    const int n, const Dtype clip_value, const Dtype *in, Dtype *diff) {
+  clip_grad_kernel<Dtype><<<CAFFE_GET_BLOCKS(n), CAFFE_CUDA_NUM_THREADS>>>(
+      n, clip_value - 1e-5, in, diff);
+  CUDA_POST_KERNEL_CHECK;
+}
+
+template <typename Dtype>
 __global__ void binary_approx_kernel_0(const int M, const int N, bool use_bias,
     Dtype *in, Dtype *out, Dtype *scale, Dtype *bias) {
   const int i  = blockIdx.x;
@@ -488,18 +504,7 @@ void caffe_gpu_input_scale(const int num, const int channels, const int dim,
       channels, dim, in, out, beta, sum);
   CUDA_POST_KERNEL_CHECK;
 }
-template <typename Dtype>
-void __global__ clip_grad_kernel(const int n, const Dtype *in, Dtype *diff) {
-  CUDA_KERNEL_LOOP(index, n) {
-    if (gpu_abs(in[index]) >= 1) diff[index] = 0;
-  }
-}
-template <typename Dtype>
-void caffe_gpu_clip_grad(const int n, const Dtype *in, Dtype *diff) {
-  clip_grad_kernel<Dtype>
-      <<<CAFFE_GET_BLOCKS(n), CAFFE_CUDA_NUM_THREADS>>>(n, in, diff);
-  CUDA_POST_KERNEL_CHECK;
-}
+
 #define INSTANTIATE_BINARY_MATH(Dtype)                                         \
   template void caffe_gpu_binary_gradient<Dtype>(const int axis, const int M,  \
       const int N, bool use_bias, const Dtype *in, const Dtype *scale,         \
@@ -529,7 +534,7 @@ void caffe_gpu_clip_grad(const int n, const Dtype *in, Dtype *diff) {
       const int channels, const int dim, const Dtype *in, const Dtype *out,    \
       Dtype *beta, Dtype *sum);                                                \
   template void caffe_gpu_clip_grad<Dtype>(                                    \
-      const int n, const Dtype *in, Dtype *diff);
+      const int n, const Dtype clip_value, const Dtype *in, Dtype *diff);
 
 INSTANTIATE_BINARY_MATH(float);
 INSTANTIATE_BINARY_MATH(double);
