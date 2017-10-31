@@ -11,9 +11,9 @@ tb_method = name
 weight_filler = Filler('msra')
 
 weight_decay = 0
-t = 0.6
+t = 0.8
 conv = TBBlock
-scale_term = False
+scale_term = True
 if name == 'full':
     conv = NormalBlock
     weight_decay = 1e-4

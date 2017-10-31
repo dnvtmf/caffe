@@ -2,8 +2,8 @@ from caffe_user import *
 import os
 
 # ----- Configuration -----
-name = "tb"
-batch_size = 128
+name = "Ternary"
+batch_size = 100
 resnet_n = 3
 cifar10 = CIFAR_10(batch_size)
 activation_method = "ReLU"
@@ -25,7 +25,7 @@ solver.test(test_iter=cifar10.test_iter, test_interval=1000,
             test_initialization=False)
 solver.train(base_lr=0.1, lr_policy='multistep', stepvalue=[32000, 48000],
              gamma=0.1, max_iter=64000, weight_decay=weight_decay)
-solver.optimizer(type='Nesterov', momentum=0.9)
+solver.optimizer(type='SGD', momentum=0.9)
 solver.display(display=100, average_loss=100)
 solver.snapshot(snapshot=10000, snapshot_prefix='snapshot/' + name)
 

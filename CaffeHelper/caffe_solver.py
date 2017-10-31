@@ -33,7 +33,8 @@ class Solver:
         self.add(test_net=test_net)
         return self
 
-    def test(self, test_iter=None, test_interval=None, test_compute_loss=None, test_initialization=None):
+    def test(self, test_iter=None, test_interval=None, test_compute_loss=None,
+             test_initialization=None):
         """
         
         :param test_iter: The number of iterations for each test net.
@@ -58,8 +59,10 @@ class Solver:
         self.add(average_loss=average_loss)
         return self
 
-    def train(self, base_lr=None, max_iter=None, iter_size=None, lr_policy=None, gamma=None, power=None,
-              weight_decay=None, regularization_type=None, stepsize=None, stepvalue=None, clip_gradients=None):
+    def train(self, base_lr=None, max_iter=None, iter_size=None, lr_policy=None,
+              gamma=None, power=None, weight_decay=None,
+              regularization_type=None, stepsize=None, stepvalue=None,
+              clip_gradients=None):
         """
         
         :param base_lr: The base learning rate
@@ -105,8 +108,8 @@ class Solver:
         self.add(clip_gradients=clip_gradients)
         return self
 
-    def snapshot(self, snapshot=None, snapshot_prefix=None, snapshot_diff=None, snapshot_format=None,
-                 snapshot_after_train=None):
+    def snapshot(self, snapshot=None, snapshot_prefix=None, snapshot_diff=None,
+                 snapshot_format=None, snapshot_after_train=None):
         """
         
         :param snapshot: [default = 0]; The snapshot interval
@@ -123,7 +126,8 @@ class Solver:
         self.add(snapshot_after_train=snapshot_after_train)
         return self
 
-    def optimizer(self, type=None, momentum=None, delta=None, momentum2=None, rms_decay=None):
+    def optimizer(self, type=None, momentum=None, delta=None, momentum2=None,
+                  rms_decay=None):
         """
         
         :param type: type of the solver [default = "SGD"]
