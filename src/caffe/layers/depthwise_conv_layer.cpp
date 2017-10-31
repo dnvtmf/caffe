@@ -114,11 +114,7 @@ void DepthwiseConvolutionLayer<Dtype>::LayerSetUp(
     }
     LOG(INFO) << "Skipping parameter initialization";
   } else {
-    if (bias_term_) {
-      this->blobs_.resize(2);
-    } else {
-      this->blobs_.resize(1);
-    }
+    this->blobs_.resize(1 + bias_term_);
     // Initialize and fill the weights:
     // output channels x input channels per-group x kernel height x kernel width
     this->blobs_[0].reset(new Blob<Dtype>(weight_shape));
@@ -146,14 +142,9 @@ void DepthwiseConvolutionLayer<Dtype>::Reshape(
   num_ = bottom[0]->count(0, channel_axis_);
   CHECK_EQ(bottom[0]->shape(channel_axis_), channels_)
       << "Input size incompatible with convolution kernel.";
-  // TODO: generalize to handle inputs of different shapes.
-  for (int bottom_id = 1; bottom_id < bottom.size(); ++bottom_id) {
-    CHECK(bottom[0]->shape() == bottom[bottom_id]->shape())
-        << "All inputs must have the same shape.";
-  }
   // Shape the tops.
   in_h_  = bottom[0]->shape(channel_axis_ + 1);
-  in_w_  = bottom[0]->shape(channel_axis_ + 1);
+  in_w_  = bottom[0]->shape(channel_axis_ + 2);
   out_h_ = (in_h_ + 2 * pad_h_ - kernel_h_) / stride_h_ + 1;
   out_w_ = (in_w_ + 2 * pad_w_ - kernel_w_) / stride_w_ + 1;
 
@@ -182,8 +173,8 @@ void DepthwiseConvolutionLayer<Dtype>::Reshape(
 
 template <typename Dtype>
 void DepthwiseConvolutionLayer<Dtype>::forward_cpu_conv2D(
-    const Dtype* input, const Dtype* weight, Dtype* output) {
-  caffe_set(out_spatial_dim_, Dtype(0), output);
+    const Dtype* in, const Dtype* weight, Dtype* out) {
+  caffe_set(out_spatial_dim_, Dtype(0), out);
   for (int i = 0; i < kernel_h_; ++i) {
     for (int j = 0; j < kernel_w_; ++j) {
       for (int h = 0; h < out_h_; ++h) {
@@ -192,8 +183,8 @@ void DepthwiseConvolutionLayer<Dtype>::forward_cpu_conv2D(
           int y = w * stride_w_ - pad_w_ + j;
           if (is_a_ge_zero_and_a_lt_b(x, in_h_) &&
               is_a_ge_zero_and_a_lt_b(y, in_w_)) {
-            output[h * out_w_ + w] +=
-                input[x * in_w_ + y] * weight[i * kernel_w_ + j];
+            out[h * out_w_ + w] +=
+                in[x * in_w_ + y] * weight[i * kernel_w_ + j];
           }
         }
       }
@@ -203,48 +194,44 @@ void DepthwiseConvolutionLayer<Dtype>::forward_cpu_conv2D(
 
 template <typename Dtype>
 void DepthwiseConvolutionLayer<Dtype>::backward_cpu_conv2D(
-    const Dtype* diff, const Dtype* weight, Dtype* in_diff) {
-  caffe_set(in_spatial_dim_, Dtype(0), in_diff);
-  // in_diff = diff * rot180(weight)
-  for (int h = 0; h < out_h_; ++h) {
-    for (int w = 0; w < out_w_; ++w) {
-      for (int i = 0; i < kernel_h_; ++i) {
-        for (int j = 0; j < kernel_w_; ++j) {
-          int x  = h * stride_h_ - pad_h_ + i;
-          int y  = w * stride_w_ - pad_w_ + j;
-          int ii = kernel_h_ - 1 - i;
-          int jj = kernel_w_ - 1 - j;
-          if (is_a_ge_zero_and_a_lt_b(x, in_h_) &&
-              is_a_ge_zero_and_a_lt_b(y, in_w_)) {
-            in_diff[x * in_w_ + y] +=
-                diff[h * out_w_ + w] * weight[ii * kernel_w_ + jj];
-          }
-        }
-      }
-    }
-  }
-}
-template <typename Dtype>
-void DepthwiseConvolutionLayer<Dtype>::weight_cpu_conv2D(
-    const Dtype* diff, const Dtype* input, Dtype* w_diff) {
-  caffe_set(weight_spatial_dim_, Dtype(0), w_diff);
-  // w_diff = rot180(input) * diff
+    const Dtype* out_diff, const Dtype* weight, Dtype* in_diff) {
   for (int i = 0; i < kernel_h_; ++i) {
     for (int j = 0; j < kernel_w_; ++j) {
       for (int h = 0; h < out_h_; ++h) {
         for (int w = 0; w < out_w_; ++w) {
-          int x = pad_h_ + in_h_ - 1 - (h * stride_h_ + i);
-          int y = pad_w_ + in_w_ - 1 - (w * stride_w_ + j);
+          int x = h * stride_h_ - pad_h_ + i;
+          int y = w * stride_w_ - pad_w_ + j;
           if (is_a_ge_zero_and_a_lt_b(x, in_h_) &&
               is_a_ge_zero_and_a_lt_b(y, in_w_)) {
-            w_diff[i * kernel_w_ + j] +=
-                input[x * in_w_ + y] * diff[h * out_w_ + w];
+            in_diff[x * in_w_ + y] +=
+                out_diff[h * out_w_ + w] * weight[i * kernel_w_ + j];
           }
         }
       }
     }
   }
 }
+
+template <typename Dtype>
+void DepthwiseConvolutionLayer<Dtype>::weight_cpu_conv2D(
+    const Dtype* out_diff, const Dtype* in, Dtype* weight_diff) {
+  for (int i = 0; i < kernel_h_; ++i) {
+    for (int j = 0; j < kernel_w_; ++j) {
+      for (int h = 0; h < out_h_; ++h) {
+        for (int w = 0; w < out_w_; ++w) {
+          int x = h * stride_h_ - pad_h_ + i;
+          int y = w * stride_w_ - pad_w_ + j;
+          if (is_a_ge_zero_and_a_lt_b(x, in_h_) &&
+              is_a_ge_zero_and_a_lt_b(y, in_w_)) {
+            weight_diff[i * kernel_w_ + j] +=
+                in[x * in_w_ + y] * out_diff[h * out_w_ + w];
+          }
+        }
+      }
+    }
+  }
+}
+
 template <typename Dtype>
 void DepthwiseConvolutionLayer<Dtype>::Forward_cpu(
     const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
@@ -254,10 +241,10 @@ void DepthwiseConvolutionLayer<Dtype>::Forward_cpu(
     Dtype* top_data          = top[i]->mutable_cpu_data();
     for (int n = 0; n < num_; ++n) {
       for (int c = 0; c < channels_; ++c) {
+        const int nc = n * channels_ + c;
         forward_cpu_conv2D(
-            bottom_data + n * bottom_dim_ + c * in_spatial_dim_,
-            weight + c * weight_spatial_dim_,
-            top_data + n * top_dim_ + c * out_spatial_dim_);
+            bottom_data + nc * in_spatial_dim_,
+            weight + c * weight_spatial_dim_, top_data + nc * out_spatial_dim_);
       }
     }
   }
@@ -279,6 +266,14 @@ template <typename Dtype>
 void DepthwiseConvolutionLayer<Dtype>::Backward_cpu(
     const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
     const vector<Blob<Dtype>*>& bottom) {
+  CHECK_EQ(top[0]->num(), num_);
+  CHECK_EQ(top[0]->channels(), channels_);
+  CHECK_EQ(top[0]->height(), out_h_);
+  CHECK_EQ(top[0]->width(), out_w_);
+  CHECK_EQ(bottom[0]->num(), num_);
+  CHECK_EQ(bottom[0]->channels(), channels_);
+  CHECK_EQ(bottom[0]->height(), in_h_);
+  CHECK_EQ(bottom[0]->width(), in_w_);
   // Bias gradient, if necessary.
   if (this->bias_term_ && this->param_propagate_down_[1]) {
     for (int i = 0; i < top.size(); ++i) {
@@ -292,32 +287,25 @@ void DepthwiseConvolutionLayer<Dtype>::Backward_cpu(
       }
     }
   }
-  const Dtype* weight = this->blobs_[0]->cpu_data();
-  Dtype* weight_diff  = this->blobs_[0]->mutable_cpu_diff();
-  for (int i = 0; i < top.size(); ++i) {
-    const Dtype* top_diff    = top[i]->cpu_diff();
-    const Dtype* bottom_data = bottom[i]->cpu_data();
-    Dtype* bottom_diff       = bottom[i]->mutable_cpu_diff();
-    // gradient w.r.t.weight.Note that we will accumulate diffs.
-    if (this->param_propagate_down_[0]) {
-      for (int n = 0; n < num_; ++n) {
-        for (int c = 0; c < channels_; ++c) {
-          weight_cpu_conv2D(
-              bottom_data + n * bottom_dim_ + c * in_spatial_dim_,
-              top_diff + n * top_dim_ + c * out_spatial_dim_,
-              weight_diff + c * weight_spatial_dim_);
-        }
+  const Dtype* weight_data = this->blobs_[0]->cpu_data();
+  const Dtype* bottom_data = bottom[0]->cpu_data();
+  const Dtype* top_diff    = top[0]->cpu_diff();
+  Dtype* weight_diff       = this->blobs_[0]->mutable_cpu_diff();
+  Dtype* bottom_diff       = bottom[0]->mutable_cpu_diff();
+  for (int n = 0; n < num_; ++n) {
+    for (int c = 0; c < channels_; ++c) {
+      const int nc = n * channels_ + c;
+      if (propagate_down[0]) {
+        backward_cpu_conv2D(
+            top_diff + nc * out_spatial_dim_,
+            weight_data + c * weight_spatial_dim_,
+            bottom_diff + nc * in_spatial_dim_);
       }
-    }
-    // gradient w.r.t. bottom data, if necessary.
-    if (propagate_down[i]) {
-      for (int n = 0; n < num_; ++n) {
-        for (int c = 0; c < channels_; ++c) {
-          backward_cpu_conv2D(
-              top_diff + n * top_dim_ + c * out_spatial_dim_,
-              weight + c * weight_spatial_dim_,
-              bottom_diff + n * bottom_dim_ + c * in_spatial_dim_);
-        }
+      if (this->param_propagate_down_[0]) {
+        weight_cpu_conv2D(
+            top_diff + nc * out_spatial_dim_,
+            bottom_data + nc * in_spatial_dim_,
+            weight_diff + c * weight_spatial_dim_);
       }
     }
   }

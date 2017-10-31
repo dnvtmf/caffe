@@ -11,10 +11,10 @@ weight_filler = Filler('msra')
 filler_bias = Filler('constant')
 
 weight_decay = 0
-t = None
+t = 0.8
 conv = TBBlock
 tb_method = name
-scale_term = False
+scale_term = True
 if name == 'full':
     conv = NormalBlock
     weight_decay = 1e-4
@@ -36,21 +36,15 @@ out = NormalBlock(out, name='conv1', num_output=16, kernel_size=3, stride=1,
                   pad=1, weight_filler=weight_filler, act="ReLU")
 
 
-def block(out_, num_output, stride=1):
+def block(out_, num_output, first=False, stride=1):
     x = out_
-    out_ = conv(out_, 'conv1', method=tb_method, scale_term=scale_term,
-                num_output=num_output, kernel_size=3, pad=1, stride=stride,
-                weight_filler=weight_filler, threshold_t=t)
-
-    out_ = conv(out_, 'conv2', method=tb_method, scale_term=scale_term,
-                num_output=num_output, kernel_size=3, pad=1, stride=1,
-                weight_filler=weight_filler, threshold_t=t)
-
-    if stride != 1:
-        x = conv(x, 'shortcut', method=tb_method, scale_term=scale_term,
-                 num_output=num_output, kernel_size=2, pad=0, stride=stride,
-                 weight_filler=weight_filler, threshold_t=t)
-
+    out_ = TBBlock(out_, 'A', tb_method, num_output, 3, stride, 1,
+                   weight_filler, scale_term=scale_term, threshold_t=t)
+    out_ = TBBlock(out_, 'B', tb_method, num_output, 3, 1, 1, weight_filler,
+                   scale_term=scale_term, threshold_t=t)
+    if first:
+        x = TBBlock(x, 'short', tb_method, num_output, 1, stride, 0,
+                    weight_filler, scale_term=scale_term, threshold_t=t)
     out_ = Eltwise(out_ + x, name='add')
     return out_
 
@@ -59,7 +53,7 @@ def stack(out_, num_output, number, add_stride=0):
     for i in xrange(number):
         with NameScope('branch' + str(i + 1)):
             if i == 0:
-                out_ = block(out_, num_output, 1 + add_stride)
+                out_ = block(out_, num_output, True, 1 + add_stride)
             else:
                 out_ = block(out_, num_output)
     return out_
@@ -74,6 +68,8 @@ with NameScope('res3'):
 with NameScope('res4'):
     out = stack(out, 64, resnet_n, add_stride=1)
 
+out = BN(out, 'bn')
+out = Activation(out, 'relu', method='ReLU')
 out = Pool(out, name='avg_pool', method=Net.AveragePool, global_pooling=True,
            stride=None, kernel_size=None)
 out = FC(out, name='fc', num_output=10, weight_filler=weight_filler,

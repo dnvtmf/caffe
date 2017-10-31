@@ -3,21 +3,12 @@
 #include <cstdint>
 #include <vector>
 
+#include "caffe/util/bb_gemm.hpp"
+
 namespace caffe {
 using std::vector;
 using std::max;
 using std::min;
-#ifndef BINARY_32_BIT
-typedef uint64_t Btype;
-const int BINARY_SIZE = 8 * sizeof(Btype);
-#define bitcount __builtin_popcountll
-#define cuda_bitcount __popc
-#else
-typedef uint32_t Btype;
-const int BINARY_SIZE = 8 * sizeof(Btype);
-#define bitcount __builtin_popcount
-#define cuda_bitcount __popcll
-#endif
 /**
  * \brief Computes a matrix-matrix product with general compressed binary
  *        matrices.

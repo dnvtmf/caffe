@@ -13,7 +13,7 @@ def BN(data_in, name="BatchNorm", use_global_stats=None,
                        inplace=inplace)
         scale = Scale(bn, axis=axis, num_axes=num_axes, filler=filler,
                       bias_term=bias_term, bias_filler=bias_filler,
-                      inplace=inplace)
+                      inplace=True)
     return scale
 
 
@@ -73,26 +73,27 @@ class CIFAR_10(DataSet):
         self.num_test = 10000
         self.batch_size = batch_size
         self.train_iter = self.num_train / self.batch_size
-        self.test_iter = self.num_test / self.batch_size
+        self.test_iter = self.num_test / 50
 
     def data(self):
         if self.more:
             data, label = Data([], phase=TRAIN,
-                source=os.path.join(self.data_dir, 'train'),
-                batch_size=self.batch_size, backend=Net.LMDB, optional_params=[
-                    Transform(scale=0.0078125, mirror=True, crop_size=32,
-                              mean_value=128)])
+                               source=os.path.join(self.data_dir, 'train'),
+                               batch_size=self.batch_size, backend=Net.LMDB,
+                               optional_params=[
+                                   Transform(scale=0.0078125, mirror=True,
+                                             crop_size=32, mean_value=128)])
             Data([], phase=TEST, source=os.path.join(self.data_dir, 'test'),
-                 batch_size=self.batch_size, backend=Net.LMDB,
+                 batch_size=50, backend=Net.LMDB,
                  optional_params=[Transform(scale=0.0078125, mean_value=128)])
         else:
             mean_file = os.path.join(self.data_dir, 'mean.binaryproto')
             data, label = Data([], phase=TRAIN,
-                source=os.path.join(self.data_dir, 'train'),
-                batch_size=self.batch_size, backend=Net.LMDB,
-                optional_params=[Transform(mean_file=mean_file)])
+                               source=os.path.join(self.data_dir, 'train'),
+                               batch_size=self.batch_size, backend=Net.LMDB,
+                               optional_params=[Transform(mean_file=mean_file)])
             Data([], phase=TEST, source=os.path.join(self.data_dir, 'test'),
-                 batch_size=self.batch_size, backend=Net.LMDB,
+                 batch_size=50, backend=Net.LMDB,
                  optional_params=[Transform(mean_file=mean_file)])
         return [[data], [label]]
 
@@ -105,18 +106,20 @@ class ImageNet(DataSet):
         self.num_train = 1280000
         self.num_test = 50000
         self.train_iter = self.num_train / self.batch_size
-        self.test_iter = self.num_test / self.batch_size
+        self.test_iter = self.num_test / 50
 
     def data(self, cs=227):
         train_file = os.path.join(self.data_dir, "ilsvrc12_train_lmdb")
         test_file = os.path.join(self.data_dir, "ilsvrc12_val_lmdb")
         mean_file = os.path.join(self.data_dir, "ilsvrc12_mean.binaryproto")
         data, label = Data([], phase=TRAIN, source=train_file,
-            batch_size=self.batch_size, backend=Net.LMDB, optional_params=[
-                Transform(mean_file=mean_file, crop_size=cs, mirror=True)])
-        Data([], phase=TEST, source=test_file, batch_size=self.batch_size,
-             backend=Net.LMDB, optional_params=[
-                Transform(mean_file=mean_file, mirror=False, crop_size=cs)])
+                           batch_size=self.batch_size, backend=Net.LMDB,
+                           optional_params=[
+                               Transform(mean_file=mean_file, crop_size=cs,
+                                         mirror=True)])
+        Data([], phase=TEST, source=test_file, batch_size=50, backend=Net.LMDB,
+             optional_params=[
+                 Transform(mean_file=mean_file, mirror=False, crop_size=cs)])
         return [[data], [label]]
 
 

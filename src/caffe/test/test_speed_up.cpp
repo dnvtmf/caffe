@@ -3,11 +3,15 @@
 
 #include "caffe/blob.hpp"
 #include "caffe/test/test_caffe_main.hpp"
+#include "caffe/util/bb_gemm.hpp"
 #include "caffe/util/benchmark.hpp"
 #include "caffe/util/binary_math_functions.hpp"
 #include "caffe/util/math_functions.hpp"
+
 using namespace std;
+
 namespace caffe {
+
 template <typename Dtype>
 class SpeedupTest : public ::testing::Test {
  private:
@@ -67,6 +71,19 @@ class SpeedupTest : public ::testing::Test {
   void test_cpu(int m, int k, int n, int test_iter = 10) {
     Timer timer;
     gen_data(m, k, n);
+    cout << "gen data: M = " << m << ", N = " << n << ", K = " << k << endl;
+
+    // binary_binary_gemm
+    int bk = (k - 1) / BINARY_SIZE + 1;
+    timer.Start();
+    for (int it = 0; it < test_iter; ++it) {
+      bb_gemm_cpu<Dtype>(
+          m, n, bk, B[0].cpu_data(), scale[0].cpu_data(), B[1].cpu_data(),
+          scale[1].cpu_data(), res[1].mutable_cpu_data());
+    }
+    timer.Stop();
+    float bb_average_time = timer.MilliSeconds() / float(test_iter);
+
     // full precision
     timer.Start();
     for (int it = 0; it < test_iter; ++it) {
@@ -76,17 +93,7 @@ class SpeedupTest : public ::testing::Test {
     }
     timer.Stop();
     float full_average_time = timer.MilliSeconds() / float(test_iter);
-    // binary_binary_gemm
-    timer.Start();
-    for (int it = 0; it < test_iter; ++it) {
-      caffe_cpu_binary_gemm<Dtype>(
-          false, false, m, n, k, B[0].cpu_data(), scale[0].cpu_data(),
-          B[1].cpu_data(), scale[1].cpu_data(), res[1].mutable_cpu_data(),
-          false, bias[0].cpu_data(), sum[0].cpu_data(), bias[1].cpu_data(),
-          sum[1].cpu_data());
-    }
-    timer.Stop();
-    float bb_average_time = timer.MilliSeconds() / float(test_iter);
+
     // binary_ternary_gemm
     timer.Start();
     for (int it = 0; it < test_iter; ++it) {
@@ -98,8 +105,9 @@ class SpeedupTest : public ::testing::Test {
     }
     timer.Stop();
     float bt_average_time = timer.MilliSeconds() / float(test_iter);
-    Dtype error_full_bb   = Error(m * n, res[0].cpu_data(), res[1].cpu_data());
-    Dtype error_full_bt   = Error(m * n, res[0].cpu_data(), res[2].cpu_data());
+
+    Dtype error_full_bb = Error(m * n, res[0].cpu_data(), res[1].cpu_data());
+    Dtype error_full_bt = Error(m * n, res[0].cpu_data(), res[2].cpu_data());
     cout << "full gemm use time: " << full_average_time << "ms\n";
     cout << "binary gemm use time: " << bb_average_time << "ms\n";
     cout << "ternary-binary gemm use time: " << bt_average_time << "ms\n";
@@ -110,15 +118,81 @@ class SpeedupTest : public ::testing::Test {
     cout << "average error binary: " << error_full_bb << "(binary),  "
          << error_full_bt << "(binary-ternary)\n";
   }
+#ifndef CPU_ONLY
+  void test_gpu(int m, int k, int n, int test_iter = 10) {
+    Timer timer;
+    gen_data(m, k, n);
+    cout << "gen data: M = " << m << ", N = " << n << ", K = " << k << endl;
+
+    // binary_binary_gemm
+    int bk = (k - 1) / BINARY_SIZE + 1;
+    timer.Start();
+    for (int it = 0; it < test_iter; ++it) {
+      bb_gemm_gpu<Dtype>(
+          m, n, bk, B[0].gpu_data(), scale[0].gpu_data(), B[1].gpu_data(),
+          scale[1].gpu_data(), res[1].mutable_gpu_data());
+    }
+    timer.Stop();
+    float bb_average_time = timer.MilliSeconds() / float(test_iter);
+
+    // full precision
+    timer.Start();
+    for (int it = 0; it < test_iter; ++it) {
+      caffe_gpu_gemm<Dtype>(
+          CblasNoTrans, CblasNoTrans, m, n, k, (Dtype) 1., R[0].gpu_data(),
+          R[1].gpu_data(), (Dtype) 0., res[0].mutable_gpu_data());
+    }
+    timer.Stop();
+    float full_average_time = timer.MilliSeconds() / float(test_iter);
+
+    // binary_ternary_gemm
+    /*
+    timer.Start();
+    for (int it = 0; it < test_iter; ++it) {
+      caffe_gpu_bt_gemm<Dtype>(
+          false, false, m, n, k, B[0].gpu_data(), scale[0].gpu_data(),
+          B[2].gpu_data(), B[3].gpu_data(), scale[2].gpu_data(),
+          sum2.gpu_data(), res[2].mutable_gpu_data(), false, bias[0].gpu_data(),
+          sum[0].gpu_data(), bias[2].gpu_data(), sum[2].gpu_data());
+    }
+    timer.Stop();
+    float bt_average_time = timer.MilliSeconds() / float(test_iter);
+    */
+    Dtype error_full_bb = Error(m * n, res[0].cpu_data(), res[1].cpu_data());
+    //    Dtype error_full_bt = Error(m * n, res[0].cpu_data(),
+    //    res[2].cpu_data());
+    cout << "full gemm use time: " << full_average_time << "ms\n";
+    cout << "binary gemm use time: " << bb_average_time << "ms\n";
+    //    cout << "ternary-binary gemm use time: " << bt_average_time << "ms\n";
+    cout << "speed up binary gemm: \033[31m"
+         << full_average_time / bb_average_time << "\033[0m\n";
+    //    cout << "speed up ternary-binary gemm: \033[31m"
+    //         << full_average_time / bt_average_time << "\033[0m\n";
+    cout << "average error binary: " << error_full_bb << "(binary),  ";
+    //         << error_full_bt << "(binary-ternary)\n";
+  }
+#endif  // CPU_ONLY
 };
 TYPED_TEST_CASE(SpeedupTest, TestDtypes);
-TYPED_TEST(SpeedupTest, K1000) {
-  this->test_cpu(1000, 64, 1000);
-  this->test_cpu(1000, 128, 1000);
-  this->test_cpu(1000, 256, 1000);
-  this->test_cpu(1000, 512, 1000);
-  this->test_cpu(1000, 1024, 1000);
-  this->test_cpu(1000, 2048, 1000);
-  this->test_cpu(1000, 4096, 1000);
+TYPED_TEST(SpeedupTest, CPU_K1024) {
+  //  this->test_cpu(1024, 64, 1024);
+  //  this->test_cpu(1024, 128, 1024);
+  //  this->test_cpu(1024, 256, 1024);
+  //  this->test_cpu(1024, 512, 1024);
+  this->test_cpu(1024, 1024, 1024);
+  this->test_cpu(1024, 2048, 1024);
+  this->test_cpu(1024, 4096, 1024);
 }
+#ifndef CPU_ONLY
+TYPED_TEST(SpeedupTest, GPU_K1024) {
+  //  this->test_gpu(1024, 64, 1024);
+  //  this->test_gpu(1024, 128, 1024);
+  //  this->test_gpu(1024, 256, 1024);
+  //  this->test_gpu(1024, 512, 1024);
+  this->test_gpu(1024, 1024, 1024);
+  this->test_gpu(1024, 2048, 1024);
+  this->test_gpu(1024, 4096, 1024);
+}
+#endif  // CPU_ONLY
+
 }  // namespace caffe

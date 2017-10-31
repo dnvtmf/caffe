@@ -19,8 +19,8 @@ class DepthwiseConvolutionLayerTest : public MultiDeviceTest<TypeParam> {
 
  protected:
   DepthwiseConvolutionLayerTest()
-      : blob_bottom_(new Blob<Dtype>(2, 3, 6, 4))
-      , blob_bottom_2_(new Blob<Dtype>(2, 3, 6, 4))
+      : blob_bottom_(new Blob<Dtype>(20, 30, 24, 16))
+      , blob_bottom_2_(new Blob<Dtype>(20, 30, 24, 16))
       , blob_top_(new Blob<Dtype>())
       , blob_top_2_(new Blob<Dtype>()) {}
   virtual void SetUp() {
@@ -51,11 +51,6 @@ class DepthwiseConvolutionLayerTest : public MultiDeviceTest<TypeParam> {
   vector<Blob<Dtype>*> blob_bottom_vec_2_;
   vector<Blob<Dtype>*> blob_top_vec_;
   vector<Blob<Dtype>*> blob_top_vec_2_;
-
- public:
-  friend class DepthwiseConvolutionLayer<Dtype>;
-  friend class ConvolutionLayer<Dtype>;
-  friend class Layer<Dtype>;
 };
 
 TYPED_TEST_CASE(DepthwiseConvolutionLayerTest, TestDtypesAndDevices);
@@ -84,27 +79,33 @@ TYPED_TEST(DepthwiseConvolutionLayerTest, TestSimpleConvolution) {
   const Dtype* top_data_1 = this->blob_top_->cpu_data();
   const Dtype* top_data_2 = this->blob_top_2_->cpu_data();
   for (int i = 0; i < this->blob_top_->count(); ++i) {
-    EXPECT_NEAR(top_data_1[i], top_data_2[i], 1e-4);
+    EXPECT_NEAR(top_data_1[i], top_data_2[i], 1e-6);
   }
-  // dw_layer->Backward(this->blob_top_vec_, {true}, this->blob_bottom_vec_);
+  caffe_rng_gaussian<Dtype>(
+      this->blob_top_->count(), 0., 1., this->blob_top_->mutable_cpu_diff());
+  dw_layer->Backward(this->blob_top_vec_, {true}, this->blob_bottom_vec_);
+  layer->Backward(this->blob_top_vec_, {true}, this->blob_bottom_vec_2_);
+  const Dtype* in_diff_1 = this->blob_bottom_->cpu_diff();
+  const Dtype* in_diff_2 = this->blob_bottom_2_->cpu_diff();
+  for (int i = 0; i < this->blob_bottom_->count(); ++i) {
+    EXPECT_NEAR(in_diff_1[i], in_diff_2[i], 1e-6);
+  }
 }
 
+/*
 TYPED_TEST(DepthwiseConvolutionLayerTest, TestGradient) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
   ConvolutionParameter* convolution_param =
       layer_param.mutable_convolution_param();
-  this->blob_bottom_vec_.push_back(this->blob_bottom_2_);
-  this->blob_top_vec_.push_back(this->blob_top_2_);
   convolution_param->add_kernel_size(3);
   convolution_param->add_stride(2);
-  // convolution_param->set_num_output(2);
   convolution_param->mutable_weight_filler()->set_type("gaussian");
-  convolution_param->mutable_bias_filler()->set_type("gaussian");
+//  convolution_param->mutable_bias_filler()->set_type("gaussian");
   DepthwiseConvolutionLayer<Dtype> layer(layer_param);
   GradientChecker<Dtype> checker(1e-2, 1e-3);
   checker.CheckGradientExhaustive(
       &layer, this->blob_bottom_vec_, this->blob_top_vec_);
 }
-
+*/
 }  // namespace caffe

@@ -3,13 +3,13 @@ import os
 
 # ----- Configuration -----
 name = "Ternary"
-num_epoch = 500
-batch_size = 50
+num_epoch = 200
+batch_size = 128
 cifar10 = CIFAR_10(batch_size, True)
 weight_filler = Filler('msra')
 
-weight_decay = 0
-t = 0.6
+weight_decay = 1e-6
+t = 0.8
 conv = TBBlock
 tb_method = name
 scale_term = True
@@ -22,10 +22,10 @@ solver = Solver().net('./model.prototxt').GPU(1)
 solver.test(test_iter=cifar10.test_iter, test_interval=cifar10.train_iter,
             test_initialization=False)
 num_iter = num_epoch * cifar10.train_iter
-solver.train(base_lr=0.1, lr_policy='step', gamma=0.5,
+solver.train(base_lr=0.01, lr_policy='step', gamma=0.1,
              stepsize=50 * cifar10.train_iter,
              max_iter=num_iter, weight_decay=weight_decay)
-solver.optimizer(type='SGD', momentum=0.9)
+solver.optimizer(type='Adam')
 solver.display(display=200, average_loss=200)
 solver.snapshot(snapshot=10000, snapshot_prefix='snapshot/' + name)
 
@@ -69,10 +69,9 @@ out = TBBlock(out, 'fc8', method=tb_method, scale_term=scale_term,
               weight_filler=weight_filler, act="ReLU")
 
 out = FC(out, 'fc9', num_output=10, weight_filler=weight_filler)
-test_accuracy = Accuracy(out + label)
-train_accuracy = Accuracy(out + label, test=False)
-train_loss = SoftmaxWithLoss(out + label)
-# loss = HingeLoss(out + label, norm=2)
+accuracy = Accuracy(out + label)
+# loss = SoftmaxWithLoss(out + label)
+loss = HingeLoss(out + label, norm=2)
 
 model_dir = os.path.join(os.getenv('HOME'), 'cifar10/cnn/' + name)
 gen_model(model_dir, solver, [0, 2, 4, 6])

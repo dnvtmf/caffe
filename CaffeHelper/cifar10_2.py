@@ -22,7 +22,7 @@ if name == 'full':
 # ---------- solver ----
 solver = Solver().net('./model.prototxt').GPU(0)
 max_iter = num_epoch * cifar10.train_iter
-solver.test(test_iter=cifar10.test_iter, test_interval=2 * cifar10.train_iter,
+solver.test(test_iter=cifar10.test_iter, test_interval=cifar10.train_iter,
             test_initialization=False)
 solver.train(base_lr=0.01, lr_policy='multistep',
              stepvalue=[60 * cifar10.train_iter,  # 1e-2

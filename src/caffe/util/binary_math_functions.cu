@@ -505,6 +505,12 @@ void caffe_gpu_input_scale(const int num, const int channels, const int dim,
   CUDA_POST_KERNEL_CHECK;
 }
 
+template <typename Dtype>
+void caffe_gpu_bb_gemm(const int M, const int N, const int K, const Btype *A,
+    const Btype *B, Dtype *C){
+
+}
+
 #define INSTANTIATE_BINARY_MATH(Dtype)                                         \
   template void caffe_gpu_binary_gradient<Dtype>(const int axis, const int M,  \
       const int N, bool use_bias, const Dtype *in, const Dtype *scale,         \
