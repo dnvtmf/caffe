@@ -22,7 +22,7 @@ solver = Solver().net('./model.prototxt').GPU(1)
 solver.test(test_iter=cifar10.test_iter, test_interval=cifar10.train_iter,
             test_initialization=False)
 num_iter = num_epoch * cifar10.train_iter
-solver.train(base_lr=0.01, lr_policy='step', gamma=0.1,
+solver.train(base_lr=0.01, lr_policy='step', gamma=0.5,
              stepsize=50 * cifar10.train_iter,
              max_iter=num_iter, weight_decay=weight_decay)
 solver.optimizer(type='Adam')

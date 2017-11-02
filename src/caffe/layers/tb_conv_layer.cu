@@ -11,7 +11,7 @@
 // 0: binary weight without scale
 // 1: binary weight with scale
 // 2: binary weight with learnable scale
-#define BINARY_METHOD 1
+#define BINARY_METHOD 2
 namespace caffe {
 #define WARP_SIZE 32
 inline __device__ float gpu_abs(float x) { return fabsf(x); }
@@ -306,8 +306,8 @@ void TBConvolutionLayer<Dtype>::Forward_gpu(
   w_forward_kernel<Dtype><<<num_output_, CAFFE_CUDA_NUM_THREADS>>>(num_output_,
       kernel_dim_, full_weight, bin_weight,
       this->blobs_[1]->mutable_gpu_data());
-  test_w_forward<Dtype>(num_output_, kernel_dim_, this->blobs_[0]->cpu_data(),
-      this->blobs_[1]->cpu_data(), weight_.cpu_data());
+// test_w_forward<Dtype>(num_output_, kernel_dim_, this->blobs_[0]->cpu_data(),
+//     this->blobs_[1]->cpu_data(), weight_.cpu_data());
 #else
   w_forward_kernel<Dtype><<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS>>>(
       count, kernel_dim_, full_weight, this->blobs_[1]->gpu_data(), bin_weight);
