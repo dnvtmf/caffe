@@ -9,11 +9,6 @@
 
 namespace caffe {
 
-// 0: fixed
-// 1: global
-// 2: average by channels
-#define TERNARY_METHOD 0
-
 template <typename Dtype>
 class TernaryLayer : public Layer<Dtype> {
  public:

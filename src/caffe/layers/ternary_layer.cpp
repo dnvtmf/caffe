@@ -15,18 +15,10 @@ void TernaryLayer<Dtype>::LayerSetUp(
   use_global_stats_        = this->phase_ == TEST;
   CHECK_EQ(bottom[0]->num_axes(), 4);
   channels_ = bottom[0]->shape(1);
-  CHECK(channels_ % group_ == 0);
+  CHECK(group_ > 0 && channels_ % group_ == 0);
+  channels_ /= group_;
   CHECK(top.size() == 1 || top.size() == 3);
   scale_term_ = top.size() == 3;
-#if TERNARY_METHOD == 0
-  const char* ternary_method = "fixed ternary";
-#elif TERNARY_METHOD == 1
-  const char* ternary_method = "global ternary";
-#else
-  const char* ternary_method = "channels ternary";
-#endif
-  LOG(INFO) << ternary_method << " throshold_t: " << threshold_t_
-            << ", group: " << group_;
 }
 template <typename Dtype>
 void TernaryLayer<Dtype>::Reshape(
@@ -42,6 +34,7 @@ void TernaryLayer<Dtype>::Reshape(
   } else {
     CHECK(top.size() == 1);
   }
+  num_ *= group_;
 }
 
 template <typename Dtype>

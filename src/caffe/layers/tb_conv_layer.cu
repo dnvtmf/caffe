@@ -7,11 +7,6 @@
 #include "caffe/util/im2col.hpp"
 #include "caffe/util/math_functions.hpp"
 
-// BINARY_METHOD
-// 0: binary weight without scale
-// 1: binary weight with scale
-// 2: binary weight with learnable scale
-#define BINARY_METHOD 2
 namespace caffe {
 #define WARP_SIZE 32
 inline __device__ float gpu_abs(float x) { return fabsf(x); }
@@ -41,10 +36,9 @@ void outt(const char* info, const Blob<Dtype>& x) {
   puts("");
 }
 
-#if BINARY_METHOD == 1
 template <typename Dtype>
 __global__ void w_forward_kernel(
-    const int M, const int N, Dtype* in, Dtype* out, Dtype* scale) {
+    const int M, const int N, const Dtype* in, Dtype* out, Dtype* scale) {
   const int i  = blockIdx.x;
   const int id = threadIdx.x;
   volatile __shared__ Dtype temp[CAFFE_CUDA_NUM_THREADS - WARP_SIZE];
@@ -71,8 +65,9 @@ __global__ void w_forward_kernel(
   for (int j = id; j < N; j += blockDim.x) out[j] = copy_sign(scale[i], in[j]);
 }
 template <typename Dtype>
-void test_w_forward(const int M, const int N, const Dtype* in,
-    const Dtype* scale, const Dtype* out) {
+void test_w_forward(
+    const int M, const int N, const Dtype* in, const Dtype* scale,
+    const Dtype* out) {
   for (int i = 0; i < M; ++i) {
     Dtype asum = 0;
     for (int j = 0; j < N; ++j) asum += std::abs(in[i * N + j]);
@@ -87,32 +82,44 @@ void test_w_forward(const int M, const int N, const Dtype* in,
   }
 }
 template <typename Dtype>
-__global__ void w_backward_kernel(const int n, const int width,
-    const Dtype alpha, const Dtype* scale, Dtype* diff) {
+__global__ void w_backward_kernel(
+    const int n, const int width, const Dtype alpha, const Dtype* scale,
+    Dtype* diff) {
   CUDA_KERNEL_LOOP(index, n) { diff[index] *= alpha + scale[index / width]; }
 }
 
-#elif BINARY_METHOD == 2
 template <typename Dtype>
-void __global__ w_forward_kernel(const int n, const int width, const Dtype* in,
-    const Dtype* alpha, Dtype* out) {
-  CUDA_KERNEL_LOOP(index, n) {
-    out[index] = copy_sign(alpha[index / width], in[index]);
-    // out[index] = in[index] >= 0 ? 1 : -1;
-    // out[index] *= alpha[index / width];
+__global__ void w_backward_kernel(
+    const int M, const int N, Dtype* B, const Dtype* scale, Dtype* diff) {
+  const int i  = blockIdx.x;
+  const int id = threadIdx.x;
+  volatile __shared__ Dtype temp[CAFFE_CUDA_NUM_THREADS - WARP_SIZE];
+  Dtype val = 0;
+  B += i * N;
+  diff += i * N;
+  for (int j = id; j < N; j += blockDim.x) {
+    B[j] = copy_sign(1, B[j]);
+    val += diff[j] * B[j];
+  }
+  if (id >= WARP_SIZE) temp[id - WARP_SIZE] = val;
+  __syncthreads();
+  if (id < WARP_SIZE) {
+#pragma unroll
+    for (int k = id; k < (CAFFE_CUDA_NUM_THREADS - WARP_SIZE); k += WARP_SIZE)
+      val += temp[k];
+    temp[id] = val;
+  }
+  if (id < 16) temp[id] += temp[id + 16];
+  if (id < 8) temp[id] += temp[id + 8];
+  if (id < 4) temp[id] += temp[id + 4];
+  if (id < 2) temp[id] += temp[id + 2];
+  if (id < 1) temp[id] += temp[id + 1];
+  if (id == 0) temp[0] /= Dtype(N);
+  __syncthreads();
+  for (int j = id; j < N; j += blockDim.x) {
+    diff[j] = temp[0] * B[j] + diff[j] * scale[i];
   }
 }
-
-template <typename Dtype>
-void __global__ w_backward_kernel(const int n, const int width, const Dtype* in,
-    const Dtype* alpha, Dtype* W_diff, Dtype* s_diff) {
-  CUDA_KERNEL_LOOP(index, n) {
-    s_diff[index] = copy_sign(Dtype(1), in[index]) * W_diff[index];
-    // s_diff[index] = in[index] >= 0 ? W_diff[index] : -W_diff[index];
-    W_diff[index] *= alpha[index / width];
-  }
-}
-#endif
 
 template <typename Dtype>
 void __global__ scale_kernel_2(
@@ -128,11 +135,12 @@ void __global__ beta_div_kernel(const int n, const Dtype* sum, Dtype* beta) {
 }
 
 template <typename Dtype>
-__global__ void conv2D_kernel(const int n, const Dtype* data_im,
-    const int height, const int width, const int kernel_h, const int kernel_w,
-    const int pad_h, const int pad_w, const int stride_h, const int stride_w,
-    const int dilation_h, const int dilation_w, const int height_col,
-    const int width_col, Dtype* data_col) {
+__global__ void conv2D_kernel(
+    const int n, const Dtype* data_im, const int height, const int width,
+    const int kernel_h, const int kernel_w, const int pad_h, const int pad_w,
+    const int stride_h, const int stride_w, const int dilation_h,
+    const int dilation_w, const int height_col, const int width_col,
+    Dtype* data_col) {
   CUDA_KERNEL_LOOP(index, n) {
     const int h_index        = index / width_col;
     const int h_col          = h_index % height_col;
@@ -158,11 +166,12 @@ __global__ void conv2D_kernel(const int n, const Dtype* data_im,
 }
 
 template <typename Dtype>
-void conv2D_cpu_test(const int num, const Dtype* data_im, const int height,
-    const int width, const int kernel_h, const int kernel_w, const int pad_h,
-    const int pad_w, const int stride_h, const int stride_w,
-    const int dilation_h, const int dilation_w, const int height_col,
-    const int width_col, const Dtype* data_col) {
+void conv2D_cpu_test(
+    const int num, const Dtype* data_im, const int height, const int width,
+    const int kernel_h, const int kernel_w, const int pad_h, const int pad_w,
+    const int stride_h, const int stride_w, const int dilation_h,
+    const int dilation_w, const int height_col, const int width_col,
+    const Dtype* data_col) {
   for (int n = 0; n < num; ++n) {
     for (int h = 0; h < height_col; ++h) {
       for (int w = 0; w < width_col; ++w) {
@@ -201,9 +210,10 @@ void TBConvolutionLayer<Dtype>::conv2D_gpu(
   const int num_kernels = num * height_col * width_col;
   // NOLINT_NEXT_LINE(whitespace/operators)
   conv2D_kernel<Dtype>
-      <<<CAFFE_GET_BLOCKS(num_kernels), CAFFE_CUDA_NUM_THREADS>>>(num_kernels,
-          in, height, width, kernel_h, kernel_w, pad_h, pad_w, stride_h,
-          stride_w, dilation_h, dilation_w, height_col, width_col, out);
+      <<<CAFFE_GET_BLOCKS(num_kernels), CAFFE_CUDA_NUM_THREADS>>>(
+          num_kernels, in, height, width, kernel_h, kernel_w, pad_h, pad_w,
+          stride_h, stride_w, dilation_h, dilation_w, height_col, width_col,
+          out);
   CUDA_POST_KERNEL_CHECK;
 }
 
@@ -225,8 +235,9 @@ void TBConvolutionLayer<Dtype>::forward_gpu_gemm(
   }
 
   for (int g = 0; g < group_; ++g) {
-    caffe_gpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, out_channels_,
-        out_spatial_dim_, kernel_dim_, (Dtype) 1., weight + weight_offset_ * g,
+    caffe_gpu_gemm<Dtype>(
+        CblasNoTrans, CblasNoTrans, out_channels_, out_spatial_dim_,
+        kernel_dim_, (Dtype) 1., weight + weight_offset_ * g,
         col_buff + col_offset_ * g, (Dtype) 0., output + output_offset_ * g);
   }
 }
@@ -234,9 +245,9 @@ void TBConvolutionLayer<Dtype>::forward_gpu_gemm(
 template <typename Dtype>
 void TBConvolutionLayer<Dtype>::forward_gpu_bias(
     Dtype* output, const Dtype* bias) {
-  caffe_gpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, num_output_,
-      out_spatial_dim_, 1, (Dtype) 1., bias, bias_multiplier_.gpu_data(),
-      (Dtype) 1., output);
+  caffe_gpu_gemm<Dtype>(
+      CblasNoTrans, CblasNoTrans, num_output_, out_spatial_dim_, 1, (Dtype) 1.,
+      bias, bias_multiplier_.gpu_data(), (Dtype) 1., output);
 }
 
 template <typename Dtype>
@@ -247,10 +258,10 @@ void TBConvolutionLayer<Dtype>::backward_gpu_gemm(
     col_buff = input;
   }
   for (int g = 0; g < group_; ++g) {
-    caffe_gpu_gemm<Dtype>(CblasTrans, CblasNoTrans, kernel_dim_,
-        out_spatial_dim_, out_channels_, (Dtype) 1.,
-        weights + weight_offset_ * g, output + output_offset_ * g, (Dtype) 0.,
-        col_buff + col_offset_ * g);
+    caffe_gpu_gemm<Dtype>(
+        CblasTrans, CblasNoTrans, kernel_dim_, out_spatial_dim_, out_channels_,
+        (Dtype) 1., weights + weight_offset_ * g, output + output_offset_ * g,
+        (Dtype) 0., col_buff + col_offset_ * g);
   }
   if (!is_1x1_) {
     conv_col2im_gpu(col_buff, input);
@@ -258,8 +269,9 @@ void TBConvolutionLayer<Dtype>::backward_gpu_gemm(
 }
 
 template <typename Dtype>
-void TBConvolutionLayer<Dtype>::weight_gpu_gemm(const Dtype* input,
-    const Dtype* output, const Dtype* beta, Dtype* weight_diff) {
+void TBConvolutionLayer<Dtype>::weight_gpu_gemm(
+    const Dtype* input, const Dtype* output, const Dtype* beta,
+    Dtype* weight_diff) {
   const Dtype* col_buff = input;
   if (!is_1x1_) {
     conv_im2col_gpu(input, col_buffer_.mutable_gpu_data());
@@ -274,17 +286,18 @@ void TBConvolutionLayer<Dtype>::weight_gpu_gemm(const Dtype* input,
     col_buff = col_buffer_.gpu_data();
   }
   for (int g = 0; g < group_; ++g) {
-    caffe_gpu_gemm<Dtype>(CblasNoTrans, CblasTrans, out_channels_, kernel_dim_,
-        out_spatial_dim_, (Dtype) 1., output + output_offset_ * g,
-        col_buff + col_offset_ * g, (Dtype) 1.,
-        weight_diff + weight_offset_ * g);
+    caffe_gpu_gemm<Dtype>(
+        CblasNoTrans, CblasTrans, out_channels_, kernel_dim_, out_spatial_dim_,
+        (Dtype) 1., output + output_offset_ * g, col_buff + col_offset_ * g,
+        (Dtype) 1., weight_diff + weight_offset_ * g);
   }
 }
 
 template <typename Dtype>
 void TBConvolutionLayer<Dtype>::backward_gpu_bias(
     Dtype* bias, const Dtype* input) {
-  caffe_gpu_gemv<Dtype>(CblasNoTrans, num_output_, out_spatial_dim_, 1., input,
+  caffe_gpu_gemv<Dtype>(
+      CblasNoTrans, num_output_, out_spatial_dim_, 1., input,
       bias_multiplier_.gpu_data(), 1., bias);
 }
 
@@ -295,23 +308,16 @@ void TBConvolutionLayer<Dtype>::Forward_gpu(
   int count          = this->blobs_[0]->count();
   Dtype* full_weight = this->blobs_[0]->mutable_gpu_data();
   Dtype* bin_weight  = weight_.mutable_gpu_data();
-#if BINARY_METHOD == 1
-  mean_center<Dtype>(num_output_, this->blobs_[0]->shape(1),
-      this->blobs_[0]->count(2), full_weight);
-#endif
+  mean_center<Dtype>(
+      num_output_, this->blobs_[0]->shape(1), this->blobs_[0]->count(2),
+      full_weight);
   caffe_gpu_clip<Dtype>(count, -1, 1, full_weight);
-#if BINARY_METHOD == 0
-  caffe_gpu_sign<Dtype>(count, full_weight, bin_weight);
-#elif BINARY_METHOD == 1
-  w_forward_kernel<Dtype><<<num_output_, CAFFE_CUDA_NUM_THREADS>>>(num_output_,
-      kernel_dim_, full_weight, bin_weight,
+  w_forward_kernel<Dtype><<<num_output_, CAFFE_CUDA_NUM_THREADS>>>(
+      num_output_, kernel_dim_, full_weight, bin_weight,
       this->blobs_[1]->mutable_gpu_data());
-// test_w_forward<Dtype>(num_output_, kernel_dim_, this->blobs_[0]->cpu_data(),
-//     this->blobs_[1]->cpu_data(), weight_.cpu_data());
-#else
-  w_forward_kernel<Dtype><<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS>>>(
-      count, kernel_dim_, full_weight, this->blobs_[1]->gpu_data(), bin_weight);
-#endif
+  // test_w_forward<Dtype>(num_output_, kernel_dim_,
+  // this->blobs_[0]->cpu_data(),
+  //     this->blobs_[1]->cpu_data(), weight_.cpu_data());
   // beta
   const Dtype* beta = nullptr;
   if (beta_term_) {
@@ -360,8 +366,9 @@ void TBConvolutionLayer<Dtype>::Forward_gpu(
   const Dtype* bottom_data = bottom[0]->gpu_data();
   Dtype* top_data          = top[0]->mutable_gpu_data();
   for (int n = 0; n < num_; ++n) {
-    forward_gpu_gemm(bottom_data + n * bottom_dim_, beta + n * beta_dim_,
-        bin_weight, top_data + n * top_dim_);
+    forward_gpu_gemm(
+        bottom_data + n * bottom_dim_, beta + n * beta_dim_, bin_weight,
+        top_data + n * top_dim_);
     if (bias_term_) {
       const Dtype* bias = this->blobs_[2]->gpu_data();
       forward_gpu_bias(top_data + n * top_dim_, bias);
@@ -370,8 +377,9 @@ void TBConvolutionLayer<Dtype>::Forward_gpu(
 }
 
 template <typename Dtype>
-void TBConvolutionLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
-    const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
+void TBConvolutionLayer<Dtype>::Backward_gpu(
+    const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
+    const vector<Blob<Dtype>*>& bottom) {
   const Dtype* bin_weight  = weight_.gpu_data();
   const Dtype* top_diff    = top[0]->gpu_diff();
   const Dtype* bottom_data = bottom[0]->gpu_data();
@@ -387,7 +395,8 @@ void TBConvolutionLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
     }
     // gradient w.r.t. weight. Note that we will accumulate diffs.
     if (this->param_propagate_down_[0]) {
-      weight_gpu_gemm(bottom_data + n * bottom_dim_, top_diff + n * top_dim_,
+      weight_gpu_gemm(
+          bottom_data + n * bottom_dim_, top_diff + n * top_dim_,
           beta + n * beta_dim_, weight_diff);
     }
     // gradient w.r.t. bottom data, if necessary.
@@ -399,23 +408,12 @@ void TBConvolutionLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
   // gradient w.r.t weight scales and weight.
   const int count    = this->blobs_[0]->count();
   Dtype* weight_diff = this->blobs_[0]->mutable_gpu_diff();
-#if BINARY_METHOD == 0
-#elif BINARY_METHOD == 1
-  // caffe_gpu_binary_gradient<Dtype>(0, num_output_, kernel_dim_, false,
-  //     this->blobs_[0]->gpu_data(), this->blobs_[1]->gpu_data(), NULL,
-  //     this->blobs_[0]->mutable_gpu_diff());
-  w_backward_kernel<Dtype>
-      <<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS>>>(count, kernel_dim_,
-          1. / kernel_dim_, this->blobs_[1]->gpu_data(), weight_diff);
-#else
-  Dtype* alpha_diff = this->blobs_[1]->mutable_gpu_diff();
-  Dtype* temp       = weight_.mutable_gpu_data();
-  w_backward_kernel<Dtype><<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS>>>(
-      count, kernel_dim_, this->blobs_[0]->gpu_data(),
-      this->blobs_[1]->gpu_data(), weight_diff, temp);
-  caffe_gpu_gemv<Dtype>(CblasNoTrans, num_output_, kernel_dim_, (Dtype) 1.,
-      temp, sum_multiplier_.gpu_data(), (Dtype) 0., alpha_diff);
-#endif
+  const Dtype* alpha = this->blobs_[1]->gpu_data();
+//  w_backward_kernel<Dtype><<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS>>>(
+//      count, kernel_dim_, 1. / kernel_dim_, alpha, weight_diff);
+    w_backward_kernel<Dtype><<<num_output_, CAFFE_CUDA_NUM_THREADS>>>(
+        num_output_, kernel_dim_, weight_.mutable_gpu_data(),
+        alpha, weight_diff);
 }
 
 INSTANTIATE_LAYER_GPU_FUNCS(TBConvolutionLayer);

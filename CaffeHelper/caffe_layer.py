@@ -193,7 +193,7 @@ def Accuracy(data_in, name="accuracy", top_k=None, axis=None, ignore_label=None,
       optional int32 ignore_label = 3;
     }
     """
-    data_out = [Blob('accuracy')]
+    data_out = [Blob(name)]
     assert len(data_in) == 2, "data input: label and score"
     param = Layer(name, "Accuracy", data_in, data_out, optional_params)
     accuracy_param = Parameter('accuracy_param')

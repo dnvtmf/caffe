@@ -39,18 +39,18 @@ solver.snapshot(snapshot=10000, snapshot_prefix='snapshot/' + name)
 #  - 64C5 - sigmoid - AvePool3 - 10FC - Softmax
 Net("cifar10_" + name)
 out, label = cifar10.data()
-out = NormalBlock(out, 'conv1', None, 32, 3, 1, 1, weight_filler, act_method)
-out = Pool(out, name='pool1', method=Net.MaxPool, kernel_size=3)  # 16 x 16
+out = NormalBlock(out, 'conv1', None, 32, 5, 1, 2, weight_filler, act_method)
+out = Pool(out, name='pool1', method=Net.MaxPool, kernel_size=3, pad=1)  # 16 x 16
 out = LRN(out, 'lrn1')
 
-out = conv(out, 'conv2', tb_method, 32, 3, 1, 1, weight_filler, act_method,
+out = conv(out, 'conv2', tb_method, 32, 5, 1, 2, weight_filler, act_method,
            threshold_t=t, scale_term=scale_term)
-out = Pool(out, name='pool2', method=Net.MaxPool, kernel_size=3)  # 8 x 8
+out = Pool(out, name='pool2', method=Net.MaxPool, kernel_size=3, pad=1)  # 8 x 8
 out = LRN(out, 'lrn2')
 
-out = conv(out, 'conv3', tb_method, 64, 3, 1, 1, weight_filler, act_method,
+out = conv(out, 'conv3', tb_method, 64, 5, 1, 2, weight_filler, act_method,
            threshold_t=t, scale_term=scale_term)
-out = Pool(out, name='pool3', method=Net.AveragePool, kernel_size=3)  # 4 x 4
+out = Pool(out, name='pool3', method=Net.AveragePool, kernel_size=3, pad=1)  # 4 x 4
 
 out = FC(out, 'fc', num_output=10, weight_filler=weight_filler)
 
