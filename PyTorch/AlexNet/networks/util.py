@@ -1,9 +1,8 @@
 import torch
 import torch.nn as nn
-import numpy
 
 
-class TernaryActive(torch.autograd.Function):
+class Ternary(torch.autograd.Function):
     '''
     '''
 
@@ -54,7 +53,7 @@ class TBConv2d(nn.Module):
 
     def forward(self, x):
         x = self.bn(x)
-        x = TernaryActive(self.threshold)(x)
+        x = Ternary(self.threshold)(x)
         if self.dropout_ratio != 0:
             x = self.dropout(x)
         if not self.Linear:
@@ -100,9 +99,9 @@ class TbDwConv2d(nn.Module):
 
     def forward(self, x):
         if not self.Linear:
-            x = self.conv(x)
+            x = self.dw_conv(x)
         x = self.bn(x)
-        x = TernaryActive(self.threshold)(x)
+        x = Ternary(self.threshold)(x)
         if self.dropout_ratio != 0:
             x = self.dropout(x)
         if not self.Linear:

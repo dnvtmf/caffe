@@ -14,8 +14,9 @@ import torch.utils.data.distributed
 
 # import torchvision.transforms as transforms
 # import torchvision.datasets as datasets
-from ImageNet import *
 import util
+from alexnet import alexnet
+from alexnet_tb_dw import alexnet_tb_dw
 
 # set the seed
 torch.manual_seed(1)
@@ -25,14 +26,14 @@ import sys
 import gc
 cwd = os.getcwd()
 sys.path.append(cwd+'/../')
-import ImageNet.datasets as datasets
-import ImageNet.datasets.transforms as transforms
+import datasets as datasets
+import datasets.transforms as transforms
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 parser.add_argument('--arch', '-a', metavar='ARCH', default='alexnet',
-                    help='model architecture (default: alexnet)')
-parser.add_argument('--data', metavar='DATA_PATH', default='../data/ilsvrc12',
-                    help='path to imagenet data (default: ../data/)')
+                    help='model architecture (default: alexnet) (alexnet, alexnet_tb_dw)')
+parser.add_argument('--data', metavar='DATA_PATH', default='./data',
+                    help='path to imagenet data (default: ./data)')
 parser.add_argument('-j', '--workers', default=8, type=int, metavar='N',
                     help='number of data loading workers (default: 8)')
 parser.add_argument('--epochs', default=100, type=int, metavar='N',
@@ -63,6 +64,7 @@ parser.add_argument('--dist-backend', default='gloo', type=str,
                     help='distributed backend')
 
 parser.add_argument('--delta', type=float, default=0, metavar='Delta', help='ternary delta (default: 0)')
+parser.add_argument('--gpu', type=int, default=0, metavar='gpu', help='gpu device id (default: 0)')
 
 best_prec1 = 0
 
@@ -83,17 +85,20 @@ def main():
     if args.arch=='alexnet':
         model = alexnet(pretrained=args.pretrained, threshold=args.delta)
         input_size = 227
+    elif args.arch == 'alexnet_tb_dw':
+        model = alexnet_tb_dw(pretrained=args.pretrained, threshold=args.delta)
+        input_size = 227
     else:
         raise Exception('Model not supported yet')
 
     if not args.distributed:
         if args.arch.startswith('alexnet') or args.arch.startswith('vgg'):
             model.features = torch.nn.DataParallel(model.features)
-            model.cuda()
+            model.cuda(args.gpu)
         else:
             model = torch.nn.DataParallel(model).cuda()
     else:
-        model.cuda()
+        model.cuda(args.gpu)
         model = torch.nn.parallel.DistributedDataParallel(model)
 
     # define loss function (criterion) and optimizer
