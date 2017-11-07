@@ -1,123 +1,165 @@
 import torch
 import torch.nn as nn
-import numpy
 
 
-class TernaryActive(torch.autograd.Function):
-    '''
-    '''
+class Ternary(torch.autograd.Function):
+    """
+    Ternary inputs
+    """
 
-    def __init__(self, threshold=0):
+    def __init__(self, threshold=0, scale=False, clamp=False, *args, **kwargs):
+        super(Ternary, self).__init__(*args, **kwargs)
         self.threshold = threshold
+        self.scale = scale
+        self.clamp = clamp
 
     def forward(self, inputs):
         size = inputs.size()
         output = torch.zeros(size).type_as(inputs)
         output[inputs.ge(self.threshold)] = 1
         output[inputs.le(-self.threshold)] = -1
-        self.save_for_backward(inputs)
-        return output
+        c_sum = torch.Tensor()
+        c_num = torch.Tensor()
+        if self.scale:
+            if self.clamp:
+                inputs.clamp_(-1, 1)
+            c_sum = inputs.mul(output).sum(1, keepdim=True)
+            c_num = output.norm(1, 1, keepdim=True)
+        self.save_for_backward(inputs, output)
+        return output, c_sum, c_num
 
-    def backward(self, grad_output):
-        inputs, = self.saved_tensors
+    def backward(self, grad_output, grad_c_sum, grad_c_num):
+        inputs, output = self.saved_tensors
         grad_input = grad_output.clone()
+        if self.scale:
+            grad_input += grad_c_sum.mul(output)
         grad_input[inputs.ge(1)] = 0
         grad_input[inputs.le(-1)] = 0
-
         return grad_input
 
 
-class TBConv2d(nn.Module):
-    def __init__(self, input_channels, output_channels, kernel_size=-1, stride=-1, padding=-1, groups=1, dropout=0,
-            Linear=False, threshold=0):
-        super(TBConv2d, self).__init__()
+class Conv2dTB(nn.Module):
+    def __init__(self, input_channels, output_channels, kernel_size=-1, stride=-1, padding=-1, groups=1, threshold=0,
+            scale=False, clamp=False):
+        super(Conv2dTB, self).__init__()
         self.output_channels = output_channels
         self.layer_type = 'Conv2d(TB)'
         self.kernel_size = kernel_size
         self.stride = stride
         self.padding = padding
-        self.dropout_ratio = dropout
+        self.groups = groups
         self.threshold = threshold
+        self.scale = scale
+        self.clamp = clamp
 
-        if dropout != 0:
-            self.dropout = nn.Dropout(dropout)
+        self.bn = nn.BatchNorm2d(input_channels, eps=1e-4)
+        self.conv = nn.Conv2d(input_channels, output_channels, kernel_size=kernel_size, stride=stride, padding=padding,
+            groups=groups)
 
-        self.Linear = Linear
-        if not self.Linear:
-            self.bn = nn.BatchNorm2d(input_channels, eps=1e-4, momentum=0.1, affine=True)
-            self.conv = nn.Conv2d(input_channels, output_channels, kernel_size=kernel_size, stride=stride,
-                padding=padding, groups=groups)
-        else:
-            self.bn = nn.BatchNorm1d(input_channels, eps=1e-4, momentum=0.1, affine=True)
-            self.linear = nn.Linear(input_channels, output_channels)
-        self.relu = nn.ReLU(inplace=True)
+        if self.scale:
+            self.beta_conv = nn.Conv2d(1, 1, kernel_size=kernel_size, stride=stride, padding=padding)
 
     def forward(self, x):
         x = self.bn(x)
-        x = TernaryActive(self.threshold)(x)
-        if self.dropout_ratio != 0:
-            x = self.dropout(x)
-        if not self.Linear:
-            x = self.conv(x)
-        else:
-            x = self.linear(x)
-        x = self.relu(x)
+        x, c_sum, c_cnt = Ternary(self.threshold, self.scale, self.clamp)(x)
+        x = self.conv(x)
+        if self.scale:
+            weight = self.beta_conv.weight.data
+            self.beta_conv.weight.data = torch.ones(weight.size()).type_as(weight)
+            cnt = self.beta_conv(c_cnt)
+            cnt[cnt.eq(0)] = 1  # avoid divide zero
+            beta = self.beta_conv(c_sum).div(cnt)
+            x = x.mul(beta)
         return x
 
     def get_binary_module(self):
-        if self.Linear:
-            return self.linear
-        else:
-            return self.conv
+        return self.conv
 
 
-class TbDwConv2d(nn.Module):
-    def __init__(self, input_channels, output_channels, kernel_size=-1, stride=-1, padding=-1, groups=1, dropout=0,
-            Linear=False, threshold=0):
-        super(TbDwConv2d, self).__init__()
+class RandomTernary(torch.autograd.Function):
+    """
+    Ternary inputs
+    """
+
+    def __init__(self):
+        super(RandomTernary, self).__init__()
+
+    def forward(self, inputs):
+        output = inputs.add(torch.rand() * 2 - 1).floor()
+        return output
+
+    def backward(self, grad_output):
+        grad_input = grad_output.clone()
+        return grad_input
+
+
+class Conv2dRTB(nn.Module):
+    def __init__(self, input_channels, output_channels, kernel_size=-1, stride=-1, padding=-1, groups=1, is_tanh=True):
+        super(Conv2dRTB, self).__init__()
         self.output_channels = output_channels
-        self.layer_type = 'Conv2d(TB, DW)'
+        self.layer_type = 'Conv2d(RTB)'
         self.kernel_size = kernel_size
         self.stride = stride
         self.padding = padding
-        self.dropout_ratio = dropout
-        self.threshold = threshold
+        self.groups = groups
 
-        if dropout != 0:
-            self.dropout = nn.Dropout(dropout)
-
-        self.Linear = Linear
-        if not self.Linear:
-            self.dw_conv = nn.Conv2d(input_channels, input_channels, kernel_size=kernel_size, stride=stride,
-                padding=padding, groups=input_channels)
-            self.bn = nn.BatchNorm2d(input_channels, eps=1e-4, momentum=0.1, affine=True)
-            self.conv = nn.Conv2d(input_channels, output_channels, kernel_size=1, stride=1, padding=0, groups=groups)
-            self.bn2 = nn.BatchNorm2d(output_channels, eps=1e-4, momentum=0.1, affine=True)
+        self.bn = nn.BatchNorm2d(input_channels, eps=1e-4)
+        if is_tanh:
+            self.non_linear = nn.Tanh()
         else:
-            self.bn = nn.BatchNorm1d(input_channels, eps=1e-4, momentum=0.1, affine=True)
-            self.linear = nn.Linear(input_channels, output_channels)
-        self.relu = nn.ReLU(inplace=True)
+            self.non_linear = nn.Hardtanh()
+        self.conv = nn.Conv2d(input_channels, output_channels, kernel_size=kernel_size, stride=stride, padding=padding,
+            groups=groups)
 
     def forward(self, x):
-        if not self.Linear:
-            x = self.conv(x)
         x = self.bn(x)
-        x = TernaryActive(self.threshold)(x)
-        if self.dropout_ratio != 0:
-            x = self.dropout(x)
-        if not self.Linear:
-            x = self.conv(x)
-            x = self.bn2(x)
-        else:
-            x = self.linear(x)
-        x = self.relu(x)
+        x = self.non_linear(x)
+        x = RandomTernary()(x)
+        x = self.conv(x)
         return x
 
     def get_binary_module(self):
-        if self.Linear:
-            return self.linear
+        return self.conv
+
+
+class ConvBlock(nn.Module):
+    def __init__(self, input_channels, output_channels, kernel_size=-1, stride=-1, padding=-1, groups=1, threshold=0,
+            scale=False, clamp=False, block_type='TB'):
+        super(ConvBlock, self).__init__()
+        if block_type == 'TB':
+            self.conv_block = Conv2dTB(input_channels, output_channels, kernel_size, stride, padding, groups, threshold,
+                scale, clamp)
+        elif block_type == 'RTB':
+            self.conv_block = Conv2dRTB(input_channels, output_channels, kernel_size, stride, padding, groups)
+        elif block_type == 'normal':
+            self.conv_block = nn.Sequential(
+                nn.Conv2d(input_channels, output_channels, kernel_size=kernel_size, stride=stride, padding=padding,
+                    groups=groups), nn.BatchNorm2d(input_channels, eps=1e-4, momentum=0.1, affine=True),
+                nn.ReLU(inplace=True))
+        elif block_type == 'MobileNet':
+            self.conv_block = nn.Sequential(
+                nn.Conv2d(input_channels, input_channels, kernel_size=kernel_size, stride=stride, padding=padding,
+                    groups=input_channels),
+                nn.BatchNorm2d(input_channels, eps=1e-4, momentum=0.1, affine=True),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(input_channels, output_channels, kernel_size=1, groups=groups),
+                nn.BatchNorm2d(input_channels, eps=1e-4, momentum=0.1, affine=True),
+                nn.ReLU(inplace=True))
+        elif block_type == 'TB_DW':
+            self.conv_block = nn.Sequential(
+                nn.Conv2d(input_channels, input_channels, kernel_size=kernel_size, stride=stride, padding=padding,
+                    groups=input_channels),
+                nn.BatchNorm2d(input_channels, eps=1e-4, momentum=0.1, affine=True),
+                nn.ReLU(inplace=True),
+                Conv2dTB(input_channels, output_channels, 1, 1, 0, groups, threshold, scale, clamp),
+                nn.BatchNorm2d(input_channels, eps=1e-4, momentum=0.1, affine=True),
+                nn.ReLU(inplace=True))
         else:
-            return self.conv
+            raise Exception('UNKNOWN Conv Block: %s (TB, normal, MobileNet, TB_DW)' % block_type)
+
+    def forward(self, x):
+        x = self.conv_block(x)
+        return x
 
 
 class BinOp:
@@ -128,14 +170,14 @@ class BinOp:
         self.target_modules = []
 
         def get_binary_weight(m):
-            if type(m) == TBConv2d or type(m) == TbDwConv2d:
+            if type(m) == Conv2dTB:
                 self.target_modules.append(m.get_binary_module())
 
         model.apply(get_binary_weight)
         self.num_of_params = len(self.target_modules)
-        for module in self.target_modules:
-            self.saved_params.append(module.weight.data.clone())
-            self.target_params.append(module.weight)
+        for m in self.target_modules:
+            self.saved_params.append(m.weight.data.clone())
+            self.target_params.append(m.weight)
 
     def binarization(self):
         self.meancenterConvParams()

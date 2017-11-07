@@ -33,12 +33,12 @@ def train(epoch):
         # process the weights including binarization
         bin_op.binarization()
 
-        # forwarding
+        # forward
         data, target = Variable(data.cuda()), Variable(target.cuda())
         optimizer.zero_grad()
         output = model(data)
 
-        # backwarding
+        # backward
         loss = criterion(output, target)
         loss.backward()
 
@@ -94,17 +94,17 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--cpu', action='store_true', help='set if only CPU is available')
     parser.add_argument('--data', action='store', default='../data/cifar-10-batches-py', help='dataset path')
-    parser.add_argument('--arch', action='store', default='nin', help='the architecture for the network: nin, simple')
+    parser.add_argument('--arch', action='store', default='simple',
+        help='the architecture for the network: simple, simple_full')
     parser.add_argument('--lr', action='store', default='0.01', help='the intial learning rate')
     parser.add_argument('--pretrained', action='store', default=None, help='the path to the pretrained model')
     parser.add_argument('--evaluate', action='store_true', help='evaluate the model')
 
-    parser.add_argument('--delta', type=float, default=0, metavar='Delta',
-            help='ternary delta (default: 0)')
-    parser.add_argument('--scale', type=bool, default=False, metavar='scale',
-            help='scale (default: False)')
-    parser.add_argument('--clamp', type=bool, default=False, metavar='clamp',
-            help='need clamp? (default: False)')
+    parser.add_argument('--delta', type=float, default=0, metavar='Delta', help='ternary delta (default: 0)')
+    parser.add_argument('--weight_decay', type=float, default=1e-5, metavar='Delta',
+        help='weight decay (default: 1e-5)')
+    parser.add_argument('--scale', type=bool, default=False, metavar='scale', help='scale (default: False)')
+    parser.add_argument('--clamp', type=bool, default=False, metavar='clamp', help='need clamp? (default: False)')
     args = parser.parse_args()
     print('==> Options:', args)
 
@@ -133,6 +133,8 @@ if __name__ == '__main__':
         model = nin.Net()
     elif args.arch == 'simple':
         model = simple.Net(args.delta, args.scale, args.clamp)
+    elif args.arch == 'simple_full':
+        model = simple_full.Net()
     else:
         raise Exception(args.arch + ' is currently not supported')
     arch = args.arch
@@ -158,13 +160,7 @@ if __name__ == '__main__':
 
     # define solver and criterion
     base_lr = float(args.lr)
-    param_dict = dict(model.named_parameters())
-    params = []
-
-    for key, value in param_dict.items():
-        params += [{'params': [value], 'lr': base_lr, 'weight_decay': 0.00001}]
-
-        optimizer = optim.Adam(params, lr=0.10, weight_decay=0.00001)
+    optimizer = torch.optim.Adam(model.parameters(), base_lr, weight_decay=args.weight_decay)
     criterion = nn.CrossEntropyLoss()
 
     # define the binarization operator

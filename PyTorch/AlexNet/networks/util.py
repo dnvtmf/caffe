@@ -7,7 +7,8 @@ class Ternary(torch.autograd.Function):
     Ternary inputs
     """
 
-    def __init__(self, threshold=0, scale=False, clamp=False):
+    def __init__(self, threshold=0, scale=False, clamp=False, *args, **kwargs):
+        super(Ternary, self).__init__(*args, **kwargs)
         self.threshold = threshold
         self.scale = scale
         self.clamp = clamp
@@ -25,11 +26,11 @@ class Ternary(torch.autograd.Function):
             c_sum = inputs.mul(output).sum(1, keepdim=True)
             c_num = output.norm(1, 1, keepdim=True)
 
-        self.save_for_backward(inputs, output, c_sum, c_num)
+        self.save_for_backward(inputs, output)
         return output, c_sum, c_num
 
     def backward(self, grad_output, grad_c_sum, grad_c_num):
-        inputs, output, c_sum, c_num = self.saved_tensors
+        inputs, output = self.saved_tensors
         grad_input = grad_output.clone()
         if self.scale:
             grad_input += grad_c_sum.mul(output)
@@ -75,6 +76,7 @@ class Conv2dTB(nn.Module):
 class ConvBlock(nn.Module):
     def __init__(self, input_channels, output_channels, kernel_size=-1, stride=-1, padding=-1, groups=1, threshold=0,
                  scale=False, clamp=False, block_type='TB'):
+        super(ConvBlock, self).__init__()
         if block_type == 'TB':
             self.conv_block = Conv2dTB(input_channels, output_channels, kernel_size, stride, padding, groups, threshold,
                 scale, clamp)
@@ -119,9 +121,9 @@ class BinOp:
 
         model.apply(get_binary_weight)
         self.num_of_params = len(self.target_modules)
-        for module in self.target_modules:
-            self.saved_params.append(module.weight.data.clone())
-            self.target_params.append(module.weight)
+        for m in self.target_modules:
+            self.saved_params.append(m.weight.data.clone())
+            self.target_params.append(m.weight)
 
     def binarization(self):
         self.meancenterConvParams()
