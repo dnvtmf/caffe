@@ -7,8 +7,8 @@ class Ternary(torch.autograd.Function):
     Ternary inputs
     """
 
-    def __init__(self, threshold=0, scale=False, clamp=False, *args, **kwargs):
-        super(Ternary, self).__init__(*args, **kwargs)
+    def __init__(self, threshold=0, scale=False, clamp=False, **kwargs):
+        super(Ternary, self).__init__(**kwargs)
         self.threshold = threshold
         self.scale = scale
         self.clamp = clamp
@@ -31,16 +31,16 @@ class Ternary(torch.autograd.Function):
     def backward(self, grad_output, grad_c_sum, grad_c_num):
         inputs, output = self.saved_tensors
         grad_input = grad_output.clone()
-        if self.scale:
-            grad_input += grad_c_sum.mul(output)
         grad_input[inputs.ge(1)] = 0
         grad_input[inputs.le(-1)] = 0
+        if self.scale:
+            grad_input += grad_c_sum.mul(output)
         return grad_input
 
 
 class Conv2dTB(nn.Module):
     def __init__(self, input_channels, output_channels, kernel_size=-1, stride=-1, padding=-1, groups=1, threshold=0,
-            scale=False, clamp=False):
+            scale=False, clamp=False, **kwargs):
         super(Conv2dTB, self).__init__()
         self.output_channels = output_channels
         self.layer_type = 'Conv2d(TB)'
@@ -81,20 +81,20 @@ class RandomTernary(torch.autograd.Function):
     Ternary inputs
     """
 
-    def __init__(self):
-        super(RandomTernary, self).__init__()
+    def __init__(self, **kwargs):
+        super(RandomTernary, self).__init__(**kwargs)
 
     def forward(self, inputs):
-        output = inputs.add(torch.rand() * 2 - 1).floor()
+        output = inputs.add(torch.rand(inputs.size()).type_as(inputs)).floor()
         return output
 
     def backward(self, grad_output):
-        grad_input = grad_output.clone()
-        return grad_input
+        return grad_output
 
 
 class Conv2dRTB(nn.Module):
-    def __init__(self, input_channels, output_channels, kernel_size=-1, stride=-1, padding=-1, groups=1, is_tanh=True):
+    def __init__(self, input_channels, output_channels, kernel_size=-1, stride=-1, padding=-1, groups=1, is_tanh=True,
+            **kwargs):
         super(Conv2dRTB, self).__init__()
         self.output_channels = output_channels
         self.layer_type = 'Conv2d(RTB)'
@@ -139,21 +139,16 @@ class ConvBlock(nn.Module):
         elif block_type == 'MobileNet':
             self.conv_block = nn.Sequential(
                 nn.Conv2d(input_channels, input_channels, kernel_size=kernel_size, stride=stride, padding=padding,
-                    groups=input_channels),
-                nn.BatchNorm2d(input_channels, eps=1e-4, momentum=0.1, affine=True),
-                nn.ReLU(inplace=True),
-                nn.Conv2d(input_channels, output_channels, kernel_size=1, groups=groups),
-                nn.BatchNorm2d(input_channels, eps=1e-4, momentum=0.1, affine=True),
-                nn.ReLU(inplace=True))
+                    groups=input_channels), nn.BatchNorm2d(input_channels, eps=1e-4, momentum=0.1, affine=True),
+                nn.ReLU(inplace=True), nn.Conv2d(input_channels, output_channels, kernel_size=1, groups=groups),
+                nn.BatchNorm2d(input_channels, eps=1e-4, momentum=0.1, affine=True), nn.ReLU(inplace=True))
         elif block_type == 'TB_DW':
             self.conv_block = nn.Sequential(
                 nn.Conv2d(input_channels, input_channels, kernel_size=kernel_size, stride=stride, padding=padding,
-                    groups=input_channels),
-                nn.BatchNorm2d(input_channels, eps=1e-4, momentum=0.1, affine=True),
+                    groups=input_channels), nn.BatchNorm2d(input_channels, eps=1e-4, momentum=0.1, affine=True),
                 nn.ReLU(inplace=True),
                 Conv2dTB(input_channels, output_channels, 1, 1, 0, groups, threshold, scale, clamp),
-                nn.BatchNorm2d(input_channels, eps=1e-4, momentum=0.1, affine=True),
-                nn.ReLU(inplace=True))
+                nn.BatchNorm2d(input_channels, eps=1e-4, momentum=0.1, affine=True), nn.ReLU(inplace=True))
         else:
             raise Exception('UNKNOWN Conv Block: %s (TB, normal, MobileNet, TB_DW)' % block_type)
 

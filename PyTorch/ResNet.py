@@ -30,13 +30,12 @@ cwd = os.getcwd()
 sys.path.append(cwd + '/../')
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
-parser.add_argument('--arch', '-a', metavar='ARCH', default='alexnet',
-    help='model architecture: alexnet, resnet18 (default: alexnet)')
+parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet18', help='model architecture: (default: resnet18)')
 parser.add_argument('--data', metavar='DATA_PATH', default='../data/ilsvrc12',
     help='path to imagenet data (default: ../data/)')
-parser.add_argument('-j', '--workers', default=8, type=int, metavar='N',
-    help='number of data loading workers (default: 8)')
-parser.add_argument('--epochs', default=100, type=int, metavar='N', help='number of total epochs to run')
+parser.add_argument('-j', '--workers', default=16, type=int, metavar='N',
+    help='number of data loading workers (default: 16)')
+parser.add_argument('--epochs', default=90, type=int, metavar='N', help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N', help='manual epoch number (useful on restarts)')
 parser.add_argument('-b', '--batch-size', default=256, type=int, metavar='N', help='mini-batch size (default: 256)')
 parser.add_argument('--lr', '--learning-rate', default=0.001, type=float, metavar='LR', help='initial learning rate')
@@ -54,7 +53,7 @@ parser.add_argument('--dist-backend', default='gloo', type=str, help='distribute
 
 parser.add_argument('--delta', type=float, default=0.5, help='ternary delta (default: 0)')
 parser.add_argument('--scale', type=bool, default=False, help='ternary is scale (default: False)')
-parser.add_argument('--delta', type=bool, default=False, help='ternary is clamp (default: False)')
+parser.add_argument('--clamp', type=bool, default=False, help='ternary is clamp (default: False)')
 
 best_prec1 = 0
 
@@ -65,6 +64,7 @@ bin_op = None
 def main():
     global args, best_prec1
     args = parser.parse_args()
+    print('==> Options:', args)
 
     args.distributed = args.world_size > 1
 
@@ -72,12 +72,9 @@ def main():
         dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url, world_size=args.world_size)
 
     # create model
-    if args.arch == 'alexnet':
-        model = alexnet(pretrained=args.pretrained, threshold=args.delta, scale=args.scale, clamp=args.clamp)
-        input_size = 227
-    elif args.arch == 'resnet18':
-        model= resnet18(num_classes=1000, threshold=args.delta, scale=args.scale, clamp=args.clamp)
-        input_size = 224
+    input_size = 224
+    if args.arch == 'resnet18':
+        model = resnet18(num_classes=1000, threshold=args.delta, scale=args.scale, clamp=args.clamp)
     else:
         raise Exception('Model not supported yet')
 
@@ -95,13 +92,6 @@ def main():
     criterion = nn.CrossEntropyLoss().cuda()
 
     optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
-
-    for m in model.modules():
-        if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
-            c = float(m.weight.data[0].nelement())
-            m.weight.data = m.weight.data.normal_(0, 1.0 / c)
-        elif isinstance(m, nn.BatchNorm2d):
-            m.weight.data = m.weight.data.zero_().add(1.0)
 
     # optionally resume from a checkpoint
     if args.resume:
@@ -274,10 +264,10 @@ def validate(val_loader, model, criterion):
     return top1.avg
 
 
-def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
+def save_checkpoint(state, is_best, filename='resnet18.checkpoint.pth.tar'):
     torch.save(state, filename)
     if is_best:
-        shutil.copyfile(filename, 'model_best.pth.tar')
+        shutil.copyfile(filename, 'resnet18.model_best.pth.tar')
 
 
 class AverageMeter(object):
@@ -301,7 +291,7 @@ class AverageMeter(object):
 
 def adjust_learning_rate(optimizer, epoch):
     """Sets the learning rate to the initial LR decayed by 10 every 25 epochs"""
-    lr = args.lr * (0.1 ** (epoch // 25))
+    lr = args.lr * (0.1 ** (epoch // 30))
     print 'Learning rate:', lr
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr

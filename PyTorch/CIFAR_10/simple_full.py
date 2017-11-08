@@ -4,7 +4,7 @@ import torch.nn as nn
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
-        self.xnor = nn.Sequential(  # 3 x 32 x 32
+        self.cnn = nn.Sequential(  # 3 x 32 x 32
             nn.Conv2d(3, 32, kernel_size=5, stride=1, padding=2),
             nn.BatchNorm2d(32, eps=1e-4),
             nn.Sigmoid(),
@@ -23,6 +23,6 @@ class Net(nn.Module):
             nn.Conv2d(64, 10, kernel_size=4, stride=1, padding=0), )
 
     def forward(self, x):
-        x = self.xnor(x)
+        x = self.cnn(x)
         x = x.view(x.size(0), 10)
         return x

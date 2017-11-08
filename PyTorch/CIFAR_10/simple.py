@@ -1,7 +1,6 @@
 import torch.nn as nn
-import torch
-import torch.nn.functional as F
-from util import Conv2dTB
+from util import Conv2dTB as Conv2d
+# from util import Conv2dRTB as Conv2d
 
 
 class Net(nn.Module):
@@ -13,11 +12,11 @@ class Net(nn.Module):
             nn.Sigmoid(),
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1),  # 32 x 16 x 16
 
-            Conv2dTB(32, 32, kernel_size=5, stride=1, padding=2, threshold=threshold, scale=scale, clamp=clamp),
+            Conv2d(32, 32, kernel_size=5, stride=1, padding=2, threshold=threshold, scale=scale, clamp=clamp),
             nn.Sigmoid(),
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1),  # 32 x 8 x 8
 
-            Conv2dTB(32, 64, kernel_size=5, stride=1, padding=2, threshold=threshold, scale=scale, clamp=clamp),
+            Conv2d(32, 64, kernel_size=5, stride=1, padding=2, threshold=threshold, scale=scale, clamp=clamp),
             nn.Sigmoid(),
             nn.AvgPool2d(kernel_size=3, stride=2, padding=1),  # 64 x 4 x 4
 
