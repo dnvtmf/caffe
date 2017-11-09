@@ -1,5 +1,7 @@
+import os
 import torch
 import torch.nn as nn
+import torch.nn.init as init
 
 
 class Ternary(torch.autograd.Function):
@@ -7,7 +9,7 @@ class Ternary(torch.autograd.Function):
     Ternary inputs
     """
 
-    def __init__(self, threshold=0, scale=False, clamp=False, **kwargs):
+    def __init__(self, threshold=0., scale=False, clamp=False, **kwargs):
         super(Ternary, self).__init__(**kwargs)
         self.threshold = threshold
         self.scale = scale
@@ -39,8 +41,8 @@ class Ternary(torch.autograd.Function):
 
 
 class Conv2dTB(nn.Module):
-    def __init__(self, input_channels, output_channels, kernel_size=-1, stride=-1, padding=-1, groups=1, threshold=0,
-            scale=False, clamp=False, **kwargs):
+    def __init__(self, input_channels, output_channels, kernel_size=-1, stride=-1, padding=-1, groups=1, threshold=0.6,
+            scale=False, clamp=False, bias=True, **kwargs):
         super(Conv2dTB, self).__init__()
         self.output_channels = output_channels
         self.layer_type = 'Conv2d(TB)'
@@ -54,7 +56,7 @@ class Conv2dTB(nn.Module):
 
         self.bn = nn.BatchNorm2d(input_channels, eps=1e-4)
         self.conv = nn.Conv2d(input_channels, output_channels, kernel_size=kernel_size, stride=stride, padding=padding,
-            groups=groups)
+            groups=groups, bias=bias)
 
         if self.scale:
             self.beta_conv = nn.Conv2d(1, 1, kernel_size=kernel_size, stride=stride, padding=padding)
@@ -127,8 +129,9 @@ class ConvBlock(nn.Module):
             scale=False, clamp=False, block_type='TB'):
         super(ConvBlock, self).__init__()
         if block_type == 'TB':
-            self.conv_block = Conv2dTB(input_channels, output_channels, kernel_size, stride, padding, groups, threshold,
-                scale, clamp)
+            self.conv_block = nn.Sequential(
+                Conv2dTB(input_channels, output_channels, kernel_size, stride, padding, groups, threshold, scale,
+                    clamp), nn.BatchNorm2d(output_channels, eps=1e-4), nn.ReLU())
         elif block_type == 'RTB':
             self.conv_block = Conv2dRTB(input_channels, output_channels, kernel_size, stride, padding, groups)
         elif block_type == 'normal':
@@ -230,3 +233,78 @@ class BinOp:
             m_add = m_add.mul(weight.sign())
             self.target_params[index].grad.data = m.add(m_add).mul(1.0 - 1.0 / s[1]).mul(n)
             self.target_params[index].grad.data = self.target_params[index].grad.data.mul(1e+9)
+
+
+def init_params(net):
+    """Init layer parameters."""
+    for m in net.modules():
+        if isinstance(m, nn.Conv2d):
+            init.kaiming_normal(m.weight, mode='fan_out')
+            if m.bias is not None:
+                init.constant(m.bias, 0)
+        elif isinstance(m, nn.BatchNorm2d):
+            init.constant(m.weight, 1)
+            init.constant(m.bias, 0)
+        elif isinstance(m, nn.Linear):
+            init.normal(m.weight, std=1e-3)
+            if m.bias is not None:
+                init.constant(m.bias, 0)
+
+
+def data_loader(args, input_size=224, caffe_data=False):
+    if caffe_data:
+        import ImageNet.datasets as datasets
+        import ImageNet.datasets.transforms as transforms
+        if not os.path.exists(args.data + '/ilsvrc12_mean.binaryproto'):
+            print("==> Data directory" + args.data + "does not exits")
+            print("==> Please specify the correct data path by")
+            print("==>     --data <DATA_PATH>")
+            return
+
+        normalize = transforms.Normalize(meanfile=args.data + '/ilsvrc12_mean.binaryproto')
+
+        train_dataset = datasets.ImageFolder(args.data, transforms.Compose(
+            [transforms.RandomHorizontalFlip(), transforms.ToTensor(), normalize,
+                transforms.RandomSizedCrop(input_size), ]), Train=True)
+
+        if args.distributed:
+            train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
+        else:
+            train_sampler = None
+
+        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False,
+            num_workers=args.workers, pin_memory=True, sampler=train_sampler)
+
+        val_loader = torch.utils.data.DataLoader(datasets.ImageFolder(args.data,
+            transforms.Compose(
+                [transforms.ToTensor(), normalize,
+                    transforms.CenterCrop(input_size), ]),
+            Train=False),
+            batch_size=args.batch_size, shuffle=False, num_workers=args.workers,
+            pin_memory=True)
+    else:
+        import torchvision.transforms as transforms
+        import torchvision.datasets as datasets
+        train_dir = os.path.join(args.data, 'train')
+        val_dir = os.path.join(args.data, 'val')
+        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+
+        train_dataset = datasets.ImageFolder(train_dir, transforms.Compose(
+            [transforms.RandomSizedCrop(input_size), transforms.RandomHorizontalFlip(), transforms.ToTensor(),
+                normalize, ]))
+
+        if args.distributed:
+            train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
+        else:
+            train_sampler = None
+
+        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size,
+            shuffle=(train_sampler is None), num_workers=args.workers,
+            pin_memory=True, sampler=train_sampler)
+
+        val_loader = torch.utils.data.DataLoader(datasets.ImageFolder(val_dir, transforms.Compose(
+            [transforms.Scale(256), transforms.CenterCrop(input_size), transforms.ToTensor(), normalize, ])),
+            batch_size=args.batch_size, shuffle=False, num_workers=args.workers,
+            pin_memory=True)
+
+    return train_loader, val_loader, train_sampler

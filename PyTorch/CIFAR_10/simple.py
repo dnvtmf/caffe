@@ -13,10 +13,12 @@ class Net(nn.Module):
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1),  # 32 x 16 x 16
 
             Conv2d(32, 32, kernel_size=5, stride=1, padding=2, threshold=threshold, scale=scale, clamp=clamp),
+            nn.BatchNorm2d(32, eps=1e-4),
             nn.Sigmoid(),
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1),  # 32 x 8 x 8
 
             Conv2d(32, 64, kernel_size=5, stride=1, padding=2, threshold=threshold, scale=scale, clamp=clamp),
+            nn.BatchNorm2d(64, eps=1e-4),
             nn.Sigmoid(),
             nn.AvgPool2d(kernel_size=3, stride=2, padding=1),  # 64 x 4 x 4
 

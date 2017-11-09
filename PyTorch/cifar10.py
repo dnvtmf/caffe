@@ -15,8 +15,6 @@ from torch.autograd import Variable
 import torchvision
 import torchvision.transforms as transforms
 
-arch = "none"
-
 
 def save_state(model, best_acc):
     print('==> Saving model ...')
@@ -29,7 +27,7 @@ def save_state(model, best_acc):
 
 def train(epoch):
     model.train()
-    for batch_idx, (data, target) in enumerate(trainloader):
+    for batch_idx, (data, target) in enumerate(train_loader):
         # process the weights including binarization
         bin_op.binarization()
 
@@ -49,7 +47,7 @@ def train(epoch):
         optimizer.step()
         if batch_idx % 100 == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\tLR: {}'.format(epoch, batch_idx * len(data),
-                len(trainloader.dataset), 100. * batch_idx / len(trainloader), loss.data[0],
+                len(train_loader.dataset), 100. * batch_idx / len(train_loader), loss.data[0],
                 optimizer.param_groups[0]['lr']))
     return
 
@@ -60,7 +58,7 @@ def test():
     test_loss = 0
     correct = 0
     bin_op.binarization()
-    for data, target in testloader:
+    for data, target in test_loader:
         data, target = Variable(data.cuda()), Variable(target.cuda())
 
         output = model(data)
@@ -68,15 +66,15 @@ def test():
         pred = output.data.max(1, keepdim=True)[1]
         correct += pred.eq(target.data.view_as(pred)).cpu().sum()
     bin_op.restore()
-    acc = 100. * correct / len(testloader.dataset)
+    acc = 100. * correct / len(test_loader.dataset)
 
     if acc > best_acc:
         best_acc = acc
         save_state(model, best_acc)
 
-    test_loss /= len(testloader.dataset)
+    test_loss /= len(test_loader.dataset)
     print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.2f}%)'.format(test_loss * 128., correct,
-        len(testloader.dataset), 100. * correct / len(testloader.dataset)))
+        len(test_loader.dataset), 100. * correct / len(test_loader.dataset)))
     print('Best Accuracy: {:.2f}%\n'.format(best_acc))
     return
 
@@ -101,10 +99,12 @@ if __name__ == '__main__':
     parser.add_argument('--evaluate', action='store_true', help='evaluate the model')
 
     parser.add_argument('--delta', type=float, default=0, metavar='Delta', help='ternary delta (default: 0)')
-    parser.add_argument('--weight_decay', type=float, default=1e-5, metavar='Delta',
-        help='weight decay (default: 1e-5)')
-    parser.add_argument('--scale', type=bool, default=False, metavar='scale', help='scale (default: False)')
-    parser.add_argument('--clamp', type=bool, default=False, metavar='clamp', help='need clamp? (default: False)')
+    parser.add_argument('--weight_decay', type=float, default=1e-5, metavar='WD', help='weight decay (default: 1e-5)')
+    parser.add_argument('--scale', type=bool, default=False, metavar='True/False', help='scale (default: False)')
+    parser.add_argument('--clamp', type=bool, default=False, metavar='True/False', help='need clamp? (default: False)')
+    parser.add_argument('--gpu', type=int, default=0, help='which gpu is used? (default: 0)')
+    parser.add_argument('--augmentation', type=bool, default=False, metavar='True/False',
+        help='Use data augmentation? (default: False)')
     args = parser.parse_args()
     print('==> Options:', args)
 
@@ -117,12 +117,21 @@ if __name__ == '__main__':
         # check the data path
         raise Exception('Please assign the correct data path with --data <DATA_PATH>')
 
-    transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)), ])
-    trainset = torchvision.datasets.CIFAR10(root=args.data, train=True, download=True, transform=transform)
-    trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=2)
+    if not args.augmentation:
+        transform_train = transforms.Compose(
+            [transforms.ToTensor(), transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)), ])
+        transform_test = transform_train
+    else:
+        transform_train = transforms.Compose(
+            [transforms.RandomCrop(32, padding=4), transforms.RandomHorizontalFlip(), transforms.ToTensor(),
+                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)), ])
+        transform_test = transforms.Compose(
+            [transforms.ToTensor(), transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)), ])
+    train_set = torchvision.datasets.CIFAR10(root=args.data, train=True, download=True, transform=transform_train)
+    train_loader = torch.utils.data.DataLoader(train_set, batch_size=128, shuffle=True, num_workers=2)
 
-    testset = torchvision.datasets.CIFAR10(root=args.data, train=False, download=True, transform=transform)
-    testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=2)
+    test_set = torchvision.datasets.CIFAR10(root=args.data, train=False, download=True, transform=transform_test)
+    test_loader = torch.utils.data.DataLoader(test_set, batch_size=100, shuffle=False, num_workers=2)
 
     # define classes
     classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
@@ -137,16 +146,14 @@ if __name__ == '__main__':
         model = simple_full.Net()
     else:
         raise Exception(args.arch + ' is currently not supported')
+    global arch
     arch = args.arch
 
     # initialize the model
     if not args.pretrained:
         print('==> Initializing model parameters ...')
         best_acc = 0
-        for m in model.modules():
-            if isinstance(m, nn.Conv2d):
-                m.weight.data.normal_(0, 0.05)
-                m.bias.data.zero_()
+        util.init_params(model)
     else:
         print('==> Load pretrained model form', args.pretrained, '...')
         pretrained_model = torch.load(args.pretrained)
@@ -154,8 +161,8 @@ if __name__ == '__main__':
         model.load_state_dict(pretrained_model['state_dict'])
 
     if not args.cpu:
-        model.cuda()
-        model = torch.nn.DataParallel(model, device_ids=range(torch.cuda.device_count()))
+        model.cuda(args.gpu)
+        model = torch.nn.DataParallel(model, range(torch.cuda.device_count()))
     print(model)
 
     # define solver and criterion

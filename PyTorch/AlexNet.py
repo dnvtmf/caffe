@@ -12,14 +12,10 @@ import torch.optim
 import torch.utils.data
 import torch.utils.data.distributed
 
-# import torchvision.transforms as transforms
-# import torchvision.datasets as datasets
 import sys
 import gc
 
 from ImageNet import *
-import ImageNet.datasets as datasets
-import ImageNet.datasets.transforms as transforms
 import util
 
 # set the seed
@@ -54,7 +50,7 @@ parser.add_argument('--dist-backend', default='gloo', type=str, help='distribute
 
 parser.add_argument('--delta', type=float, default=0.5, help='ternary delta (default: 0)')
 parser.add_argument('--scale', type=bool, default=False, help='ternary is scale (default: False)')
-parser.add_argument('--delta', type=bool, default=False, help='ternary is clamp (default: False)')
+parser.add_argument('--clamp', type=bool, default=False, help='ternary is clamp (default: False)')
 
 best_prec1 = 0
 
@@ -76,17 +72,13 @@ def main():
         model = alexnet(pretrained=args.pretrained, threshold=args.delta, scale=args.scale, clamp=args.clamp)
         input_size = 227
     elif args.arch == 'resnet18':
-        model= resnet18(num_classes=1000, threshold=args.delta, scale=args.scale, clamp=args.clamp)
+        model = resnet18(num_classes=1000, threshold=args.delta, scale=args.scale, clamp=args.clamp)
         input_size = 224
     else:
         raise Exception('Model not supported yet')
 
     if not args.distributed:
-        if args.arch.startswith('alexnet') or args.arch.startswith('vgg'):
-            model.features = torch.nn.DataParallel(model.features)
-            model.cuda()
-        else:
-            model = torch.nn.DataParallel(model).cuda()
+        model = torch.nn.DataParallel(model).cuda()
     else:
         model.cuda()
         model = torch.nn.parallel.DistributedDataParallel(model)
@@ -120,29 +112,7 @@ def main():
     cudnn.benchmark = True
 
     # Data loading code
-    if not os.path.exists(args.data + '/ilsvrc12_mean.binaryproto'):
-        print("==> Data directory" + args.data + "does not exits")
-        print("==> Please specify the correct data path by")
-        print("==>     --data <DATA_PATH>")
-        return
-
-    normalize = transforms.Normalize(meanfile=args.data + '/ilsvrc12_mean.binaryproto')
-
-    train_dataset = datasets.ImageFolder(args.data, transforms.Compose(
-        [transforms.RandomHorizontalFlip(), transforms.ToTensor(), normalize,
-            transforms.RandomSizedCrop(input_size), ]), Train=True)
-
-    if args.distributed:
-        train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
-    else:
-        train_sampler = None
-
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False,
-        num_workers=args.workers, pin_memory=True, sampler=train_sampler)
-
-    val_loader = torch.utils.data.DataLoader(datasets.ImageFolder(args.data,
-        transforms.Compose([transforms.ToTensor(), normalize, transforms.CenterCrop(input_size), ]), Train=False),
-        batch_size=args.batch_size, shuffle=False, num_workers=args.workers, pin_memory=True)
+    train_loader, val_loader, train_sampler = data_loader(args, input_size, True)
 
     print model
 
@@ -226,7 +196,8 @@ def train(train_loader, model, criterion, optimizer, epoch):
                   'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
                   'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
                   'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(epoch, i, len(train_loader), batch_time=batch_time,
-                data_time=data_time, loss=losses, top1=top1, top5=top5))
+                data_time=data_time, loss=losses, top1=top1,
+                top5=top5))
         gc.collect()
 
 
@@ -325,3 +296,62 @@ def accuracy(output, target, topk=(1,)):
 
 if __name__ == '__main__':
     main()
+
+
+def data_loader(args, input_size=224, caffe_data=False):
+    if caffe_data:
+        import ImageNet.datasets as datasets
+        import ImageNet.datasets.transforms as transforms
+        if not os.path.exists(args.data + '/ilsvrc12_mean.binaryproto'):
+            print("==> Data directory" + args.data + "does not exits")
+            print("==> Please specify the correct data path by")
+            print("==>     --data <DATA_PATH>")
+            return
+
+        normalize = transforms.Normalize(meanfile=args.data + '/ilsvrc12_mean.binaryproto')
+
+        train_dataset = datasets.ImageFolder(args.data, transforms.Compose(
+            [transforms.RandomHorizontalFlip(), transforms.ToTensor(), normalize,
+                transforms.RandomSizedCrop(input_size), ]), Train=True)
+
+        if args.distributed:
+            train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
+        else:
+            train_sampler = None
+
+        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False,
+            num_workers=args.workers, pin_memory=True, sampler=train_sampler)
+
+        val_loader = torch.utils.data.DataLoader(datasets.ImageFolder(args.data,
+            transforms.Compose(
+                [transforms.ToTensor(), normalize,
+                    transforms.CenterCrop(input_size), ]),
+            Train=False),
+            batch_size=args.batch_size, shuffle=False, num_workers=args.workers,
+            pin_memory=True)
+    else:
+        import torchvision.transforms as transforms
+        import torchvision.datasets as datasets
+        train_dir = os.path.join(args.data, 'train')
+        val_dir = os.path.join(args.data, 'val')
+        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+
+        train_dataset = datasets.ImageFolder(train_dir, transforms.Compose(
+            [transforms.RandomSizedCrop(input_size), transforms.RandomHorizontalFlip(), transforms.ToTensor(),
+                normalize, ]))
+
+        if args.distributed:
+            train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
+        else:
+            train_sampler = None
+
+        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size,
+            shuffle=(train_sampler is None), num_workers=args.workers,
+            pin_memory=True, sampler=train_sampler)
+
+        val_loader = torch.utils.data.DataLoader(datasets.ImageFolder(val_dir, transforms.Compose(
+            [transforms.Scale(256), transforms.CenterCrop(input_size), transforms.ToTensor(), normalize, ])),
+            batch_size=args.batch_size, shuffle=False, num_workers=args.workers,
+            pin_memory=True)
+
+    return train_loader, val_loader, train_sampler
