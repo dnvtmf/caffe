@@ -11,15 +11,10 @@ import torch.nn.parallel
 import torch.optim
 import torch.utils.data
 import torch.utils.data.distributed
-
-# import torchvision.transforms as transforms
-# import torchvision.datasets as datasets
 import sys
 import gc
 
 from ImageNet import *
-import ImageNet.datasets as datasets
-import ImageNet.datasets.transforms as transforms
 import util
 
 # set the seed
@@ -35,12 +30,12 @@ parser.add_argument('--data', metavar='DATA_PATH', default='../data/ilsvrc12',
     help='path to imagenet data (default: ../data/)')
 parser.add_argument('-j', '--workers', default=16, type=int, metavar='N',
     help='number of data loading workers (default: 16)')
-parser.add_argument('--epochs', default=90, type=int, metavar='N', help='number of total epochs to run')
+parser.add_argument('--epochs', default=60, type=int, metavar='N', help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N', help='manual epoch number (useful on restarts)')
 parser.add_argument('-b', '--batch-size', default=256, type=int, metavar='N', help='mini-batch size (default: 256)')
-parser.add_argument('--lr', '--learning-rate', default=0.001, type=float, metavar='LR', help='initial learning rate')
+parser.add_argument('--lr', '--learning-rate', default=0.01, type=float, metavar='LR', help='initial learning rate')
 parser.add_argument('--momentum', default=0.90, type=float, metavar='M', help='momentum')
-parser.add_argument('--weight-decay', '--wd', default=1e-5, type=float, metavar='W',
+parser.add_argument('--weight-decay', '--wd', default=0, type=float, metavar='W',
     help='weight decay (default: 1e-5)')
 parser.add_argument('--print-freq', '-p', default=10, type=int, metavar='N', help='print frequency (default: 10)')
 parser.add_argument('--resume', default='', type=str, metavar='PATH', help='path to latest checkpoint (default: none)')
@@ -51,7 +46,7 @@ parser.add_argument('--dist-url', default='tcp://224.66.41.62:23456', type=str,
     help='url used to set up distributed training')
 parser.add_argument('--dist-backend', default='gloo', type=str, help='distributed backend')
 
-parser.add_argument('--delta', type=float, default=0.5, help='ternary delta (default: 0)')
+parser.add_argument('--delta', type=float, default=0.6, help='ternary delta (default: 0)')
 parser.add_argument('--scale', type=bool, default=False, help='ternary is scale (default: False)')
 parser.add_argument('--clamp', type=bool, default=False, help='ternary is clamp (default: False)')
 
@@ -72,18 +67,13 @@ def main():
         dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url, world_size=args.world_size)
 
     # create model
-    input_size = 224
     if args.arch == 'resnet18':
         model = resnet18(num_classes=1000, threshold=args.delta, scale=args.scale, clamp=args.clamp)
     else:
         raise Exception('Model not supported yet')
 
     if not args.distributed:
-        if args.arch.startswith('alexnet') or args.arch.startswith('vgg'):
-            model.features = torch.nn.DataParallel(model.features)
-            model.cuda()
-        else:
-            model = torch.nn.DataParallel(model).cuda()
+        model = torch.nn.DataParallel(model).cuda()
     else:
         model.cuda()
         model = torch.nn.parallel.DistributedDataParallel(model)
@@ -93,6 +83,7 @@ def main():
 
     optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
 
+    util.init_params(model)
     # optionally resume from a checkpoint
     if args.resume:
         if os.path.isfile(args.resume):
@@ -110,29 +101,7 @@ def main():
     cudnn.benchmark = True
 
     # Data loading code
-    if not os.path.exists(args.data + '/ilsvrc12_mean.binaryproto'):
-        print("==> Data directory" + args.data + "does not exits")
-        print("==> Please specify the correct data path by")
-        print("==>     --data <DATA_PATH>")
-        return
-
-    normalize = transforms.Normalize(meanfile=args.data + '/ilsvrc12_mean.binaryproto')
-
-    train_dataset = datasets.ImageFolder(args.data, transforms.Compose(
-        [transforms.RandomHorizontalFlip(), transforms.ToTensor(), normalize,
-            transforms.RandomSizedCrop(input_size), ]), Train=True)
-
-    if args.distributed:
-        train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
-    else:
-        train_sampler = None
-
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False,
-        num_workers=args.workers, pin_memory=True, sampler=train_sampler)
-
-    val_loader = torch.utils.data.DataLoader(datasets.ImageFolder(args.data,
-        transforms.Compose([transforms.ToTensor(), normalize, transforms.CenterCrop(input_size), ]), Train=False),
-        batch_size=args.batch_size, shuffle=False, num_workers=args.workers, pin_memory=True)
+    train_loader, val_loader, train_sampler = util.data_loader(args, caffe_data=True)
 
     print model
 
@@ -290,11 +259,10 @@ class AverageMeter(object):
 
 
 def adjust_learning_rate(optimizer, epoch):
-    """Sets the learning rate to the initial LR decayed by 10 every 25 epochs"""
-    lr = args.lr * (0.1 ** (epoch // 30))
-    print 'Learning rate:', lr
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = lr
+    update_list = [30, 40]
+    if epoch in update_list:
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = param_group['lr'] * 0.1
 
 
 def accuracy(output, target, topk=(1,)):

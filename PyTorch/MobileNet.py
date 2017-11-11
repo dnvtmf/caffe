@@ -26,10 +26,12 @@ cwd = os.getcwd()
 sys.path.append(cwd + '/../')
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
+parser.add_argument('--arch', '-a', metavar='ARCH', default='MobileNet',
+    help='model architecture (default: MobileNet)')
 parser.add_argument('--data', metavar='DATA_PATH', default='../data/ilsvrc12',
     help='path to imagenet data (default: ../data/)')
-parser.add_argument('-j', '--workers', default=8, type=int, metavar='N',
-    help='number of data loading workers (default: 8)')
+parser.add_argument('-j', '--workers', default=16, type=int, metavar='N',
+    help='number of data loading workers (default: 16)')
 parser.add_argument('--epochs', default=90, type=int, metavar='N', help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N', help='manual epoch number (useful on restarts)')
 parser.add_argument('-b', '--batch-size', default=256, type=int, metavar='N', help='mini-batch size (default: 256)')
@@ -59,6 +61,7 @@ bin_op = None
 def main():
     global args, best_prec1
     args = parser.parse_args()
+    print args
 
     args.distributed = args.world_size > 1
 
@@ -77,7 +80,7 @@ def main():
 
     # define loss function (criterion) and optimizer
     criterion = nn.CrossEntropyLoss().cuda()
-    optimizer = torch.optim.SGD(model.parameters(), args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
+    optimizer = torch.optim.Adamax(model.parameters(), args.lr, weight_decay=args.weight_decay)
     util.init_params(model)
 
     # optionally resume from a checkpoint

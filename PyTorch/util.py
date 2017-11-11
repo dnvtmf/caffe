@@ -27,11 +27,16 @@ class Ternary(torch.autograd.Function):
                 inputs.clamp_(-1, 1)
             c_sum = inputs.mul(output).sum(1, keepdim=True)
             c_num = output.norm(1, 1, keepdim=True)
-        self.save_for_backward(inputs, output)
+            self.save_for_backward(inputs, output)
+        else:
+            self.save_for_backward(inputs)
         return output, c_sum, c_num
 
     def backward(self, grad_output, grad_c_sum, grad_c_num):
-        inputs, output = self.saved_tensors
+        if self.scale:
+            inputs, output = self.saved_tensors
+        else:
+            inputs, = self.saved_tensors
         grad_input = grad_output.clone()
         grad_input[inputs.ge(1)] = 0
         grad_input[inputs.le(-1)] = 0
@@ -41,7 +46,7 @@ class Ternary(torch.autograd.Function):
 
 
 class Conv2dTB(nn.Module):
-    def __init__(self, input_channels, output_channels, kernel_size=-1, stride=-1, padding=-1, groups=1, threshold=0.6,
+    def __init__(self, input_channels, output_channels, kernel_size=1, stride=1, padding=0, groups=1, threshold=0.6,
             scale=False, clamp=False, bias=True, **kwargs):
         super(Conv2dTB, self).__init__()
         self.output_channels = output_channels
@@ -95,7 +100,7 @@ class RandomTernary(torch.autograd.Function):
 
 
 class Conv2dRTB(nn.Module):
-    def __init__(self, input_channels, output_channels, kernel_size=-1, stride=-1, padding=-1, groups=1, is_tanh=True,
+    def __init__(self, input_channels, output_channels, kernel_size=1, stride=1, padding=0, groups=1, is_tanh=True,
             **kwargs):
         super(Conv2dRTB, self).__init__()
         self.output_channels = output_channels

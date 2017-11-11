@@ -112,7 +112,7 @@ def main():
     cudnn.benchmark = True
 
     # Data loading code
-    train_loader, val_loader, train_sampler = data_loader(args, input_size, True)
+    train_loader, val_loader, train_sampler = util.data_loader(args, input_size, True)
 
     print model
 
@@ -296,62 +296,3 @@ def accuracy(output, target, topk=(1,)):
 
 if __name__ == '__main__':
     main()
-
-
-def data_loader(args, input_size=224, caffe_data=False):
-    if caffe_data:
-        import ImageNet.datasets as datasets
-        import ImageNet.datasets.transforms as transforms
-        if not os.path.exists(args.data + '/ilsvrc12_mean.binaryproto'):
-            print("==> Data directory" + args.data + "does not exits")
-            print("==> Please specify the correct data path by")
-            print("==>     --data <DATA_PATH>")
-            return
-
-        normalize = transforms.Normalize(meanfile=args.data + '/ilsvrc12_mean.binaryproto')
-
-        train_dataset = datasets.ImageFolder(args.data, transforms.Compose(
-            [transforms.RandomHorizontalFlip(), transforms.ToTensor(), normalize,
-                transforms.RandomSizedCrop(input_size), ]), Train=True)
-
-        if args.distributed:
-            train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
-        else:
-            train_sampler = None
-
-        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False,
-            num_workers=args.workers, pin_memory=True, sampler=train_sampler)
-
-        val_loader = torch.utils.data.DataLoader(datasets.ImageFolder(args.data,
-            transforms.Compose(
-                [transforms.ToTensor(), normalize,
-                    transforms.CenterCrop(input_size), ]),
-            Train=False),
-            batch_size=args.batch_size, shuffle=False, num_workers=args.workers,
-            pin_memory=True)
-    else:
-        import torchvision.transforms as transforms
-        import torchvision.datasets as datasets
-        train_dir = os.path.join(args.data, 'train')
-        val_dir = os.path.join(args.data, 'val')
-        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-
-        train_dataset = datasets.ImageFolder(train_dir, transforms.Compose(
-            [transforms.RandomSizedCrop(input_size), transforms.RandomHorizontalFlip(), transforms.ToTensor(),
-                normalize, ]))
-
-        if args.distributed:
-            train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
-        else:
-            train_sampler = None
-
-        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size,
-            shuffle=(train_sampler is None), num_workers=args.workers,
-            pin_memory=True, sampler=train_sampler)
-
-        val_loader = torch.utils.data.DataLoader(datasets.ImageFolder(val_dir, transforms.Compose(
-            [transforms.Scale(256), transforms.CenterCrop(input_size), transforms.ToTensor(), normalize, ])),
-            batch_size=args.batch_size, shuffle=False, num_workers=args.workers,
-            pin_memory=True)
-
-    return train_loader, val_loader, train_sampler

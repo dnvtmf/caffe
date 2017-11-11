@@ -3,10 +3,13 @@ from util import Conv2dTB
 
 
 class Net(nn.Module):
+    alpha = 1
+
     def __init__(self, threshold=0.6, scale=False, clamp=False):
         super(Net, self).__init__()
 
         def conv_bn(inp, oup, stride):
+            oup = int(oup * self.alpha)
             return nn.Sequential(
                 nn.Conv2d(inp, oup, 3, stride, 1, bias=False),
                 nn.BatchNorm2d(oup),
@@ -14,6 +17,8 @@ class Net(nn.Module):
             )
 
         def conv_dw(inp, oup, stride):
+            inp = int(inp * self.alpha)
+            oup = int(oup * self.alpha)
             return nn.Sequential(
                 nn.Conv2d(inp, inp, 3, stride, 1, groups=inp, bias=False),
                 nn.BatchNorm2d(inp),
@@ -42,7 +47,7 @@ class Net(nn.Module):
             conv_dw(1024, 1024, 1),
             nn.AvgPool2d(7),
         )
-        self.fc = nn.Linear(1024, 1000)
+        self.fc = nn.Linear(int(1024 * self.alpha), 1000)
 
     def forward(self, x):
         x = self.model(x)

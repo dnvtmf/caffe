@@ -16,8 +16,15 @@ import torchvision
 import torchvision.transforms as transforms
 
 
+def log(s):
+    print(s)
+    flog.write(s)
+    flog.write('\n')
+    flog.flush()
+
+
 def save_state(model, best_acc):
-    print('==> Saving model ...')
+    log('==> Saving model ...')
     state = {'best_acc': best_acc, 'state_dict': model.state_dict(), }
     for key in state['state_dict'].keys():
         if 'module' in key:
@@ -46,7 +53,7 @@ def train(epoch):
 
         optimizer.step()
         if batch_idx % 100 == 0:
-            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\tLR: {}'.format(epoch, batch_idx * len(data),
+            log('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\tLR: {}'.format(epoch, batch_idx * len(data),
                 len(train_loader.dataset), 100. * batch_idx / len(train_loader), loss.data[0],
                 optimizer.param_groups[0]['lr']))
     return
@@ -73,14 +80,14 @@ def test():
         save_state(model, best_acc)
 
     test_loss /= len(test_loader.dataset)
-    print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.2f}%)'.format(test_loss * 128., correct,
+    log('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.2f}%)'.format(test_loss * 128., correct,
         len(test_loader.dataset), 100. * correct / len(test_loader.dataset)))
-    print('Best Accuracy: {:.2f}%\n'.format(best_acc))
+    log('Best Accuracy: {:.2f}%\n'.format(best_acc))
     return
 
 
 def adjust_learning_rate(optimizer, epoch):
-    update_list = [120, 200, 240, 280]
+    update_list = [150, 250]
     if epoch in update_list:
         for param_group in optimizer.param_groups:
             param_group['lr'] = param_group['lr'] * 0.1
@@ -99,14 +106,13 @@ if __name__ == '__main__':
     parser.add_argument('--evaluate', action='store_true', help='evaluate the model')
 
     parser.add_argument('--delta', type=float, default=0, metavar='Delta', help='ternary delta (default: 0)')
-    parser.add_argument('--weight_decay', type=float, default=1e-5, metavar='WD', help='weight decay (default: 1e-5)')
+    parser.add_argument('--weight_decay', type=float, default=1e-6, metavar='WD', help='weight decay (default: 1e-6)')
     parser.add_argument('--scale', type=bool, default=False, metavar='True/False', help='scale (default: False)')
     parser.add_argument('--clamp', type=bool, default=False, metavar='True/False', help='need clamp? (default: False)')
     parser.add_argument('--gpu', type=int, default=0, help='which gpu is used? (default: 0)')
-    parser.add_argument('--augmentation', type=bool, default=False, metavar='True/False',
-        help='Use data augmentation? (default: False)')
+    parser.add_argument('--augmentation', type=bool, default=True, metavar='True/False',
+        help='Use data augmentation? (default: True)')
     args = parser.parse_args()
-    print('==> Options:', args)
 
     # set the seed
     torch.manual_seed(1)
@@ -137,25 +143,31 @@ if __name__ == '__main__':
     classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
     # define the model
-    print('==> building model', args.arch, '...')
-    if args.arch == 'nin':
-        model = nin.Net()
-    elif args.arch == 'simple':
-        model = simple.Net(args.delta, args.scale, args.clamp)
-    elif args.arch == 'simple_full':
-        model = simple_full.Net()
-    else:
-        raise Exception(args.arch + ' is currently not supported')
-    global arch
-    arch = args.arch
+    # model = nin.Net()
+    # model = simple.Net(args.delta, args.scale, args.clamp)
+    # model = simple_full.Net()
+    model = VGG('VGG19')
+    # model = ResNet18()
+    # model = PreActResNet18()
+    # model = GoogLeNet()
+    # model = DenseNet121()
+    # model = ResNeXt29_2x64d()
+    # model = MobileNet()
+    # model = DPN92()
+    # model = ShuffleNetG2()
+    # model = SENet18()
+    arch = model.__class__.__name__
+    flog = open(arch + '.log', 'w')
+    log('==> Options: {}'.format(args))
+    log('==> building model {} ....'.format(args.arch))
 
     # initialize the model
     if not args.pretrained:
-        print('==> Initializing model parameters ...')
+        log('==> Initializing model parameters ...')
         best_acc = 0
         util.init_params(model)
     else:
-        print('==> Load pretrained model form', args.pretrained, '...')
+        log('==> Load pretrained model form {} ...'.format(args.pretrained))
         pretrained_model = torch.load(args.pretrained)
         best_acc = pretrained_model['best_acc']
         model.load_state_dict(pretrained_model['state_dict'])
@@ -163,7 +175,7 @@ if __name__ == '__main__':
     if not args.cpu:
         model.cuda(args.gpu)
         model = torch.nn.DataParallel(model, range(torch.cuda.device_count()))
-    print(model)
+    log('{}'.format(model))
 
     # define solver and criterion
     base_lr = float(args.lr)
@@ -179,7 +191,8 @@ if __name__ == '__main__':
         exit(0)
 
     # start training
-    for epoch in range(1, 320):
+    for epoch in range(1, 350):
         adjust_learning_rate(optimizer, epoch)
         train(epoch)
         test()
+    flog.close()
