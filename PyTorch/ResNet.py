@@ -59,6 +59,9 @@ bin_op = None
 def main():
     global args, best_prec1
     args = parser.parse_args()
+    util.delta = args.delta
+    util.scale = args.scale
+    util.clamp = args.clamp
     print('==> Options:', args)
 
     args.distributed = args.world_size > 1
@@ -68,7 +71,7 @@ def main():
 
     # create model
     if args.arch == 'resnet18':
-        model = resnet18(num_classes=1000, threshold=args.delta, scale=args.scale, clamp=args.clamp)
+        model = resnet18()
     else:
         raise Exception('Model not supported yet')
 

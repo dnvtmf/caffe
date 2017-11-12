@@ -3,23 +3,28 @@ import torch
 import torch.nn as nn
 import torch.nn.init as init
 
+delta = 0.6
+scale = False
+clamp = False
+
 
 class Ternary(torch.autograd.Function):
     """
     Ternary inputs
     """
 
-    def __init__(self, threshold=0., scale=False, clamp=False, **kwargs):
-        super(Ternary, self).__init__(**kwargs)
-        self.threshold = threshold
+    def __init__(self):
+        super(Ternary, self).__init__()
+        self.delta = delta
         self.scale = scale
         self.clamp = clamp
+        # print 'threshold: {}, scale: {}, clamp: {}'.format(self.delta, self.scale, self.clamp)
 
     def forward(self, inputs):
         size = inputs.size()
         output = torch.zeros(size).type_as(inputs)
-        output[inputs.ge(self.threshold)] = 1
-        output[inputs.le(-self.threshold)] = -1
+        output[inputs.ge(self.delta)] = 1
+        output[inputs.le(-self.delta)] = -1
         c_sum = torch.Tensor()
         c_num = torch.Tensor()
         if self.scale:
@@ -46,8 +51,7 @@ class Ternary(torch.autograd.Function):
 
 
 class Conv2dTB(nn.Module):
-    def __init__(self, input_channels, output_channels, kernel_size=1, stride=1, padding=0, groups=1, threshold=0.6,
-            scale=False, clamp=False, bias=True, **kwargs):
+    def __init__(self, input_channels, output_channels, kernel_size=1, stride=1, padding=0, groups=1, bias=True):
         super(Conv2dTB, self).__init__()
         self.output_channels = output_channels
         self.layer_type = 'Conv2d(TB)'
@@ -55,22 +59,19 @@ class Conv2dTB(nn.Module):
         self.stride = stride
         self.padding = padding
         self.groups = groups
-        self.threshold = threshold
-        self.scale = scale
-        self.clamp = clamp
 
         self.bn = nn.BatchNorm2d(input_channels, eps=1e-4)
         self.conv = nn.Conv2d(input_channels, output_channels, kernel_size=kernel_size, stride=stride, padding=padding,
             groups=groups, bias=bias)
 
-        if self.scale:
+        if scale:
             self.beta_conv = nn.Conv2d(1, 1, kernel_size=kernel_size, stride=stride, padding=padding)
 
     def forward(self, x):
         x = self.bn(x)
-        x, c_sum, c_cnt = Ternary(self.threshold, self.scale, self.clamp)(x)
+        x, c_sum, c_cnt = Ternary()(x)
         x = self.conv(x)
-        if self.scale:
+        if scale:
             weight = self.beta_conv.weight.data
             self.beta_conv.weight.data = torch.ones(weight.size()).type_as(weight)
             cnt = self.beta_conv(c_cnt)
@@ -88,8 +89,8 @@ class RandomTernary(torch.autograd.Function):
     Ternary inputs
     """
 
-    def __init__(self, **kwargs):
-        super(RandomTernary, self).__init__(**kwargs)
+    def __init__(self):
+        super(RandomTernary, self).__init__()
 
     def forward(self, inputs):
         output = inputs.add(torch.rand(inputs.size()).type_as(inputs)).floor()
@@ -127,42 +128,6 @@ class Conv2dRTB(nn.Module):
 
     def get_binary_module(self):
         return self.conv
-
-
-class ConvBlock(nn.Module):
-    def __init__(self, input_channels, output_channels, kernel_size=-1, stride=-1, padding=-1, groups=1, threshold=0,
-            scale=False, clamp=False, block_type='TB'):
-        super(ConvBlock, self).__init__()
-        if block_type == 'TB':
-            self.conv_block = nn.Sequential(
-                Conv2dTB(input_channels, output_channels, kernel_size, stride, padding, groups, threshold, scale,
-                    clamp), nn.BatchNorm2d(output_channels, eps=1e-4), nn.ReLU())
-        elif block_type == 'RTB':
-            self.conv_block = Conv2dRTB(input_channels, output_channels, kernel_size, stride, padding, groups)
-        elif block_type == 'normal':
-            self.conv_block = nn.Sequential(
-                nn.Conv2d(input_channels, output_channels, kernel_size=kernel_size, stride=stride, padding=padding,
-                    groups=groups), nn.BatchNorm2d(input_channels, eps=1e-4, momentum=0.1, affine=True),
-                nn.ReLU(inplace=True))
-        elif block_type == 'MobileNet':
-            self.conv_block = nn.Sequential(
-                nn.Conv2d(input_channels, input_channels, kernel_size=kernel_size, stride=stride, padding=padding,
-                    groups=input_channels), nn.BatchNorm2d(input_channels, eps=1e-4, momentum=0.1, affine=True),
-                nn.ReLU(inplace=True), nn.Conv2d(input_channels, output_channels, kernel_size=1, groups=groups),
-                nn.BatchNorm2d(input_channels, eps=1e-4, momentum=0.1, affine=True), nn.ReLU(inplace=True))
-        elif block_type == 'TB_DW':
-            self.conv_block = nn.Sequential(
-                nn.Conv2d(input_channels, input_channels, kernel_size=kernel_size, stride=stride, padding=padding,
-                    groups=input_channels), nn.BatchNorm2d(input_channels, eps=1e-4, momentum=0.1, affine=True),
-                nn.ReLU(inplace=True),
-                Conv2dTB(input_channels, output_channels, 1, 1, 0, groups, threshold, scale, clamp),
-                nn.BatchNorm2d(input_channels, eps=1e-4, momentum=0.1, affine=True), nn.ReLU(inplace=True))
-        else:
-            raise Exception('UNKNOWN Conv Block: %s (TB, normal, MobileNet, TB_DW)' % block_type)
-
-    def forward(self, x):
-        x = self.conv_block(x)
-        return x
 
 
 class BinOp:

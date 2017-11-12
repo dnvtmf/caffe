@@ -5,22 +5,16 @@ from util import Conv2dTB
 
 __all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152']
 
-g_threshold = 0.6
-g_scale = False
-g_clamp = False
+Conv = Conv2dTB
 
 
 def conv3x3(in_planes, out_planes, stride=1):
     """3x3 convolution with padding"""
-    # return Conv2dTB(in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=False)
-    return Conv2dTB(in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=False, threshold=g_threshold,
-        scale=g_scale, clamp=g_clamp)
+    return Conv(in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=False)
 
 
 def conv1x1(in_planes, out_planes, stride=1):
-    # return Conv2dTB(in_planes, out_planes, kernel_size=1, stride=stride, padding=0, bias=False)
-    return Conv2dTB(in_planes, out_planes, kernel_size=1, stride=stride, padding=0, bias=False, threshold=g_threshold,
-        scale=g_scale, clamp=g_clamp)
+    return Conv(in_planes, out_planes, kernel_size=1, stride=stride, padding=0, bias=False)
 
 
 class BasicBlock(nn.Module):
@@ -148,11 +142,7 @@ class ResNet(nn.Module):
         return x
 
 
-def resnet18(threshold, scale, clamp, **kwargs):
-    global g_threshold, g_scale, g_clamp
-    g_threshold = threshold
-    g_scale = scale
-    g_clamp = clamp
+def resnet18(**kwargs):
     model = ResNet(BasicBlock, [2, 2, 2, 2], **kwargs)
     return model
 

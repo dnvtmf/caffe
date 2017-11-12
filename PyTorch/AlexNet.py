@@ -61,6 +61,9 @@ bin_op = None
 def main():
     global args, best_prec1
     args = parser.parse_args()
+    util.delta = args.delta
+    util.scale = args.scale
+    util.clamp = args.clamp
 
     args.distributed = args.world_size > 1
 

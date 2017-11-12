@@ -21,11 +21,11 @@ class Net(nn.Module):
             oup = int(oup * self.alpha)
             return nn.Sequential(
                 nn.Conv2d(inp, inp, 3, stride, 1, groups=inp, bias=False),
-                nn.BatchNorm2d(inp),
+                # nn.BatchNorm2d(inp),
                 # nn.ReLU(inplace=True),
 
                 # nn.Conv2d(inp, oup, 1, 1, 0, bias=False),
-                Conv2dTB(inp, oup, 1, 1, 0, threshold=threshold, scale=scale, clamp=clamp, bias=False),
+                Conv2dTB(inp, oup, 1, 1, 0, bias=False),
                 nn.BatchNorm2d(oup),
                 nn.ReLU(inplace=True),
             )
