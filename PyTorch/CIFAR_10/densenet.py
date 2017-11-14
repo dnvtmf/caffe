@@ -22,8 +22,11 @@ class Bottleneck(nn.Module):
         self.conv2 = Conv(4 * growth_rate, growth_rate, kernel_size=3, padding=1, bias=False)
 
     def forward(self, x):
-        out = self.conv1(F.relu(self.bn1(x)))
-        out = self.conv2(F.relu(self.bn2(out)))
+        out = x
+        out = F.relu(self.bn1(out))
+        out = self.conv1(out)
+        out = F.relu(self.bn2(out))
+        out = self.conv2(out)
         out = torch.cat([out, x], 1)
         return out
 
@@ -35,7 +38,9 @@ class Transition(nn.Module):
         self.conv = Conv(in_planes, out_planes, kernel_size=1, bias=False)
 
     def forward(self, x):
-        out = self.conv(F.relu(self.bn(x)))
+        out = x
+        out = F.relu(self.bn(out))
+        out = self.conv(out)
         out = F.avg_pool2d(out, 2)
         return out
 

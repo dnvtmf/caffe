@@ -15,7 +15,7 @@ Conv = Conv2dTB
 
 
 class Block(nn.Module):
-    '''Grouped convolution block.'''
+    """Grouped convolution block."""
     expansion = 2
 
     def __init__(self, in_planes, cardinality=32, bottleneck_width=4, stride=1):
@@ -37,9 +37,13 @@ class Block(nn.Module):
             )
 
     def forward(self, x):
-        out = F.relu(self.bn1(self.conv1(x)))
-        out = F.relu(self.bn2(self.conv2(out)))
-        out = self.bn3(self.conv3(out))
+        out = x
+        out = self.conv1(out)
+        out = F.relu(self.bn1(out))
+        out = self.conv2(out)
+        out = F.relu(self.bn2(out))
+        out = self.conv3(out)
+        out = self.bn3(out)
         out += self.shortcut(x)
         out = F.relu(out)
         return out

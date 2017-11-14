@@ -16,6 +16,25 @@ from torch.autograd import Variable
 import torchvision
 import torchvision.transforms as transforms
 
+# prepare the options
+parser = argparse.ArgumentParser()
+parser.add_argument('--cpu', action='store_true', help='set if only CPU is available')
+parser.add_argument('--data', action='store', default='../data/cifar-10-batches-py', help='dataset path')
+parser.add_argument('--arch', action='store', default='simple',
+    help='the architecture for the network: simple, simple_full')
+parser.add_argument('--lr', action='store', default='0.01', help='the intial learning rate')
+parser.add_argument('--pretrained', action='store', default=None, help='the path to the pretrained model')
+parser.add_argument('--evaluate', action='store_true', help='evaluate the model')
+parser.add_argument('--epochs', default=100, type=int, metavar='N', help='number of total epochs to run')
+
+parser.add_argument('--delta', type=float, default=0.6, metavar='Delta', help='ternary delta (default: 0)')
+parser.add_argument('--weight_decay', type=float, default=1e-6, metavar='WD', help='weight decay (default: 1e-6)')
+parser.add_argument('--scale', type=bool, default=False, metavar='True/False', help='scale (default: False)')
+parser.add_argument('--clamp', type=bool, default=False, metavar='True/False', help='need clamp? (default: False)')
+parser.add_argument('--augmentation', type=bool, default=True, metavar='True/False',
+    help='Use data augmentation? (default: True)')
+args = parser.parse_args()
+
 
 def log(s, p=True):
     if p:
@@ -31,7 +50,7 @@ def save_state(model, best_acc):
     for key in state['state_dict'].keys():
         if 'module' in key:
             state['state_dict'][key.replace('module.', '')] = state['state_dict'].pop(key)
-    torch.save(state, 'CIFAR_10/' + arch + '.pth.tar')
+    torch.save(state, 'CIFAR_10/' + name + '.pth.tar')
 
 
 def train(epoch):
@@ -103,7 +122,7 @@ def test():
 
 
 def adjust_learning_rate(optimizer, epoch):
-    update_list = [100, 150]
+    update_list = [int(.5 * args.epochs), int(0.75 * args.epochs)]
     if epoch in update_list:
         for param_group in optimizer.param_groups:
             param_group['lr'] = param_group['lr'] * 0.1
@@ -111,23 +130,6 @@ def adjust_learning_rate(optimizer, epoch):
 
 
 if __name__ == '__main__':
-    # prepare the options
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--cpu', action='store_true', help='set if only CPU is available')
-    parser.add_argument('--data', action='store', default='../data/cifar-10-batches-py', help='dataset path')
-    parser.add_argument('--arch', action='store', default='simple',
-        help='the architecture for the network: simple, simple_full')
-    parser.add_argument('--lr', action='store', default='0.01', help='the intial learning rate')
-    parser.add_argument('--pretrained', action='store', default=None, help='the path to the pretrained model')
-    parser.add_argument('--evaluate', action='store_true', help='evaluate the model')
-
-    parser.add_argument('--delta', type=float, default=0.6, metavar='Delta', help='ternary delta (default: 0)')
-    parser.add_argument('--weight_decay', type=float, default=1e-6, metavar='WD', help='weight decay (default: 1e-6)')
-    parser.add_argument('--scale', type=bool, default=False, metavar='True/False', help='scale (default: False)')
-    parser.add_argument('--clamp', type=bool, default=False, metavar='True/False', help='need clamp? (default: False)')
-    parser.add_argument('--augmentation', type=bool, default=True, metavar='True/False',
-        help='Use data augmentation? (default: True)')
-    args = parser.parse_args()
     util.delta = args.delta
     util.scale = args.scale
     util.clamp = args.clamp
@@ -151,8 +153,8 @@ if __name__ == '__main__':
     # model = ShuffleNetG2()
     # model = SENet18()
     arch = model.__class__.__name__
-    log_name = arch + ('_tb' if args.delta > 0 else '_xnor') + '.log'
-    flog = open(log_name, 'w')
+    name = arch + ('_tb' if args.delta > 0 else '_xnor') + '.log'
+    flog = open(name, 'w')
     log('==> Options: {}'.format(args))
     log('==> building model {} ....'.format(args.arch))
 
@@ -199,7 +201,7 @@ if __name__ == '__main__':
     # define solver and criterion
     base_lr = float(args.lr)
     optimizer = torch.optim.Adam(model.parameters(), base_lr, weight_decay=args.weight_decay)
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.CrossEntropyLoss().cuda()
 
     # define the binarization operator
     bin_op = util.BinOp(model)
@@ -210,7 +212,7 @@ if __name__ == '__main__':
         exit(0)
 
     # start training
-    for epoch in range(1, 200):
+    for epoch in range(1, args.epochs):
         adjust_learning_rate(optimizer, epoch)
         train(epoch)
         test()

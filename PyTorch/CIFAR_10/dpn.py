@@ -32,9 +32,13 @@ class Bottleneck(nn.Module):
             )
 
     def forward(self, x):
-        out = F.relu(self.bn1(self.conv1(x)))
-        out = F.relu(self.bn2(self.conv2(out)))
-        out = self.bn3(self.conv3(out))
+        out = x
+        out = self.conv1(out)
+        out = F.relu(self.bn1(out))
+        out = self.conv2(out)
+        out = F.relu(self.bn2(out))
+        out = self.conv3(out)
+        out = self.bn3(out)
         x = self.shortcut(x)
         d = self.out_planes
         out = torch.cat([x[:, :d, :, :] + out[:, :d, :, :], x[:, d:, :, :], out[:, d:, :, :]], 1)
