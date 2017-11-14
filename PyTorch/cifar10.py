@@ -153,8 +153,8 @@ if __name__ == '__main__':
     # model = ShuffleNetG2()
     # model = SENet18()
     arch = model.__class__.__name__
-    name = arch + ('_tb' if args.delta > 0 else '_xnor') + '.log'
-    flog = open(name, 'w')
+    name = arch + ('_tb' if args.delta > 0 else '_xnor')
+    flog = open(name + '.log', 'w')
     log('==> Options: {}'.format(args))
     log('==> building model {} ....'.format(args.arch))
 
