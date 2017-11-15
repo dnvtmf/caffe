@@ -1,11 +1,11 @@
 from __future__ import print_function
 import torch
 import torch.nn as nn
-from util import TBConv2d
+from util import Conv2dTB
 
 
 class LeNet_5(nn.Module):
-    def __init__(self, threshold=0, scale=False, clamp=False):
+    def __init__(self):
         super(LeNet_5, self).__init__()
         # 1 x 28 x 28
         self.conv1 = nn.Conv2d(1, 20, kernel_size=5, stride=1)
@@ -14,11 +14,11 @@ class LeNet_5(nn.Module):
         self.relu_conv1 = nn.ReLU(inplace=True)
         self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2)
         # 20 x 12 x 12
-        self.bin_conv2 = TBConv2d(20, 50, kernel_size=5, stride=1, padding=0, threshold=threshold, scale=scale, clamp=clamp)
+        self.bin_conv2 = Conv2dTB(20, 50, kernel_size=5, stride=1, padding=0)
         # 50 x 8 x 8
         self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2)
         # 50 x 4 x 4
-        self.bin_ip1 = TBConv2d(50, 500, kernel_size=4, stride=1, padding=0, threshold=threshold, scale=scale, clamp=clamp)
+        self.bin_ip1 = Conv2dTB(50, 500, kernel_size=4, stride=1, padding=0)
         # 500 x 1 x 1
         self.ip2 = nn.Linear(500, 10)
         # 10
