@@ -15,5 +15,6 @@ from .mobilenet import *
 from .shufflenet import *
 from .preact_resnet import *
 from .preact_resnet2 import *
+from .preact_resnet_sigmoid import *
 
 sys.path.append("..")

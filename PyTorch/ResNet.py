@@ -30,12 +30,12 @@ parser.add_argument('--data', metavar='DATA_PATH', default='../data/ilsvrc12',
     help='path to imagenet data (default: ../data/)')
 parser.add_argument('-j', '--workers', default=16, type=int, metavar='N',
     help='number of data loading workers (default: 16)')
-parser.add_argument('--epochs', default=60, type=int, metavar='N', help='number of total epochs to run')
+parser.add_argument('--epochs', default=100, type=int, metavar='N', help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N', help='manual epoch number (useful on restarts)')
 parser.add_argument('-b', '--batch-size', default=256, type=int, metavar='N', help='mini-batch size (default: 256)')
-parser.add_argument('--lr', '--learning-rate', default=0.01, type=float, metavar='LR', help='initial learning rate')
+parser.add_argument('--lr', '--learning-rate', default=0.0001, type=float, metavar='LR', help='initial learning rate')
 parser.add_argument('--momentum', default=0.90, type=float, metavar='M', help='momentum')
-parser.add_argument('--weight-decay', '--wd', default=0, type=float, metavar='W',
+parser.add_argument('--weight-decay', '--wd', default=1e-6, type=float, metavar='W',
     help='weight decay (default: 1e-5)')
 parser.add_argument('--print-freq', '-p', default=10, type=int, metavar='N', help='print frequency (default: 10)')
 parser.add_argument('--resume', default='', type=str, metavar='PATH', help='path to latest checkpoint (default: none)')
@@ -262,10 +262,10 @@ class AverageMeter(object):
 
 
 def adjust_learning_rate(optimizer, epoch):
-    update_list = [30, 40]
+    update_list = [int(0.5 * args.epochs), int(0.75 * args.epochs)]
     if epoch in update_list:
         for param_group in optimizer.param_groups:
-            param_group['lr'] = param_group['lr'] * 0.1
+            param_group['lr'] = param_group['lr'] * 0.5
 
 
 def accuracy(output, target, topk=(1,)):
